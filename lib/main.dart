@@ -61,7 +61,78 @@ class ChurrosApp extends StatelessWidget {
         textTheme: GoogleFonts.workSansTextTheme(ThemeData.dark().textTheme),
       ),
       themeMode: ThemeMode.system,
-      home: const LoginPage(),
+      home: const SplashScreen(),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _navigateToLogin();
+  }
+
+  Future<void> _navigateToLogin() async {
+    // Esperar un tiempo mínimo para mostrar el splash (opcional)
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF221810) : Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Splash Image
+            Image.asset(
+              'assets/images/splash_logo.png',
+              width: 200,
+              height: 200,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                // Si no existe la imagen, mostrar un placeholder
+                return Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEC6D13).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.bakery_dining,
+                    size: 100,
+                    color: const Color(0xFFEC6D13),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            // Loading indicator (opcional)
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFEC6D13)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
