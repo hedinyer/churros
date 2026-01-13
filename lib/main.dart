@@ -205,9 +205,7 @@ class _LoginPageState extends State<LoginPage> {
           }
 
           // Si no tiene sucursal asignada o no se encontró, obtener la principal
-          if (sucursal == null) {
-            sucursal = await SupabaseService.getSucursalPrincipal();
-          }
+          sucursal ??= await SupabaseService.getSucursalPrincipal();
 
           if (sucursal != null) {
             // Navegar al dashboard con la información del usuario y sucursal
