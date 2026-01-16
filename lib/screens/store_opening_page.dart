@@ -658,27 +658,9 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                 final categoria = producto.categoria;
                                 final stockDisponible =
                                     quantity; // Stock actual en inventario
-                                final iconSize =
-                                    (isVerySmallScreen ? 48.0 : 56.0) *
-                                    textScaleFactor.clamp(0.9, 1.1);
                                 final buttonSize =
                                     (isVerySmallScreen ? 48.0 : 56.0) *
                                     textScaleFactor.clamp(0.9, 1.1);
-
-                                IconData iconData;
-                                switch (categoria?.icono) {
-                                  case 'bakery_dining':
-                                    iconData = Icons.bakery_dining;
-                                    break;
-                                  case 'donut_small':
-                                    iconData = Icons.donut_small;
-                                    break;
-                                  case 'local_cafe':
-                                    iconData = Icons.local_cafe;
-                                    break;
-                                  default:
-                                    iconData = Icons.inventory;
-                                }
 
                                 return Container(
                                   margin: EdgeInsets.only(
@@ -705,26 +687,6 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                       // Item Header
                                       Row(
                                         children: [
-                                          Container(
-                                            width: iconSize,
-                                            height: iconSize,
-                                            decoration: BoxDecoration(
-                                              color: primaryColor.withOpacity(
-                                                0.1,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Icon(
-                                              iconData,
-                                              color: primaryColor,
-                                              size: (iconSize * 0.5).clamp(
-                                                24.0,
-                                                32.0,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(width: spacingMedium),
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment:

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/supabase_service.dart';
+import 'services/notification_service.dart';
 import 'screens/dashboard_page.dart';
 import 'screens/factory_dashboard_page.dart';
 import 'screens/deliveries_page.dart';
@@ -27,6 +28,9 @@ void main() async {
 
   // Inicializar Supabase y base de datos local
   await SupabaseService.initialize();
+
+  // Inicializar servicio de notificaciones
+  await NotificationService.initialize();
 
   // Sincronizar usuarios en background (no bloquea el inicio de la app)
   SupabaseService.syncUsersToLocal().catchError((e) {

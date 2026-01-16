@@ -127,15 +127,45 @@ class _ProductionPageState extends State<ProductionPage> {
         }
       }
 
+      // Verificar si el pedido seleccionado todavía está en la lista
+      Map<String, dynamic>? nuevoPedidoSeleccionado;
+      if (_pedidoSeleccionado != null) {
+        final tipoSeleccionado = _pedidoSeleccionado!['tipo'] as String;
+        final pedidoSeleccionado = _pedidoSeleccionado!['pedido'];
+        
+        // Buscar si el pedido seleccionado todavía está en la lista
+        final pedidoExiste = pedidosCombinados.any((pedidoData) {
+          final tipo = pedidoData['tipo'] as String;
+          final pedido = pedidoData['pedido'];
+          
+          if (tipoSeleccionado != tipo) return false;
+          
+          if (tipoSeleccionado == 'fabrica') {
+            return (pedidoSeleccionado as PedidoFabrica).id == (pedido as PedidoFabrica).id;
+          } else {
+            return (pedidoSeleccionado as PedidoCliente).id == (pedido as PedidoCliente).id;
+          }
+        });
+        
+        if (pedidoExiste) {
+          // El pedido todavía está en la lista, mantenerlo seleccionado
+          nuevoPedidoSeleccionado = _pedidoSeleccionado;
+        } else {
+          // El pedido ya no está en la lista, seleccionar el primero disponible o null
+          nuevoPedidoSeleccionado = pedidosCombinados.isNotEmpty ? pedidosCombinados.first : null;
+        }
+      } else {
+        // Si no había pedido seleccionado, seleccionar el primero si existe
+        nuevoPedidoSeleccionado = pedidosCombinados.isNotEmpty ? pedidosCombinados.first : null;
+      }
+
       setState(() {
         _productos = productos;
         _empleados = empleados;
         _pedidosEnPreparacion = pedidosCombinados;
         _productosCompletados = productosCompletados;
         _produccionPorDetalle = produccionPorDetalle;
-        if (_pedidosEnPreparacion.isNotEmpty && _pedidoSeleccionado == null) {
-          _pedidoSeleccionado = _pedidosEnPreparacion.first;
-        }
+        _pedidoSeleccionado = nuevoPedidoSeleccionado;
         _isLoading = false;
       });
     } catch (e) {

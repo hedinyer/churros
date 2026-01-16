@@ -785,7 +785,6 @@ class _QuickSalePageState extends State<QuickSalePage> {
     // Deshabilitar escalado de texto del sistema - usar siempre 1.0
     final textScaleFactor = 1.0;
     final isSmallScreen = screenWidth < 600;
-    final isVerySmallScreen = screenWidth < 400;
 
     // Tamaños adaptativos basados en pantalla (sin escalado de texto)
     final baseFontSize = isSmallScreen ? 16.0 : 18.0;
@@ -1106,9 +1105,6 @@ class _QuickSalePageState extends State<QuickSalePage> {
                             final categoria = producto.categoria;
                             final stockDisponible =
                                 _inventario[producto.id] ?? 0;
-                            final iconSize =
-                                (isVerySmallScreen ? 60.0 : 80.0) *
-                                textScaleFactor.clamp(0.9, 1.1);
                             final buttonSize = (40.0 * textScaleFactor).clamp(
                               36.0,
                               48.0,
@@ -1139,26 +1135,6 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // Product Image
-                                      Container(
-                                        width: iconSize,
-                                        height: iconSize,
-                                        decoration: BoxDecoration(
-                                          color: primaryColor.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          Icons.bakery_dining,
-                                          color: primaryColor,
-                                          size: (iconSize * 0.5).clamp(
-                                            30.0,
-                                            50.0,
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: spacingMedium),
                                       // Product Info
                                       Expanded(
                                         child: Column(

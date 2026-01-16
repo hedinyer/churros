@@ -146,7 +146,6 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
     // Deshabilitar escalado de texto del sistema - usar siempre 1.0
     final textScaleFactor = 1.0;
     final isSmallScreen = screenWidth < 600;
-    final isVerySmallScreen = screenWidth < 400;
 
     // Tamaños adaptativos basados en pantalla (sin escalado de texto)
     final baseFontSize = isSmallScreen ? 16.0 : 18.0;
@@ -389,9 +388,6 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                   );
                                   final isCritical = estado == 'CRÍTICO';
                                   final isLowStock = estado == 'Poco Stock';
-                                  final iconSize =
-                                      (isVerySmallScreen ? 60.0 : 80.0) *
-                                      textScaleFactor.clamp(0.9, 1.1);
 
                                   return Container(
                                     margin: EdgeInsets.only(
@@ -473,41 +469,6 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  // Product Image Placeholder
-                                                  Container(
-                                                    width: iconSize,
-                                                    height: iconSize,
-                                                    decoration: BoxDecoration(
-                                                      color:
-                                                          isDark
-                                                              ? const Color(
-                                                                0xFF44403C,
-                                                              )
-                                                              : const Color(
-                                                                0xFFE7E5E4,
-                                                              ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
-                                                    child: Icon(
-                                                      Icons.image,
-                                                      color:
-                                                          isDark
-                                                              ? const Color(
-                                                                0xFF78716C,
-                                                              )
-                                                              : const Color(
-                                                                0xFF9A6C4C,
-                                                              ),
-                                                      size: (iconSize * 0.5)
-                                                          .clamp(30.0, 50.0),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: spacingMedium,
-                                                  ),
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
@@ -1027,6 +988,10 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           BorderRadius.circular(
                                                             8,
                                                           ),
+                                                      side: BorderSide(
+                                                        color: primaryColor,
+                                                        width: 2,
+                                                      ),
                                                     ),
                                                   ),
                                                   child: FittedBox(

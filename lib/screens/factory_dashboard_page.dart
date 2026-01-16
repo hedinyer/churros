@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user.dart';
 import '../services/supabase_service.dart';
+import '../services/notification_service.dart';
 import 'factory_orders_list_page.dart';
 import 'production_page.dart';
 import 'client_orders_list_page.dart';
 import 'dispatch_page.dart';
 import 'manual_order_page.dart';
+import 'factory_statistics_page.dart';
+import 'products_management_page.dart';
+import 'employees_management_page.dart';
 
 class FactoryDashboardPage extends StatefulWidget {
   final AppUser currentUser;
@@ -16,14 +21,41 @@ class FactoryDashboardPage extends StatefulWidget {
   State<FactoryDashboardPage> createState() => _FactoryDashboardPageState();
 }
 
-class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
+class _FactoryDashboardPageState extends State<FactoryDashboardPage> with WidgetsBindingObserver {
   Map<String, dynamic> _resumen = {};
   bool _isLoading = true;
+  int _newFactoryOrdersCount = 0;
+  int _newClientOrdersCount = 0;
+  int _newDeliveredOrdersCount = 0;
+  
+  // Realtime subscriptions
+  RealtimeChannel? _factoryOrdersChannel;
+  RealtimeChannel? _clientOrdersChannel;
+  RealtimeChannel? _deliveredOrdersChannel;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadData();
+    _setupRealtimeListeners();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _factoryOrdersChannel?.unsubscribe();
+    _clientOrdersChannel?.unsubscribe();
+    _deliveredOrdersChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Actualizar datos cuando la app vuelve a estar activa
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
@@ -38,12 +70,192 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
       setState(() {
         _resumen = resumen;
         _isLoading = false;
+        // Resetear contadores cuando se recarga manualmente
+        _newFactoryOrdersCount = 0;
+        _newClientOrdersCount = 0;
+        _newDeliveredOrdersCount = 0;
       });
     } catch (e) {
       print('Error cargando datos de fábrica: $e');
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// Configura los listeners de Supabase Realtime
+  void _setupRealtimeListeners() {
+    try {
+      // Listener para pedidos de fábrica (pedidos_fabrica)
+      _factoryOrdersChannel = SupabaseService.client
+          .channel('factory_orders_channel')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'pedidos_fabrica',
+            callback: (payload) {
+              print('Nuevo pedido de fábrica recibido: ${payload.newRecord}');
+              _handleNewFactoryOrder(payload.newRecord);
+            },
+          )
+          .subscribe();
+
+      // Listener para pedidos de clientes (pedidos_clientes)
+      _clientOrdersChannel = SupabaseService.client
+          .channel('client_orders_channel')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'pedidos_clientes',
+            callback: (payload) {
+              print('Nuevo pedido de cliente recibido: ${payload.newRecord}');
+              _handleNewClientOrder(payload.newRecord);
+            },
+          )
+          .subscribe();
+
+      // Listener para pedidos entregados (cambios de estado a "entregado")
+      // Escuchamos todos los updates y filtramos en el callback
+      _deliveredOrdersChannel = SupabaseService.client
+          .channel('delivered_orders_channel')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'pedidos_fabrica',
+            callback: (payload) {
+              final newRecord = payload.newRecord;
+              final oldRecord = payload.oldRecord;
+              
+              // Verificar que el estado cambió a "entregado"
+              final estadoAnterior = oldRecord['estado'] as String?;
+              final estadoNuevo = newRecord['estado'] as String?;
+              
+              if (estadoNuevo == 'entregado' && estadoAnterior != 'entregado') {
+                print('Pedido de fábrica entregado: $newRecord');
+                _handleDeliveredOrder(newRecord, 'fabrica');
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'pedidos_clientes',
+            callback: (payload) {
+              final newRecord = payload.newRecord;
+              final oldRecord = payload.oldRecord;
+              
+              // Verificar que el estado cambió a "entregado"
+              final estadoAnterior = oldRecord['estado'] as String?;
+              final estadoNuevo = newRecord['estado'] as String?;
+              
+              if (estadoNuevo == 'entregado' && estadoAnterior != 'entregado') {
+                print('Pedido de cliente entregado: $newRecord');
+                _handleDeliveredOrder(newRecord, 'cliente');
+              }
+            },
+          )
+          .subscribe();
+
+      print('Listeners de Realtime configurados correctamente');
+    } catch (e) {
+      print('Error configurando listeners de Realtime: $e');
+    }
+  }
+
+  /// Maneja cuando llega un nuevo pedido de fábrica
+  void _handleNewFactoryOrder(Map<String, dynamic> newOrder) {
+    if (mounted) {
+      setState(() {
+        _newFactoryOrdersCount++;
+      });
+
+      // Obtener información de la sucursal si está disponible
+      final sucursalNombre = newOrder['sucursal_nombre'] ?? 'Punto de Venta';
+      
+      // Contar productos si está disponible
+      final productos = newOrder['productos'];
+      int? cantidadProductos;
+      if (productos != null && productos is List) {
+        cantidadProductos = productos.length;
+      }
+
+      // Mostrar notificación push
+      NotificationService.showNewFactoryOrderNotification(
+        sucursal: sucursalNombre,
+        cantidadProductos: cantidadProductos,
+      );
+
+      // Actualizar resumen
+      _loadData();
+    }
+  }
+
+  /// Maneja cuando llega un nuevo pedido de cliente
+  void _handleNewClientOrder(Map<String, dynamic> newOrder) {
+    if (mounted) {
+      setState(() {
+        _newClientOrdersCount++;
+      });
+
+      // Obtener información del cliente
+      final clienteNombre = newOrder['cliente_nombre'] ?? 
+                           newOrder['nombre_cliente'] ?? 
+                           'Cliente';
+      
+      // Contar productos si está disponible
+      final productos = newOrder['productos'];
+      int? cantidadProductos;
+      if (productos != null && productos is List) {
+        cantidadProductos = productos.length;
+      }
+
+      // Mostrar notificación push
+      NotificationService.showNewClientOrderNotification(
+        cliente: clienteNombre,
+        cantidadProductos: cantidadProductos,
+      );
+
+      // Actualizar resumen
+      _loadData();
+    }
+  }
+
+  /// Maneja cuando un pedido es entregado
+  void _handleDeliveredOrder(Map<String, dynamic> orderData, String tipo) {
+    if (mounted) {
+      // Verificar que el estado actual es "entregado"
+      final estadoActual = orderData['estado'] as String?;
+      if (estadoActual != 'entregado') {
+        return; // No es una entrega, ignorar
+      }
+
+      setState(() {
+        _newDeliveredOrdersCount++;
+      });
+
+      // Obtener información del pedido
+      String? sucursalNombre;
+      String? clienteNombre;
+      String? numeroPedido;
+
+      if (tipo == 'fabrica') {
+        sucursalNombre = orderData['sucursal_nombre'] as String?;
+        numeroPedido = orderData['numero_pedido'] as String?;
+      } else {
+        clienteNombre = orderData['cliente_nombre'] as String?;
+        numeroPedido = orderData['numero_pedido'] as String?;
+      }
+
+      // Mostrar notificación push
+      NotificationService.showDeliveredOrderNotification(
+        tipoPedido: tipo,
+        sucursalNombre: sucursalNombre,
+        clienteNombre: clienteNombre,
+        numeroPedido: numeroPedido,
+      );
+
+      // Actualizar resumen
+      _loadData();
     }
   }
 
@@ -81,42 +293,16 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: () => Navigator.pop(context),
+              child: Center(
+                child: Text(
+                  'Fábrica Central',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
-                  Expanded(
-                    child: Text(
-                      'Fábrica Central',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF1B130D),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color:
-                            isDark
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.black.withOpacity(0.1),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      color: isDark ? Colors.white : const Color(0xFF1B130D),
-                    ),
-                  ),
-                ],
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
 
@@ -125,14 +311,16 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
               child:
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
-                      : SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 16 : 20,
-                          vertical: 24,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      : RefreshIndicator(
+                          onRefresh: _loadData,
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 16 : 20,
+                              vertical: 24,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                             // Resumen Section
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,8 +487,13 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                                   iconColor: Colors.blue,
                                   title: 'Pedidos Puntos',
                                   subtitle: 'App Interna',
-                                  onTap: () {
-                                    Navigator.push(
+                                  notificationCount: _newFactoryOrdersCount > 0 ? _newFactoryOrdersCount : null,
+                                  onTap: () async {
+                                    // Resetear contador al entrar
+                                    setState(() {
+                                      _newFactoryOrdersCount = 0;
+                                    });
+                                    await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder:
@@ -308,6 +501,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                                                 const FactoryOrdersListPage(),
                                       ),
                                     );
+                                    // Actualizar resumen al volver
+                                    _loadData();
                                   },
                                 ),
                                 _buildAccessButton(
@@ -316,8 +511,13 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                                   iconColor: Colors.green,
                                   title: 'Pedidos Clientes',
                                   subtitle: 'WhatsApp',
-                                  onTap: () {
-                                    Navigator.push(
+                                  notificationCount: _newClientOrdersCount > 0 ? _newClientOrdersCount : null,
+                                  onTap: () async {
+                                    // Resetear contador al entrar
+                                    setState(() {
+                                      _newClientOrdersCount = 0;
+                                    });
+                                    await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder:
@@ -325,6 +525,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                                                 const ClientOrdersListPage(),
                                       ),
                                     );
+                                    // Actualizar resumen al volver
+                                    _loadData();
                                   },
                                 ),
                                 _buildAccessButton(
@@ -333,14 +535,16 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                                   iconColor: primaryColor,
                                   title: 'Producción',
                                   subtitle: 'Gestión Cocina',
-                                  onTap: () {
-                                    Navigator.push(
+                                  onTap: () async {
+                                    await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder:
                                             (context) => const ProductionPage(),
                                       ),
                                     );
+                                    // Actualizar resumen al volver
+                                    _loadData();
                                   },
                                 ),
                                 _buildAccessButton(
@@ -349,12 +553,52 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                                   iconColor: Colors.grey,
                                   title: 'Despacho',
                                   subtitle: 'Logística',
+                                  notificationCount: _newDeliveredOrdersCount > 0 ? _newDeliveredOrdersCount : null,
                                   onTap: () {
+                                    // Resetear contador al entrar
+                                    setState(() {
+                                      _newDeliveredOrdersCount = 0;
+                                    });
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder:
                                             (context) => const DispatchPage(),
+                                      ),
+                                    ).then((_) {
+                                      // Actualizar resumen al volver
+                                      _loadData();
+                                    });
+                                  },
+                                ),
+                                _buildAccessButton(
+                                  isDark: isDark,
+                                  icon: Icons.inventory_2,
+                                  iconColor: Colors.orange,
+                                  title: 'Productos',
+                                  subtitle: 'Gestión',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const ProductsManagementPage(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                _buildAccessButton(
+                                  isDark: isDark,
+                                  icon: Icons.people,
+                                  iconColor: Colors.purple,
+                                  title: 'Empleados',
+                                  subtitle: 'Gestión',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const EmployeesManagementPage(),
                                       ),
                                     );
                                   },
@@ -369,9 +613,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                             const SizedBox(
                               height: 100,
                             ), // Space for bottom button
-                          ],
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
             ),
           ],
         ),
@@ -552,25 +797,31 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
                       ),
                       child: Icon(icon, color: iconColor, size: 24),
                     ),
-                    if (notificationCount != null)
+                    if (notificationCount != null && notificationCount > 0)
                       Positioned(
                         top: -4,
                         right: -4,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: notificationCount > 9 ? 4 : 6,
                             vertical: 2,
                           ),
                           decoration: const BoxDecoration(
                             color: Colors.red,
                             shape: BoxShape.circle,
                           ),
-                          child: Text(
-                            notificationCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Center(
+                            child: Text(
+                              notificationCount > 99 ? '99+' : notificationCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -607,8 +858,15 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> {
 
   Widget _buildStatsButton({required bool isDark}) {
     return GestureDetector(
-      onTap: () {
-        // Navegar a estadísticas
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const FactoryStatisticsPage(),
+          ),
+        );
+        // Actualizar resumen al volver
+        _loadData();
       },
       child: Container(
         padding: const EdgeInsets.all(20),

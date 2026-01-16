@@ -1607,30 +1607,56 @@ class SupabaseService {
 
       final today = DateTime.now().toIso8601String().split('T')[0];
 
-      // Obtener total de pedidos del día
-      final pedidosHoy = await client
+      // 1. Obtener total de pedidos a fábrica del día
+      final pedidosFabricaHoy = await client
           .from('pedidos_fabrica')
           .select('id')
           .eq('fecha_pedido', today);
 
-      final totalPedidos = pedidosHoy.length;
+      // 2. Obtener total de pedidos de clientes del día
+      final pedidosClientesHoy = await client
+          .from('pedidos_clientes')
+          .select('id')
+          .eq('fecha_pedido', today);
 
-      // Obtener pedidos pendientes
-      final pedidosPendientes = await client
+      final totalPedidos = pedidosFabricaHoy.length + pedidosClientesHoy.length;
+
+      // 3. Obtener pedidos pendientes de producción (pendiente + en_preparacion)
+      final pedidosPendientesFabrica = await client
           .from('pedidos_fabrica')
           .select('id')
-          .eq('estado', 'pendiente');
+          .or('estado.eq.pendiente,estado.eq.en_preparacion');
 
-      final totalPendientes = pedidosPendientes.length;
+      final pedidosPendientesClientes = await client
+          .from('pedidos_clientes')
+          .select('id')
+          .or('estado.eq.pendiente,estado.eq.en_preparacion');
 
-      // Calcular meta diaria (por ahora 100 pedidos como meta)
-      final metaDiaria = 100;
-      final porcentajeMeta = totalPedidos > 0 ? (totalPedidos / metaDiaria * 100).clamp(0, 100) : 0.0;
+      final totalPendientes = pedidosPendientesFabrica.length + pedidosPendientesClientes.length;
+
+      // 4. Obtener producción del día (suma de cantidad_producida)
+      final produccionHoy = await client
+          .from('produccion_empleado')
+          .select('cantidad_producida')
+          .eq('fecha_produccion', today);
+
+      int totalProducidoHoy = 0;
+      for (final prod in produccionHoy) {
+        totalProducidoHoy += (prod['cantidad_producida'] as num?)?.toInt() ?? 0;
+      }
+
+      // 5. Calcular meta diaria basada en producción
+      // Meta: 500 unidades producidas por día (ajustable)
+      final metaDiariaUnidades = 500;
+      final porcentajeMeta = metaDiariaUnidades > 0
+          ? ((totalProducidoHoy / metaDiariaUnidades) * 100).clamp(0, 100)
+          : 0.0;
 
       return {
         'total_pedidos': totalPedidos,
         'pedidos_pendientes': totalPendientes,
         'meta_diaria': porcentajeMeta,
+        'total_producido': totalProducidoHoy,
       };
     } catch (e) {
       print('Error obteniendo resumen de fábrica: $e');
@@ -1638,6 +1664,7 @@ class SupabaseService {
         'total_pedidos': 0,
         'pedidos_pendientes': 0,
         'meta_diaria': 0.0,
+        'total_producido': 0,
       };
     }
   }
@@ -2056,6 +2083,522 @@ class SupabaseService {
     } catch (e) {
       print('Error obteniendo producción por detalle: $e');
       return [];
+    }
+  }
+
+  /// Obtiene estadísticas completas de fábrica
+  static Future<Map<String, dynamic>> getEstadisticasFabrica() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        return _getEstadisticasVacias();
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final sevenDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 7))
+          .toIso8601String()
+          .split('T')[0];
+
+      // 1. Estadísticas de pedidos a fábrica
+      final pedidosFabrica = await client
+          .from('pedidos_fabrica')
+          .select('id, estado, fecha_pedido, total_items');
+
+      final pedidosPorEstado = <String, int>{
+        'pendiente': 0,
+        'en_preparacion': 0,
+        'enviado': 0,
+        'entregado': 0,
+        'cancelado': 0,
+      };
+
+      int totalPedidosHoy = 0;
+      int totalItemsHoy = 0;
+
+      for (final pedido in pedidosFabrica) {
+        final estado = pedido['estado'] as String;
+        pedidosPorEstado[estado] = (pedidosPorEstado[estado] ?? 0) + 1;
+
+        if (pedido['fecha_pedido'] == today) {
+          totalPedidosHoy++;
+          totalItemsHoy += (pedido['total_items'] as num?)?.toInt() ?? 0;
+        }
+      }
+
+      // 2. Estadísticas de pedidos de clientes
+      final pedidosClientes = await client
+          .from('pedidos_clientes')
+          .select('id, estado, fecha_pedido, total_items, total');
+
+      final pedidosClientesPorEstado = <String, int>{
+        'pendiente': 0,
+        'en_preparacion': 0,
+        'enviado': 0,
+        'entregado': 0,
+        'cancelado': 0,
+      };
+
+      int totalPedidosClientesHoy = 0;
+      double totalIngresosClientesHoy = 0.0;
+
+      for (final pedido in pedidosClientes) {
+        final estado = pedido['estado'] as String;
+        pedidosClientesPorEstado[estado] =
+            (pedidosClientesPorEstado[estado] ?? 0) + 1;
+
+        if (pedido['fecha_pedido'] == today) {
+          totalPedidosClientesHoy++;
+          totalIngresosClientesHoy +=
+              (pedido['total'] as num?)?.toDouble() ?? 0.0;
+        }
+      }
+
+      // 3. Estadísticas de producción del día
+      final produccionHoy = await client
+          .from('produccion_empleado')
+          .select('id, cantidad_producida, empleado_id, producto_id')
+          .eq('fecha_produccion', today);
+
+      int totalProducidoHoy = 0;
+      final produccionPorEmpleado = <int, int>{};
+      final produccionPorProducto = <int, int>{};
+
+      for (final prod in produccionHoy) {
+        final cantidad = (prod['cantidad_producida'] as num?)?.toInt() ?? 0;
+        totalProducidoHoy += cantidad;
+
+        final empleadoId = prod['empleado_id'] as int;
+        produccionPorEmpleado[empleadoId] =
+            (produccionPorEmpleado[empleadoId] ?? 0) + cantidad;
+
+        final productoId = prod['producto_id'] as int;
+        produccionPorProducto[productoId] =
+            (produccionPorProducto[productoId] ?? 0) + cantidad;
+      }
+
+      // 4. Empleados activos
+      final empleadosActivos = await client
+          .from('empleados')
+          .select('id')
+          .eq('activo', true);
+
+      final totalEmpleadosActivos = empleadosActivos.length;
+
+      // 5. Producción de los últimos 7 días
+      final produccionUltimos7Dias = await client
+          .from('produccion_empleado')
+          .select('fecha_produccion, cantidad_producida')
+          .gte('fecha_produccion', sevenDaysAgo)
+          .lte('fecha_produccion', today);
+
+      final produccionPorDia = <String, int>{};
+      for (final prod in produccionUltimos7Dias) {
+        final fecha = prod['fecha_produccion'] as String;
+        final cantidad = (prod['cantidad_producida'] as num?)?.toInt() ?? 0;
+        produccionPorDia[fecha] = (produccionPorDia[fecha] ?? 0) + cantidad;
+      }
+
+      // 6. Top productos más producidos (últimos 7 días)
+      final topProductos = await client
+          .from('produccion_empleado')
+          .select('producto_id, cantidad_producida')
+          .gte('fecha_produccion', sevenDaysAgo);
+
+      final productosProduccion = <int, int>{};
+      for (final prod in topProductos) {
+        final productoId = prod['producto_id'] as int;
+        final cantidad = (prod['cantidad_producida'] as num?)?.toInt() ?? 0;
+        productosProduccion[productoId] =
+            (productosProduccion[productoId] ?? 0) + cantidad;
+      }
+
+      // Convertir Map<int, int> a Map<String, int> para serialización
+      final produccionPorEmpleadoStr = <String, int>{};
+      produccionPorEmpleado.forEach((key, value) {
+        produccionPorEmpleadoStr[key.toString()] = value;
+      });
+
+      final produccionPorProductoStr = <String, int>{};
+      produccionPorProducto.forEach((key, value) {
+        produccionPorProductoStr[key.toString()] = value;
+      });
+
+      final productosProduccionStr = <String, int>{};
+      productosProduccion.forEach((key, value) {
+        productosProduccionStr[key.toString()] = value;
+      });
+
+      return {
+        'pedidos_fabrica': {
+          'total_hoy': totalPedidosHoy,
+          'total_items_hoy': totalItemsHoy,
+          'por_estado': pedidosPorEstado,
+        },
+        'pedidos_clientes': {
+          'total_hoy': totalPedidosClientesHoy,
+          'ingresos_hoy': totalIngresosClientesHoy,
+          'por_estado': pedidosClientesPorEstado,
+        },
+        'produccion': {
+          'total_hoy': totalProducidoHoy,
+          'por_empleado': produccionPorEmpleadoStr,
+          'por_producto': produccionPorProductoStr,
+          'ultimos_7_dias': produccionPorDia,
+        },
+        'empleados': {
+          'total_activos': totalEmpleadosActivos,
+        },
+        'top_productos': productosProduccionStr,
+      };
+    } catch (e) {
+      print('Error obteniendo estadísticas de fábrica: $e');
+      return _getEstadisticasVacias();
+    }
+  }
+
+  static Map<String, dynamic> _getEstadisticasVacias() {
+    return {
+      'pedidos_fabrica': {
+        'total_hoy': 0,
+        'total_items_hoy': 0,
+        'por_estado': {
+          'pendiente': 0,
+          'en_preparacion': 0,
+          'enviado': 0,
+          'entregado': 0,
+          'cancelado': 0,
+        },
+      },
+      'pedidos_clientes': {
+        'total_hoy': 0,
+        'ingresos_hoy': 0.0,
+        'por_estado': {
+          'pendiente': 0,
+          'en_preparacion': 0,
+          'enviado': 0,
+          'entregado': 0,
+          'cancelado': 0,
+        },
+      },
+      'produccion': {
+        'total_hoy': 0,
+        'por_empleado': <String, int>{},
+        'por_producto': <String, int>{},
+        'ultimos_7_dias': <String, int>{},
+      },
+      'empleados': {
+        'total_activos': 0,
+      },
+      'top_productos': <String, int>{},
+    };
+  }
+
+  // ========== MÉTODOS CRUD PARA PRODUCTOS ==========
+
+  /// Obtiene todos los productos (activos e inactivos)
+  static Future<List<Producto>> getAllProductos() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener productos');
+        return [];
+      }
+
+      final categorias = await getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
+
+      final response = await client.from('productos').select().order('nombre');
+
+      return response.map((json) {
+        final categoria =
+            json['categoria_id'] != null
+                ? categoriasMap[json['categoria_id']]
+                : null;
+        return Producto.fromJson(json, categoria: categoria);
+      }).toList();
+    } catch (e) {
+      print('Error obteniendo todos los productos: $e');
+      return [];
+    }
+  }
+
+  /// Crea un nuevo producto
+  static Future<Producto?> crearProducto({
+    required String nombre,
+    String? descripcion,
+    int? categoriaId,
+    required double precio,
+    String unidadMedida = 'unidad',
+    bool activo = true,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para crear producto');
+        return null;
+      }
+
+      final data = {
+        'nombre': nombre,
+        'descripcion': descripcion,
+        'categoria_id': categoriaId,
+        'precio': precio,
+        'unidad_medida': unidadMedida,
+        'activo': activo,
+      };
+
+      final response = await client.from('productos').insert(data).select().single();
+
+      final categorias = await getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
+      final categoria = categoriaId != null ? categoriasMap[categoriaId] : null;
+
+      return Producto.fromJson(response, categoria: categoria);
+    } catch (e) {
+      print('Error creando producto: $e');
+      return null;
+    }
+  }
+
+  /// Actualiza un producto existente
+  static Future<Producto?> actualizarProducto({
+    required int productoId,
+    String? nombre,
+    String? descripcion,
+    int? categoriaId,
+    double? precio,
+    String? unidadMedida,
+    bool? activo,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para actualizar producto');
+        return null;
+      }
+
+      final data = <String, dynamic>{};
+      if (nombre != null) data['nombre'] = nombre;
+      if (descripcion != null) data['descripcion'] = descripcion;
+      if (categoriaId != null) data['categoria_id'] = categoriaId;
+      if (precio != null) data['precio'] = precio;
+      if (unidadMedida != null) data['unidad_medida'] = unidadMedida;
+      if (activo != null) data['activo'] = activo;
+
+      if (data.isEmpty) {
+        // Si no hay cambios, obtener el producto actual
+        return await getProductoById(productoId);
+      }
+
+      final response = await client
+          .from('productos')
+          .update(data)
+          .eq('id', productoId)
+          .select()
+          .single();
+
+      final categorias = await getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
+      final categoria = response['categoria_id'] != null
+          ? categoriasMap[response['categoria_id']]
+          : null;
+
+      return Producto.fromJson(response, categoria: categoria);
+    } catch (e) {
+      print('Error actualizando producto: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene un producto por ID
+  static Future<Producto?> getProductoById(int productoId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener producto');
+        return null;
+      }
+
+      final response = await client
+          .from('productos')
+          .select()
+          .eq('id', productoId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      final categorias = await getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
+      final categoria = response['categoria_id'] != null
+          ? categoriasMap[response['categoria_id']]
+          : null;
+
+      return Producto.fromJson(response, categoria: categoria);
+    } catch (e) {
+      print('Error obteniendo producto: $e');
+      return null;
+    }
+  }
+
+  /// Elimina un producto (soft delete - marca como inactivo)
+  static Future<bool> eliminarProducto(int productoId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para eliminar producto');
+        return false;
+      }
+
+      // Soft delete - marcar como inactivo
+      await client
+          .from('productos')
+          .update({'activo': false})
+          .eq('id', productoId);
+
+      return true;
+    } catch (e) {
+      print('Error eliminando producto: $e');
+      return false;
+    }
+  }
+
+  // ========== MÉTODOS CRUD PARA EMPLEADOS ==========
+
+  /// Obtiene todos los empleados (activos e inactivos)
+  static Future<List<Empleado>> getAllEmpleados() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener empleados');
+        return [];
+      }
+
+      final response = await client
+          .from('empleados')
+          .select()
+          .order('nombre');
+
+      return response.map((json) => Empleado.fromJson(json)).toList();
+    } catch (e) {
+      print('Error obteniendo todos los empleados: $e');
+      return [];
+    }
+  }
+
+  /// Crea un nuevo empleado
+  static Future<Empleado?> crearEmpleado({
+    required String nombre,
+    String? telefono,
+    String? email,
+    bool activo = true,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para crear empleado');
+        return null;
+      }
+
+      final data = {
+        'nombre': nombre,
+        'telefono': telefono,
+        'email': email,
+        'activo': activo,
+      };
+
+      final response = await client.from('empleados').insert(data).select().single();
+
+      return Empleado.fromJson(response);
+    } catch (e) {
+      print('Error creando empleado: $e');
+      return null;
+    }
+  }
+
+  /// Actualiza un empleado existente
+  static Future<Empleado?> actualizarEmpleado({
+    required int empleadoId,
+    String? nombre,
+    String? telefono,
+    String? email,
+    bool? activo,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para actualizar empleado');
+        return null;
+      }
+
+      final data = <String, dynamic>{};
+      if (nombre != null) data['nombre'] = nombre;
+      if (telefono != null) data['telefono'] = telefono;
+      if (email != null) data['email'] = email;
+      if (activo != null) data['activo'] = activo;
+
+      if (data.isEmpty) {
+        // Si no hay cambios, obtener el empleado actual
+        return await getEmpleadoById(empleadoId);
+      }
+
+      final response = await client
+          .from('empleados')
+          .update(data)
+          .eq('id', empleadoId)
+          .select()
+          .single();
+
+      return Empleado.fromJson(response);
+    } catch (e) {
+      print('Error actualizando empleado: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene un empleado por ID
+  static Future<Empleado?> getEmpleadoById(int empleadoId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener empleado');
+        return null;
+      }
+
+      final response = await client
+          .from('empleados')
+          .select()
+          .eq('id', empleadoId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return Empleado.fromJson(response);
+    } catch (e) {
+      print('Error obteniendo empleado: $e');
+      return null;
+    }
+  }
+
+  /// Elimina un empleado (soft delete - marca como inactivo)
+  static Future<bool> eliminarEmpleado(int empleadoId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para eliminar empleado');
+        return false;
+      }
+
+      // Soft delete - marcar como inactivo
+      await client
+          .from('empleados')
+          .update({'activo': false})
+          .eq('id', empleadoId);
+
+      return true;
+    } catch (e) {
+      print('Error eliminando empleado: $e');
+      return false;
     }
   }
 }
