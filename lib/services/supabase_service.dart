@@ -6,6 +6,10 @@ import '../models/producto.dart';
 import '../models/apertura_dia.dart';
 import '../models/user.dart' as app_user;
 import '../models/venta.dart';
+import '../models/pedido_fabrica.dart';
+import '../models/pedido_cliente.dart';
+import '../models/empleado.dart';
+import '../models/produccion_empleado.dart';
 
 class SupabaseService {
   static const String supabaseUrl = 'https://gxdhedevrvxidgtbzpdl.supabase.co';
@@ -59,6 +63,7 @@ class SupabaseService {
             userId: response['user_id'] as String,
             accessKey: response['access_key'] as String?,
             sucursalId: response['sucursal'] as int?,
+            type: response['type'] as int?,
           );
           return response;
         }
@@ -1151,6 +1156,906 @@ class SupabaseService {
     } catch (e) {
       print('Error guardando cierre del día: $e');
       return false;
+    }
+  }
+
+  /// Obtiene todas las ventas del día actual de todas las sucursales (para dashboard de fábrica)
+  static Future<List<Venta>> getVentasHoyTodasSucursales() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener ventas de todas las sucursales');
+        return [];
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final response = await client
+          .from('ventas')
+          .select('*, sucursales(*)')
+          .eq('fecha_venta', today)
+          .order('hora_venta', ascending: false)
+          .limit(50); // Limitar a 50 más recientes
+
+      final ventas = <Venta>[];
+      for (final json in response) {
+        final sucursalJson = json['sucursales'] as Map<String, dynamic>?;
+        final sucursal = sucursalJson != null ? Sucursal.fromJson(sucursalJson) : null;
+        ventas.add(Venta.fromJson(json, sucursal: sucursal));
+      }
+
+      return ventas;
+    } catch (e) {
+      print('Error obteniendo ventas de todas las sucursales: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene el resumen de producción del día (para dashboard de fábrica)
+  static Future<Map<String, dynamic>> getResumenProduccionHoy() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener resumen de producción');
+        return {
+          'total_pedidos': 0,
+          'total_producido': 0,
+          'total_pendiente': 0,
+        };
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      // Obtener todas las ventas de hoy
+      final ventasHoy = await client
+          .from('ventas')
+          .select('id, estado, venta_detalles(cantidad)')
+          .eq('fecha_venta', today);
+
+      int totalPedidos = ventasHoy.length;
+      int totalProducido = 0;
+      int totalPendiente = 0;
+
+      for (final venta in ventasHoy) {
+        final estado = venta['estado'] as String;
+        final detalles = venta['venta_detalles'] as List<dynamic>? ?? [];
+        
+        int cantidadVenta = 0;
+        for (final detalle in detalles) {
+          cantidadVenta += (detalle['cantidad'] as num?)?.toInt() ?? 0;
+        }
+
+        if (estado == 'completada') {
+          totalProducido += cantidadVenta;
+        } else if (estado == 'pendiente') {
+          totalPendiente += cantidadVenta;
+        }
+      }
+
+      return {
+        'total_pedidos': totalPedidos,
+        'total_producido': totalProducido,
+        'total_pendiente': totalPendiente,
+      };
+    } catch (e) {
+      print('Error obteniendo resumen de producción: $e');
+      return {
+        'total_pedidos': 0,
+        'total_producido': 0,
+        'total_pendiente': 0,
+      };
+    }
+  }
+
+  /// Obtiene todas las sucursales activas
+  static Future<List<Sucursal>> getAllSucursales() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener sucursales');
+        return [];
+      }
+
+      final response = await client
+          .from('sucursales')
+          .select()
+          .eq('activa', true)
+          .order('nombre');
+
+      return response.map((json) => Sucursal.fromJson(json)).toList();
+    } catch (e) {
+      print('Error obteniendo sucursales: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene el resumen de una sucursal para el dashboard de fábrica
+  static Future<Map<String, dynamic>> getResumenSucursal(int sucursalId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        return {
+          'ventas_hoy': 0.0,
+          'tickets_hoy': 0,
+          'pedidos_pendientes': 0,
+          'tiene_apertura': false,
+        };
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      // Obtener ventas del día
+      final ventasResponse = await client
+          .from('ventas')
+          .select('id, total')
+          .eq('sucursal_id', sucursalId)
+          .eq('fecha_venta', today)
+          .eq('estado', 'completada');
+
+      double ventasHoy = 0.0;
+      int ticketsHoy = 0;
+      for (final venta in ventasResponse) {
+        ventasHoy += (venta['total'] as num?)?.toDouble() ?? 0.0;
+        ticketsHoy++;
+      }
+
+      // Obtener pedidos a fábrica pendientes
+      final pedidosResponse = await client
+          .from('pedidos_fabrica')
+          .select('id')
+          .eq('sucursal_id', sucursalId)
+          .eq('estado', 'pendiente');
+
+      final pedidosPendientes = pedidosResponse.length;
+
+      // Verificar si tiene apertura del día
+      final aperturaResponse = await client
+          .from('aperturas_dia')
+          .select('id')
+          .eq('sucursal_id', sucursalId)
+          .eq('fecha_apertura', today)
+          .eq('estado', 'abierta')
+          .maybeSingle();
+
+      final tieneApertura = aperturaResponse != null;
+
+      return {
+        'ventas_hoy': ventasHoy,
+        'tickets_hoy': ticketsHoy,
+        'pedidos_pendientes': pedidosPendientes,
+        'tiene_apertura': tieneApertura,
+      };
+    } catch (e) {
+      print('Error obteniendo resumen de sucursal: $e');
+      return {
+        'ventas_hoy': 0.0,
+        'tickets_hoy': 0,
+        'pedidos_pendientes': 0,
+        'tiene_apertura': false,
+      };
+    }
+  }
+
+  /// Genera un número de pedido único
+  static String _generatePedidoNumber(int sucursalId, bool isOnline) {
+    if (!isOnline) {
+      final now = DateTime.now();
+      final timestamp = now.millisecondsSinceEpoch;
+      return 'LOCAL-$sucursalId-$timestamp';
+    }
+    
+    final now = DateTime.now();
+    final fecha =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final hora =
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+    return 'PED-$sucursalId-$fecha-$hora';
+  }
+
+  /// Crea un nuevo pedido a fábrica
+  static Future<PedidoFabrica?> crearPedidoFabrica({
+    required int sucursalId,
+    required int usuarioId,
+    required Map<int, int> productos, // productoId -> cantidad
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      final now = DateTime.now();
+
+      // Calcular total de items
+      final totalItems = productos.values.fold(0, (sum, cantidad) => sum + cantidad);
+
+      // Crear el pedido
+      final pedidoData = {
+        'sucursal_id': sucursalId,
+        'usuario_id': usuarioId,
+        'fecha_pedido': now.toIso8601String().split('T')[0],
+        'hora_pedido':
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+        'total_items': totalItems,
+        'estado': 'pendiente', // Siempre pendiente al crear
+        'numero_pedido': _generatePedidoNumber(sucursalId, hasConnection),
+        'sincronizado': hasConnection,
+      };
+
+      // Insertar el pedido
+      final pedidoResponse =
+          await client.from('pedidos_fabrica').insert(pedidoData).select().single();
+
+      final pedidoId = pedidoResponse['id'] as int;
+
+      // Insertar los detalles del pedido
+      final detallesData = productos.entries.map((entry) {
+        return {
+          'pedido_id': pedidoId,
+          'producto_id': entry.key,
+          'cantidad': entry.value,
+        };
+      }).toList();
+
+      await client.from('pedido_fabrica_detalles').insert(detallesData);
+
+      // Obtener el pedido completo con detalles
+      return await getPedidoFabricaById(pedidoId);
+    } catch (e) {
+      print('Error creando pedido a fábrica: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene un pedido a fábrica por ID
+  static Future<PedidoFabrica?> getPedidoFabricaById(int pedidoId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedido');
+        return null;
+      }
+
+      // Obtener el pedido
+      final pedidoResponse = await client
+          .from('pedidos_fabrica')
+          .select()
+          .eq('id', pedidoId)
+          .maybeSingle();
+
+      if (pedidoResponse == null) return null;
+
+      // Obtener los detalles
+      final detallesResponse = await client
+          .from('pedido_fabrica_detalles')
+          .select()
+          .eq('pedido_id', pedidoId);
+
+      final detalles = detallesResponse
+          .map((json) => PedidoFabricaDetalle.fromJson(json))
+          .toList();
+
+      // Obtener sucursal y usuario si es necesario
+      final sucursal = await getSucursalById(pedidoResponse['sucursal_id'] as int);
+
+      return PedidoFabrica.fromJson(
+        pedidoResponse,
+        sucursal: sucursal,
+        detalles: detalles,
+      );
+    } catch (e) {
+      print('Error obteniendo pedido a fábrica: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene los pedidos recientes a fábrica de una sucursal
+  static Future<List<PedidoFabrica>> getPedidosFabricaRecientes(
+    int sucursalId, {
+    int limit = 10,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos a fábrica');
+        return [];
+      }
+
+      // Obtener los pedidos
+      final pedidosResponse = await client
+          .from('pedidos_fabrica')
+          .select()
+          .eq('sucursal_id', sucursalId)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoFabrica>[];
+      final sucursal = await getSucursalById(sucursalId);
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_fabrica_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse
+            .map((json) => PedidoFabricaDetalle.fromJson(json))
+            .toList();
+
+        pedidos.add(
+          PedidoFabrica.fromJson(
+            pedidoJson,
+            sucursal: sucursal,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos a fábrica recientes: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene todos los pedidos a fábrica recientes de todas las sucursales
+  static Future<List<PedidoFabrica>> getPedidosFabricaRecientesTodasSucursales({
+    int limit = 10,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos a fábrica');
+        return [];
+      }
+
+      // Obtener los pedidos de todas las sucursales
+      final pedidosResponse = await client
+          .from('pedidos_fabrica')
+          .select('*, sucursales(*)')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoFabrica>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+        final sucursalJson = pedidoJson['sucursales'] as Map<String, dynamic>?;
+        final sucursal = sucursalJson != null ? Sucursal.fromJson(sucursalJson) : null;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_fabrica_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse
+            .map((json) => PedidoFabricaDetalle.fromJson(json))
+            .toList();
+
+        pedidos.add(
+          PedidoFabrica.fromJson(
+            pedidoJson,
+            sucursal: sucursal,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos a fábrica recientes de todas las sucursales: $e');
+      return [];
+    }
+  }
+
+  /// Actualiza el estado de un pedido a fábrica
+  static Future<bool> actualizarEstadoPedidoFabrica({
+    required int pedidoId,
+    required String nuevoEstado,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para actualizar estado del pedido');
+        return false;
+      }
+
+      await client
+          .from('pedidos_fabrica')
+          .update({'estado': nuevoEstado})
+          .eq('id', pedidoId);
+
+      return true;
+    } catch (e) {
+      print('Error actualizando estado del pedido: $e');
+      return false;
+    }
+  }
+
+  /// Obtiene el siguiente estado en la secuencia
+  static String getSiguienteEstado(String estadoActual) {
+    switch (estadoActual.toLowerCase()) {
+      case 'pendiente':
+        return 'en_preparacion';
+      case 'en_preparacion':
+        return 'enviado';
+      case 'enviado':
+        return 'entregado';
+      case 'entregado':
+        return 'entregado'; // Ya está en el último estado
+      default:
+        return 'pendiente';
+    }
+  }
+
+  /// Obtiene el resumen general de la fábrica
+  static Future<Map<String, dynamic>> getResumenFabrica() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        return {
+          'total_pedidos': 0,
+          'pedidos_pendientes': 0,
+          'meta_diaria': 0.0,
+        };
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      // Obtener total de pedidos del día
+      final pedidosHoy = await client
+          .from('pedidos_fabrica')
+          .select('id')
+          .eq('fecha_pedido', today);
+
+      final totalPedidos = pedidosHoy.length;
+
+      // Obtener pedidos pendientes
+      final pedidosPendientes = await client
+          .from('pedidos_fabrica')
+          .select('id')
+          .eq('estado', 'pendiente');
+
+      final totalPendientes = pedidosPendientes.length;
+
+      // Calcular meta diaria (por ahora 100 pedidos como meta)
+      final metaDiaria = 100;
+      final porcentajeMeta = totalPedidos > 0 ? (totalPedidos / metaDiaria * 100).clamp(0, 100) : 0.0;
+
+      return {
+        'total_pedidos': totalPedidos,
+        'pedidos_pendientes': totalPendientes,
+        'meta_diaria': porcentajeMeta,
+      };
+    } catch (e) {
+      print('Error obteniendo resumen de fábrica: $e');
+      return {
+        'total_pedidos': 0,
+        'pedidos_pendientes': 0,
+        'meta_diaria': 0.0,
+      };
+    }
+  }
+
+  /// Obtiene pedidos de clientes recientes (desde WhatsApp)
+  static Future<List<PedidoCliente>> getPedidosClientesRecientes({
+    int limit = 100,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos de clientes');
+        return [];
+      }
+
+      // Obtener los pedidos de clientes
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_cliente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          return PedidoClienteDetalle.fromJson(json, producto: producto);
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos de clientes recientes: $e');
+      return [];
+    }
+  }
+
+  /// Actualiza el estado de un pedido de cliente
+  static Future<bool> actualizarEstadoPedidoCliente({
+    required int pedidoId,
+    required String nuevoEstado,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para actualizar estado del pedido');
+        return false;
+      }
+
+      await client
+          .from('pedidos_clientes')
+          .update({'estado': nuevoEstado})
+          .eq('id', pedidoId);
+
+      return true;
+    } catch (e) {
+      print('Error actualizando estado del pedido de cliente: $e');
+      return false;
+    }
+  }
+
+  /// Obtiene pedidos de fábrica con estado "enviado" o "entregado"
+  static Future<List<PedidoFabrica>> getPedidosFabricaParaDespacho({
+    int limit = 100,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos para despacho');
+        return [];
+      }
+
+      // Obtener los pedidos con estado enviado o entregado
+      final pedidosResponse = await client
+          .from('pedidos_fabrica')
+          .select('*, sucursales(*)')
+          .or('estado.eq.enviado,estado.eq.entregado')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoFabrica>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+        final sucursalJson = pedidoJson['sucursales'] as Map<String, dynamic>?;
+        final sucursal = sucursalJson != null ? Sucursal.fromJson(sucursalJson) : null;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_fabrica_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse
+            .map((json) => PedidoFabricaDetalle.fromJson(json))
+            .toList();
+
+        pedidos.add(
+          PedidoFabrica.fromJson(
+            pedidoJson,
+            sucursal: sucursal,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos de fábrica para despacho: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos de clientes con estado "enviado" o "entregado"
+  static Future<List<PedidoCliente>> getPedidosClientesParaDespacho({
+    int limit = 100,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos para despacho');
+        return [];
+      }
+
+      // Obtener los pedidos con estado enviado o entregado
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .or('estado.eq.enviado,estado.eq.entregado')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_cliente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          return PedidoClienteDetalle.fromJson(json, producto: producto);
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos de clientes para despacho: $e');
+      return [];
+    }
+  }
+
+  /// Genera un número de pedido de cliente único
+  static String _generatePedidoClienteNumber(bool isOnline) {
+    if (!isOnline) {
+      final now = DateTime.now();
+      final timestamp = now.millisecondsSinceEpoch;
+      return 'LOCAL-CLIENTE-$timestamp';
+    }
+    
+    final now = DateTime.now();
+    final fecha =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final hora =
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+    return 'PED-CLIENTE-$fecha-$hora';
+  }
+
+  /// Crea un nuevo pedido de cliente
+  static Future<PedidoCliente?> crearPedidoCliente({
+    required String clienteNombre,
+    String? clienteTelefono,
+    required String direccionEntrega,
+    required Map<int, int> productos, // productoId -> cantidad
+    String? observaciones,
+    String? metodoPago,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      final now = DateTime.now();
+
+      // Obtener productos para calcular precios
+      final productosActivos = await getProductosActivos();
+      final productosMap = {for (var p in productosActivos) p.id: p};
+
+      // Calcular total de items y total
+      int totalItems = 0;
+      double total = 0.0;
+      final detallesData = <Map<String, dynamic>>[];
+
+      for (final entry in productos.entries) {
+        final producto = productosMap[entry.key];
+        if (producto == null || entry.value <= 0) continue;
+
+        final cantidad = entry.value;
+        final precioUnitario = producto.precio;
+        final precioTotal = precioUnitario * cantidad;
+
+        totalItems += cantidad;
+        total += precioTotal;
+
+        detallesData.add({
+          'producto_id': producto.id,
+          'cantidad': cantidad,
+          'precio_unitario': precioUnitario,
+          'precio_total': precioTotal,
+        });
+      }
+
+      if (totalItems == 0) {
+        print('No hay productos en el pedido');
+        return null;
+      }
+
+      // Crear el pedido
+      final pedidoData = {
+        'cliente_nombre': clienteNombre,
+        'cliente_telefono': clienteTelefono,
+        'direccion_entrega': direccionEntrega,
+        'fecha_pedido': now.toIso8601String().split('T')[0],
+        'hora_pedido':
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+        'total_items': totalItems,
+        'total': total,
+        'estado': 'pendiente',
+        'numero_pedido': _generatePedidoClienteNumber(hasConnection),
+        'observaciones': observaciones,
+        'metodo_pago': metodoPago,
+        'sincronizado': hasConnection,
+      };
+
+      // Insertar el pedido
+      final pedidoResponse =
+          await client.from('pedidos_clientes').insert(pedidoData).select().single();
+
+      final pedidoId = pedidoResponse['id'] as int;
+
+      // Insertar los detalles del pedido
+      final detallesConPedidoId =
+          detallesData.map((detalle) {
+            return {...detalle, 'pedido_id': pedidoId};
+          }).toList();
+
+      await client.from('pedido_cliente_detalles').insert(detallesConPedidoId);
+
+      // Obtener el pedido completo con detalles
+      final pedidos = await getPedidosClientesRecientes(limit: 1);
+      if (pedidos.isNotEmpty && pedidos.first.id == pedidoId) {
+        return pedidos.first;
+      }
+
+      return null;
+    } catch (e) {
+      print('Error creando pedido de cliente: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene todos los empleados activos
+  static Future<List<Empleado>> getEmpleadosActivos() async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener empleados');
+        return [];
+      }
+
+      final response = await client
+          .from('empleados')
+          .select()
+          .eq('activo', true)
+          .order('nombre');
+
+      return response.map((json) => Empleado.fromJson(json)).toList();
+    } catch (e) {
+      print('Error obteniendo empleados activos: $e');
+      return [];
+    }
+  }
+
+  /// Guarda un registro de producción de empleado
+  static Future<bool> guardarProduccionEmpleado({
+    required int empleadoId,
+    required int productoId,
+    required int cantidadProducida,
+    int? pedidoFabricaId,
+    int? pedidoClienteId,
+    String? observaciones,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para guardar producción de empleado');
+        return false;
+      }
+
+      final now = DateTime.now();
+      final fechaProduccion = now.toIso8601String().split('T')[0];
+      final horaProduccion =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+      final data = {
+        'empleado_id': empleadoId,
+        'producto_id': productoId,
+        'cantidad_producida': cantidadProducida,
+        'fecha_produccion': fechaProduccion,
+        'hora_produccion': horaProduccion,
+        'pedido_fabrica_id': pedidoFabricaId,
+        'pedido_cliente_id': pedidoClienteId,
+        'observaciones': observaciones,
+      };
+
+      await client.from('produccion_empleado').insert(data);
+      return true;
+    } catch (e) {
+      print('Error guardando producción de empleado: $e');
+      return false;
+    }
+  }
+
+  /// Obtiene la producción de empleados para un detalle de pedido específico
+  static Future<List<ProduccionEmpleado>> getProduccionPorDetalle({
+    required int productoId,
+    int? pedidoFabricaId,
+    int? pedidoClienteId,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener producción por detalle');
+        return [];
+      }
+
+      var query = client
+          .from('produccion_empleado')
+          .select('*, empleados(*), productos(*)')
+          .eq('producto_id', productoId);
+
+      if (pedidoFabricaId != null) {
+        query = query.eq('pedido_fabrica_id', pedidoFabricaId);
+      } else if (pedidoClienteId != null) {
+        query = query.eq('pedido_cliente_id', pedidoClienteId);
+      }
+
+      final response = await query.order('created_at', ascending: false);
+
+      final empleados = await getEmpleadosActivos();
+      final empleadosMap = {for (var e in empleados) e.id: e};
+
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      return response.map((json) {
+        final empleadoJson = json['empleados'] as Map<String, dynamic>?;
+        final empleado = empleadoJson != null
+            ? Empleado.fromJson(empleadoJson)
+            : empleadosMap[json['empleado_id'] as int];
+
+        final productoJson = json['productos'] as Map<String, dynamic>?;
+        final producto = productoJson != null
+            ? Producto.fromJson(productoJson)
+            : productosMap[json['producto_id'] as int];
+
+        return ProduccionEmpleado.fromJson(
+          json,
+          empleado: empleado,
+          producto: producto,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error obteniendo producción por detalle: $e');
+      return [];
     }
   }
 }

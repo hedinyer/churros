@@ -4,7 +4,7 @@ import 'package:path/path.dart';
 class LocalDatabaseService {
   static Database? _database;
   static const String _databaseName = 'churros_local.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
   static const String _tableName = 'users';
 
   /// Obtiene la instancia de la base de datos
@@ -35,6 +35,7 @@ class LocalDatabaseService {
         user_id TEXT NOT NULL,
         access_key TEXT,
         sucursal INTEGER,
+        type INTEGER,
         UNIQUE(user_id)
       )
     ''');
@@ -45,6 +46,10 @@ class LocalDatabaseService {
     if (oldVersion < 2) {
       // Agregar columna sucursal a la tabla users
       await db.execute('ALTER TABLE $_tableName ADD COLUMN sucursal INTEGER');
+    }
+    if (oldVersion < 3) {
+      // Agregar columna type a la tabla users
+      await db.execute('ALTER TABLE $_tableName ADD COLUMN type INTEGER');
     }
   }
 
@@ -71,6 +76,7 @@ class LocalDatabaseService {
           'user_id': user['user_id'],
           'access_key': user['access_key'],
           'sucursal': user['sucursal'],
+          'type': user['type'],
         };
       }
       return null;
@@ -95,6 +101,7 @@ class LocalDatabaseService {
     required String userId,
     String? accessKey,
     int? sucursalId,
+    int? type,
   }) async {
     try {
       final db = await database;
@@ -106,6 +113,7 @@ class LocalDatabaseService {
           'user_id': userId,
           'access_key': accessKey,
           'sucursal': sucursalId,
+          'type': type,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -157,6 +165,7 @@ class LocalDatabaseService {
               'user_id': user['user_id'] as String,
               'access_key': user['access_key'] as String?,
               'sucursal': user['sucursal'] as int?,
+              'type': user['type'] as int?,
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
           );

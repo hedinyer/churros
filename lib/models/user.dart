@@ -3,12 +3,14 @@ class AppUser {
   final String userId;
   final String? accessKey;
   final int? sucursalId;
+  final int? type;
 
   AppUser({
     required this.id,
     required this.userId,
     this.accessKey,
     this.sucursalId,
+    this.type,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,7 @@ class AppUser {
       userId: json['user_id'] as String,
       accessKey: json['access_key'] as String?,
       sucursalId: json['sucursal'] as int?,
+      type: json['type'] as int?,
     );
   }
 
@@ -26,6 +29,7 @@ class AppUser {
       'user_id': userId,
       'access_key': accessKey,
       'sucursal': sucursalId,
+      'type': type,
     };
   }
 }

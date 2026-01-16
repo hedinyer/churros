@@ -5,7 +5,7 @@ import '../models/user.dart';
 import '../models/producto.dart';
 import '../models/categoria.dart';
 import '../services/supabase_service.dart';
-import 'dashboard_page.dart';
+import '../main.dart';
 
 class DayClosingPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -181,15 +181,27 @@ class _DayClosingPageState extends State<DayClosingPage> {
     final textScaleFactor = 1.0;
     final isSmallScreen = screenWidth < 600;
     final isVerySmallScreen = screenWidth < 400;
-    
+
     // Tamaños adaptativos basados en pantalla (sin escalado de texto)
     final baseFontSize = isSmallScreen ? 16.0 : 18.0;
-    final titleFontSize = (baseFontSize * 1.25 * textScaleFactor).clamp(16.0, 24.0);
+    final titleFontSize = (baseFontSize * 1.25 * textScaleFactor).clamp(
+      16.0,
+      24.0,
+    );
     final bodyFontSize = (baseFontSize * textScaleFactor).clamp(14.0, 20.0);
-    final smallFontSize = (baseFontSize * 0.875 * textScaleFactor).clamp(12.0, 16.0);
-    final largeFontSize = (baseFontSize * 1.5 * textScaleFactor).clamp(20.0, 32.0);
-    final extraLargeFontSize = (baseFontSize * 2.0 * textScaleFactor).clamp(24.0, 40.0);
-    
+    final smallFontSize = (baseFontSize * 0.875 * textScaleFactor).clamp(
+      12.0,
+      16.0,
+    );
+    final largeFontSize = (baseFontSize * 1.5 * textScaleFactor).clamp(
+      20.0,
+      32.0,
+    );
+    final extraLargeFontSize = (baseFontSize * 2.0 * textScaleFactor).clamp(
+      24.0,
+      40.0,
+    );
+
     // Espaciado adaptativo
     final paddingHorizontal = isSmallScreen ? 16.0 : 20.0;
     final paddingVertical = (12.0 * textScaleFactor).clamp(8.0, 16.0);
@@ -197,113 +209,570 @@ class _DayClosingPageState extends State<DayClosingPage> {
     final spacingMedium = (16.0 * textScaleFactor).clamp(12.0, 20.0);
 
     // Deshabilitar escalado de texto del sistema
-    final mediaQueryWithoutTextScale = mediaQuery.copyWith(textScaleFactor: 1.0);
+    final mediaQueryWithoutTextScale = mediaQuery.copyWith(
+      textScaler: TextScaler.linear(1.0),
+    );
 
     return MediaQuery(
       data: mediaQueryWithoutTextScale,
       child: Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: paddingHorizontal,
-                vertical: paddingVertical,
-              ),
-              decoration: BoxDecoration(
-                color: (isDark
-                        ? const Color(0xFF221810)
-                        : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
-                border: Border(
-                  bottom: BorderSide(
-                    color:
-                        isDark
-                            ? const Color(0xFF44403C)
-                            : const Color(0xFFE7E5E4),
-                    width: 1,
+        backgroundColor:
+            isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: paddingHorizontal,
+                  vertical: paddingVertical,
+                ),
+                decoration: BoxDecoration(
+                  color: (isDark
+                          ? const Color(0xFF221810)
+                          : const Color(0xFFF8F7F6))
+                      .withOpacity(0.95),
+                  border: Border(
+                    bottom: BorderSide(
+                      color:
+                          isDark
+                              ? const Color(0xFF44403C)
+                              : const Color(0xFFE7E5E4),
+                      width: 1,
+                    ),
                   ),
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(
-                          Icons.arrow_back,
-                          color:
-                              isDark ? Colors.white : const Color(0xFF1B130D),
-                          size: (24 * textScaleFactor).clamp(20.0, 28.0),
-                        ),
-                        style: IconButton.styleFrom(
-                          padding: EdgeInsets.all(
-                            (4 * textScaleFactor).clamp(2.0, 8.0),
-                          ),
-                          shape: const CircleBorder(),
-                          minimumSize: Size(
-                            (48 * textScaleFactor).clamp(40.0, 56.0),
-                            (48 * textScaleFactor).clamp(40.0, 56.0),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'Cierre del Día',
-                            style: TextStyle(
-                              fontSize: titleFontSize,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
-                              color:
-                                  isDark ? Colors.white : const Color(0xFF1B130D),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: (8 * textScaleFactor).clamp(6.0, 12.0),
-                            vertical: (4 * textScaleFactor).clamp(2.0, 6.0),
-                          ),
-                          decoration: BoxDecoration(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(
+                            Icons.arrow_back,
                             color:
-                                isDark
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(999),
+                                isDark ? Colors.white : const Color(0xFF1B130D),
+                            size: (24 * textScaleFactor).clamp(20.0, 28.0),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.cloud_done,
-                                size: (16 * textScaleFactor).clamp(14.0, 20.0),
+                          style: IconButton.styleFrom(
+                            padding: EdgeInsets.all(
+                              (4 * textScaleFactor).clamp(2.0, 8.0),
+                            ),
+                            shape: const CircleBorder(),
+                            minimumSize: Size(
+                              (48 * textScaleFactor).clamp(40.0, 56.0),
+                              (48 * textScaleFactor).clamp(40.0, 56.0),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Cierre del Día',
+                              style: TextStyle(
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
                                 color:
                                     isDark
-                                        ? Colors.green.shade300
-                                        : Colors.green.shade700,
+                                        ? Colors.white
+                                        : const Color(0xFF1B130D),
                               ),
-                              SizedBox(width: spacingSmall / 2),
-                              Text(
-                                'Guardado',
-                                style: TextStyle(
-                                  fontSize: smallFontSize,
-                                  fontWeight: FontWeight.w600,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: (8 * textScaleFactor).clamp(
+                                6.0,
+                                12.0,
+                              ),
+                              vertical: (4 * textScaleFactor).clamp(2.0, 6.0),
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isDark
+                                      ? Colors.green.withOpacity(0.3)
+                                      : Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.cloud_done,
+                                  size: (16 * textScaleFactor).clamp(
+                                    14.0,
+                                    20.0,
+                                  ),
                                   color:
                                       isDark
                                           ? Colors.green.shade300
                                           : Colors.green.shade700,
+                                ),
+                                SizedBox(width: spacingSmall / 2),
+                                Text(
+                                  'Guardado',
+                                  style: TextStyle(
+                                    fontSize: smallFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        isDark
+                                            ? Colors.green.shade300
+                                            : Colors.green.shade700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: spacingSmall),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: (16 * textScaleFactor).clamp(14.0, 20.0),
+                          color:
+                              isDark
+                                  ? const Color(0xFF9A6C4C)
+                                  : const Color(0xFF9A6C4C),
+                        ),
+                        SizedBox(width: spacingSmall / 2),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _getFormattedDate(),
+                              style: TextStyle(
+                                fontSize: smallFontSize,
+                                fontWeight: FontWeight.w500,
+                                color:
+                                    isDark
+                                        ? Colors.grey.shade400
+                                        : const Color(0xFF9A6C4C),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Expanded(
+                child: AnimatedOpacity(
+                  opacity: _isLoading ? 0.3 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: (100 * textScaleFactor).clamp(80.0, 120.0),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Summary Stats Cards
+                        Padding(
+                          padding: EdgeInsets.all(spacingMedium),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: EdgeInsets.all(spacingMedium),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isDark
+                                            ? const Color(0xFF2C2018)
+                                            : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color:
+                                          isDark
+                                              ? const Color(0xFF44403C)
+                                              : const Color(0xFFE7E5E4),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.payments,
+                                            size: (20 * textScaleFactor).clamp(
+                                              18.0,
+                                              24.0,
+                                            ),
+                                            color:
+                                                isDark
+                                                    ? const Color(0xFF9A6C4C)
+                                                    : const Color(0xFF9A6C4C),
+                                          ),
+                                          SizedBox(width: spacingSmall / 2),
+                                          Flexible(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                'TOTAL VENDIDO',
+                                                style: TextStyle(
+                                                  fontSize: smallFontSize * 0.8,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 1.2,
+                                                  color:
+                                                      isDark
+                                                          ? const Color(
+                                                            0xFF9A6C4C,
+                                                          )
+                                                          : const Color(
+                                                            0xFF9A6C4C,
+                                                          ),
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: spacingSmall),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          NumberFormat.currency(
+                                            symbol: '\$',
+                                            decimalDigits: 2,
+                                          ).format(_totalVentasHoy),
+                                          style: TextStyle(
+                                            fontSize: largeFontSize,
+                                            fontWeight: FontWeight.bold,
+                                            color:
+                                                isDark
+                                                    ? Colors.white
+                                                    : const Color(0xFF1B130D),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: spacingMedium),
+                              Expanded(
+                                child: Container(
+                                  padding: EdgeInsets.all(spacingMedium),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.red.shade100,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            size: (20 * textScaleFactor).clamp(
+                                              18.0,
+                                              24.0,
+                                            ),
+                                            color: Colors.red.shade600,
+                                          ),
+                                          SizedBox(width: spacingSmall / 2),
+                                          Flexible(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                'DESPERDICIO',
+                                                style: TextStyle(
+                                                  fontSize: smallFontSize * 0.8,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 1.2,
+                                                  color: Colors.red.shade600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: spacingSmall),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          '$_totalDesperdicio Unid.',
+                                          style: TextStyle(
+                                            fontSize: largeFontSize,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red.shade700,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Products by Category
+                        ..._getProductosAgrupadosPorCategoria().entries.map<
+                          Widget
+                        >((entry) {
+                          final categoriaId = entry.key;
+                          final productos = entry.value;
+                          final categoria =
+                              categoriaId != null
+                                  ? _categoriasMap[categoriaId]
+                                  : null;
+
+                          // Skip productos que no requieren conteo (como bebidas)
+                          final productosConConteo = productos;
+
+                          if (productosConConteo.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: paddingHorizontal,
+                                  vertical: spacingSmall,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 4,
+                                      height: (24 * textScaleFactor).clamp(
+                                        20.0,
+                                        28.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    SizedBox(width: spacingSmall),
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          categoria?.nombre ?? 'Sin Categoría',
+                                          style: TextStyle(
+                                            fontSize: titleFontSize,
+                                            fontWeight: FontWeight.bold,
+                                            color:
+                                                isDark
+                                                    ? Colors.white
+                                                    : const Color(0xFF1B130D),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...productosConConteo.map((producto) {
+                                return _buildProductCard(
+                                  producto: producto,
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                  textScaleFactor: textScaleFactor,
+                                  isSmallScreen: isSmallScreen,
+                                  isVerySmallScreen: isVerySmallScreen,
+                                  titleFontSize: titleFontSize,
+                                  bodyFontSize: bodyFontSize,
+                                  smallFontSize: smallFontSize,
+                                  largeFontSize: largeFontSize,
+                                  spacingSmall: spacingSmall,
+                                  spacingMedium: spacingMedium,
+                                  paddingHorizontal: paddingHorizontal,
+                                );
+                              }),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Sticky Bottom Actions
+              Container(
+                padding: EdgeInsets.only(
+                  left: paddingHorizontal,
+                  right: paddingHorizontal,
+                  top: paddingVertical,
+                  bottom: mediaQuery.padding.bottom + paddingVertical,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2018) : Colors.white,
+                  border: Border(
+                    top: BorderSide(
+                      color:
+                          isDark
+                              ? const Color(0xFF44403C)
+                              : const Color(0xFFE7E5E4),
+                      width: 1,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Verificaste todo?',
+                              style: TextStyle(
+                                fontSize: bodyFontSize,
+                                fontWeight: FontWeight.w500,
+                                color:
+                                    isDark
+                                        ? Colors.grey.shade400
+                                        : const Color(0xFF9A6C4C),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // TODO: Implementar reportar problema
+                          },
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Reportar problema',
+                              style: TextStyle(
+                                fontSize: smallFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: primaryColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: spacingMedium),
+                    SizedBox(
+                      width: double.infinity,
+                      height: (56 * textScaleFactor).clamp(48.0, 64.0),
+                      child: ElevatedButton(
+                        onPressed:
+                            _aperturaId == null
+                                ? () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        '⚠️ No puedes cerrar el día sin una apertura. Debes abrir la tienda primero desde el menú principal.',
+                                      ),
+                                      backgroundColor: Colors.orange,
+                                      duration: Duration(seconds: 4),
+                                    ),
+                                  );
+                                }
+                                : () => _showConfirmDialog(
+                                  context,
+                                  isDark,
+                                  primaryColor,
+                                  textScaleFactor: textScaleFactor,
+                                  isSmallScreen: isSmallScreen,
+                                  titleFontSize: titleFontSize,
+                                  bodyFontSize: bodyFontSize,
+                                  smallFontSize: smallFontSize,
+                                  spacingSmall: spacingSmall,
+                                  spacingMedium: spacingMedium,
+                                  paddingHorizontal: paddingHorizontal,
+                                ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              _aperturaId == null ? Colors.grey : primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: _aperturaId == null ? 0 : 4,
+                          shadowColor:
+                              _aperturaId == null
+                                  ? null
+                                  : primaryColor.withOpacity(0.3),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _aperturaId == null
+                                    ? Icons.lock_outline
+                                    : Icons.lock,
+                                size: (24 * textScaleFactor).clamp(20.0, 28.0),
+                              ),
+                              SizedBox(width: spacingSmall),
+                              Text(
+                                _aperturaId == null
+                                    ? 'SIN APERTURA'
+                                    : 'CERRAR DÍA',
+                                style: TextStyle(
+                                  fontSize: bodyFontSize * 1.1,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -312,455 +781,13 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  SizedBox(height: spacingSmall),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: (16 * textScaleFactor).clamp(14.0, 20.0),
-                        color:
-                            isDark
-                                ? const Color(0xFF9A6C4C)
-                                : const Color(0xFF9A6C4C),
-                      ),
-                      SizedBox(width: spacingSmall / 2),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            _getFormattedDate(),
-                            style: TextStyle(
-                              fontSize: smallFontSize,
-                              fontWeight: FontWeight.w500,
-                              color:
-                                  isDark
-                                      ? Colors.grey.shade400
-                                      : const Color(0xFF9A6C4C),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Content
-            Expanded(
-              child: AnimatedOpacity(
-                opacity: _isLoading ? 0.3 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.only(
-                    bottom: (100 * textScaleFactor).clamp(80.0, 120.0),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Summary Stats Cards
-                      Padding(
-                        padding: EdgeInsets.all(spacingMedium),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: EdgeInsets.all(spacingMedium),
-                                decoration: BoxDecoration(
-                                  color:
-                                      isDark
-                                          ? const Color(0xFF2C2018)
-                                          : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color:
-                                        isDark
-                                            ? const Color(0xFF44403C)
-                                            : const Color(0xFFE7E5E4),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.payments,
-                                          size: (20 * textScaleFactor).clamp(18.0, 24.0),
-                                          color:
-                                              isDark
-                                                  ? const Color(
-                                                    0xFF9A6C4C,
-                                                  )
-                                                  : const Color(
-                                                    0xFF9A6C4C,
-                                                  ),
-                                        ),
-                                        SizedBox(width: spacingSmall / 2),
-                                        Flexible(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'TOTAL VENDIDO',
-                                              style: TextStyle(
-                                                fontSize: smallFontSize * 0.8,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 1.2,
-                                                color:
-                                                    isDark
-                                                        ? const Color(
-                                                          0xFF9A6C4C,
-                                                        )
-                                                        : const Color(
-                                                          0xFF9A6C4C,
-                                                        ),
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: spacingSmall),
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        NumberFormat.currency(
-                                          symbol: '\$',
-                                          decimalDigits: 2,
-                                        ).format(_totalVentasHoy),
-                                        style: TextStyle(
-                                          fontSize: largeFontSize,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              isDark
-                                                  ? Colors.white
-                                                  : const Color(0xFF1B130D),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: spacingMedium),
-                            Expanded(
-                              child: Container(
-                                padding: EdgeInsets.all(spacingMedium),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.red.shade100,
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.delete,
-                                          size: (20 * textScaleFactor).clamp(18.0, 24.0),
-                                          color: Colors.red.shade600,
-                                        ),
-                                        SizedBox(width: spacingSmall / 2),
-                                        Flexible(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'DESPERDICIO',
-                                              style: TextStyle(
-                                                fontSize: smallFontSize * 0.8,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 1.2,
-                                                color: Colors.red.shade600,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: spacingSmall),
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '$_totalDesperdicio Unid.',
-                                        style: TextStyle(
-                                          fontSize: largeFontSize,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.red.shade700,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Products by Category
-                      ..._getProductosAgrupadosPorCategoria().entries.map<Widget>((
-                        entry,
-                      ) {
-                        final categoriaId = entry.key;
-                        final productos = entry.value;
-                        final categoria =
-                            categoriaId != null
-                                ? _categoriasMap[categoriaId]
-                                : null;
-
-                        // Skip productos que no requieren conteo (como bebidas)
-                        final productosConConteo = productos;
-
-                        if (productosConConteo.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: paddingHorizontal,
-                                vertical: spacingSmall,
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 4,
-                                    height: (24 * textScaleFactor).clamp(20.0, 28.0),
-                                    decoration: BoxDecoration(
-                                      color: primaryColor,
-                                      borderRadius: BorderRadius.circular(
-                                        2,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: spacingSmall),
-                                  Flexible(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        categoria?.nombre ?? 'Sin Categoría',
-                                        style: TextStyle(
-                                          fontSize: titleFontSize,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              isDark
-                                                  ? Colors.white
-                                                  : const Color(0xFF1B130D),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ...productosConConteo.map((producto) {
-                              return _buildProductCard(
-                                producto: producto,
-                                isDark: isDark,
-                                primaryColor: primaryColor,
-                                textScaleFactor: textScaleFactor,
-                                isSmallScreen: isSmallScreen,
-                                isVerySmallScreen: isVerySmallScreen,
-                                titleFontSize: titleFontSize,
-                                bodyFontSize: bodyFontSize,
-                                smallFontSize: smallFontSize,
-                                largeFontSize: largeFontSize,
-                                spacingSmall: spacingSmall,
-                                spacingMedium: spacingMedium,
-                                paddingHorizontal: paddingHorizontal,
-                              );
-                            }),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Sticky Bottom Actions
-            Container(
-              padding: EdgeInsets.only(
-                left: paddingHorizontal,
-                right: paddingHorizontal,
-                top: paddingVertical,
-                bottom: mediaQuery.padding.bottom + paddingVertical,
-              ),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF2C2018) : Colors.white,
-                border: Border(
-                  top: BorderSide(
-                    color:
-                        isDark
-                            ? const Color(0xFF44403C)
-                            : const Color(0xFFE7E5E4),
-                    width: 1,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Verificaste todo?',
-                            style: TextStyle(
-                              fontSize: bodyFontSize,
-                              fontWeight: FontWeight.w500,
-                              color:
-                                  isDark
-                                      ? Colors.grey.shade400
-                                      : const Color(0xFF9A6C4C),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          // TODO: Implementar reportar problema
-                        },
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'Reportar problema',
-                            style: TextStyle(
-                              fontSize: smallFontSize,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: spacingMedium),
-                  SizedBox(
-                    width: double.infinity,
-                    height: (56 * textScaleFactor).clamp(48.0, 64.0),
-                    child: ElevatedButton(
-                      onPressed:
-                          _aperturaId == null
-                              ? () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      '⚠️ No puedes cerrar el día sin una apertura. Debes abrir la tienda primero desde el menú principal.',
-                                    ),
-                                    backgroundColor: Colors.orange,
-                                    duration: Duration(seconds: 4),
-                                  ),
-                                );
-                              }
-                              : () => _showConfirmDialog(
-                                context,
-                                isDark,
-                                primaryColor,
-                                textScaleFactor: textScaleFactor,
-                                isSmallScreen: isSmallScreen,
-                                titleFontSize: titleFontSize,
-                                bodyFontSize: bodyFontSize,
-                                smallFontSize: smallFontSize,
-                                spacingSmall: spacingSmall,
-                                spacingMedium: spacingMedium,
-                                paddingHorizontal: paddingHorizontal,
-                              ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _aperturaId == null ? Colors.grey : primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: _aperturaId == null ? 0 : 4,
-                        shadowColor:
-                            _aperturaId == null
-                                ? null
-                                : primaryColor.withOpacity(0.3),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _aperturaId == null
-                                  ? Icons.lock_outline
-                                  : Icons.lock,
-                              size: (24 * textScaleFactor).clamp(20.0, 28.0),
-                            ),
-                            SizedBox(width: spacingSmall),
-                            Text(
-                              _aperturaId == null ? 'SIN APERTURA' : 'CERRAR DÍA',
-                              style: TextStyle(
-                                fontSize: bodyFontSize * 1.1,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -785,8 +812,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
     final sobrantes = _sobrantes[producto.id] ?? 0;
     final vencido = _vencido[producto.id] ?? 0;
 
-    final iconSize = (isVerySmallScreen ? 40.0 : 48.0) * textScaleFactor.clamp(0.9, 1.1);
-    
+    final iconSize =
+        (isVerySmallScreen ? 40.0 : 48.0) * textScaleFactor.clamp(0.9, 1.1);
+
     return Container(
       margin: EdgeInsets.symmetric(
         horizontal: paddingHorizontal,
@@ -820,7 +848,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         style: TextStyle(
                           fontSize: titleFontSize,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -866,9 +895,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
 
           // Existencia Final
           Container(
-            padding: EdgeInsets.all(
-              (12 * textScaleFactor).clamp(8.0, 16.0),
-            ),
+            padding: EdgeInsets.all((12 * textScaleFactor).clamp(8.0, 16.0)),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
               borderRadius: BorderRadius.circular(8),
@@ -886,7 +913,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         fontSize: bodyFontSize,
                         fontWeight: FontWeight.w600,
                         color:
-                            isDark ? Colors.grey.shade200 : const Color(0xFF1B130D),
+                            isDark
+                                ? Colors.grey.shade200
+                                : const Color(0xFF1B130D),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1030,7 +1059,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
   }) {
     final buttonSize = (40.0 * textScaleFactor).clamp(36.0, 48.0);
     final textWidth = (48.0 * textScaleFactor).clamp(40.0, 56.0);
-    
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C2018) : Colors.white,
@@ -1127,7 +1156,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
     final height = (32.0 * textScaleFactor).clamp(28.0, 40.0);
     final buttonWidth = (24.0 * textScaleFactor).clamp(20.0, 32.0);
     final textWidth = (32.0 * textScaleFactor).clamp(28.0, 40.0);
-    
+
     return Container(
       height: height,
       decoration: BoxDecoration(
@@ -1282,7 +1311,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
                     style: TextStyle(
                       fontSize: bodyFontSize,
                       color:
-                          isDark ? Colors.grey.shade400 : const Color(0xFF9A6C4C),
+                          isDark
+                              ? Colors.grey.shade400
+                              : const Color(0xFF9A6C4C),
                       height: 1.5,
                     ),
                     maxLines: 3,
@@ -1298,7 +1329,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       fontSize: bodyFontSize * 1.1,
                       fontWeight: FontWeight.bold,
                       color:
-                          isDark ? Colors.grey.shade300 : const Color(0xFF1B130D),
+                          isDark
+                              ? Colors.grey.shade300
+                              : const Color(0xFF1B130D),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1342,19 +1375,31 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         );
 
                         if (exito) {
-                          // Navegar directamente al dashboard usando el contexto de la página principal
+                          // Cerrar sesión y navegar al login
                           if (pageContext.mounted) {
-                            Navigator.of(pageContext).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => DashboardPage(
-                                      sucursal: widget.sucursal,
-                                      currentUser: widget.currentUser,
-                                    ),
+                            // Mostrar mensaje de éxito
+                            ScaffoldMessenger.of(pageContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  '✓ Cierre del día completado exitosamente. Cerrando sesión...',
+                                ),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
                               ),
-                              (route) =>
-                                  false, // Elimina todas las rutas anteriores
                             );
+                            
+                            // Esperar un momento para que se vea el mensaje
+                            await Future.delayed(const Duration(seconds: 1));
+                            
+                            // Navegar al login y limpiar todo el stack
+                            if (pageContext.mounted) {
+                              Navigator.of(pageContext).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginPage(),
+                                ),
+                                (route) => false, // Elimina todas las rutas anteriores
+                              );
+                            }
                           }
                         } else {
                           // Mostrar error si falla

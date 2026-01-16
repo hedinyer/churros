@@ -443,7 +443,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
 
     // Deshabilitar escalado de texto del sistema
     final mediaQueryWithoutTextScale = mediaQuery.copyWith(
-      textScaleFactor: 1.0,
+      textScaler: TextScaler.linear(1.0),
     );
 
     return MediaQuery(

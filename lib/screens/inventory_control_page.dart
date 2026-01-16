@@ -172,7 +172,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
 
     // Deshabilitar escalado de texto del sistema
     final mediaQueryWithoutTextScale = mediaQuery.copyWith(
-      textScaleFactor: 1.0,
+      textScaler: TextScaler.linear(1.0),
     );
 
     return MediaQuery(
@@ -1177,7 +1177,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                             final dialogMediaQueryWithoutTextScale =
                                 MediaQuery.of(
                                   context,
-                                ).copyWith(textScaleFactor: 1.0);
+                                ).copyWith(textScaler: TextScaler.linear(1.0));
 
                             return MediaQuery(
                               data: dialogMediaQueryWithoutTextScale,

@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 import '../models/sucursal.dart';
 import '../models/user.dart';
 import '../services/supabase_service.dart';
+import '../widgets/onboarding_overlay.dart';
 import 'store_opening_page.dart';
 import 'quick_sale_page.dart';
 import 'inventory_control_page.dart';
 import 'day_closing_page.dart';
+import 'factory_order_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -28,10 +30,46 @@ class _DashboardPageState extends State<DashboardPage> {
   double _porcentajeVsAyer = 0.0;
   bool _isLoadingVentas = true;
 
+  // GlobalKeys para el onboarding
+  final GlobalKey _storeOpeningKey = GlobalKey();
+  final GlobalKey _quickSaleKey = GlobalKey();
+  final GlobalKey _inventoryKey = GlobalKey();
+  final GlobalKey _closingKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _loadVentasHoy();
+    _checkAndShowOnboarding();
+  }
+
+  Future<void> _checkAndShowOnboarding() async {
+    // Esperar a que el widget se construya completamente y los widgets estén renderizados
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    if (!mounted) return;
+    
+    final isCompleted = await OnboardingOverlay.isCompleted();
+    if (!isCompleted) {
+      // Esperar un poco más para asegurar que los widgets están completamente renderizados
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        _showOnboarding();
+      }
+    }
+  }
+
+  void _showOnboarding() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => OnboardingOverlay(
+        storeOpeningKey: _storeOpeningKey,
+        quickSaleKey: _quickSaleKey,
+        inventoryKey: _inventoryKey,
+        closingKey: _closingKey,
+      ),
+    );
   }
 
   Future<void> _loadVentasHoy() async {
@@ -67,7 +105,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     // Deshabilitar escalado de texto del sistema
     final mediaQueryWithoutTextScale = mediaQuery.copyWith(
-      textScaleFactor: 1.0,
+      textScaler: TextScaler.linear(1.0),
     );
 
     return MediaQuery(
@@ -311,6 +349,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               );
                             },
                             child: Container(
+                              key: _quickSaleKey,
                               decoration: BoxDecoration(
                                 color: primaryColor,
                                 borderRadius: BorderRadius.circular(24),
@@ -404,6 +443,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                           // Apertura de Punto
                           _buildActionButton(
+                            key: _storeOpeningKey,
                             context: context,
                             isDark: isDark,
                             icon: Icons.storefront,
@@ -427,6 +467,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                           // Control de Inventario
                           _buildActionButton(
+                            key: _inventoryKey,
                             context: context,
                             isDark: isDark,
                             icon: Icons.inventory_2,
@@ -450,6 +491,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                           // Cierre de Día
                           _buildActionButton(
+                            key: _closingKey,
                             context: context,
                             isDark: isDark,
                             icon: Icons.lock_clock,
@@ -463,6 +505,30 @@ class _DashboardPageState extends State<DashboardPage> {
                                 MaterialPageRoute(
                                   builder:
                                       (context) => DayClosingPage(
+                                        sucursal: widget.sucursal,
+                                        currentUser: widget.currentUser,
+                                      ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Pedido a Fábrica
+                          _buildActionButton(
+                            key: null,
+                            context: context,
+                            isDark: isDark,
+                            icon: Icons.factory,
+                            iconColor: Colors.purple,
+                            backgroundColor: Colors.purple,
+                            backgroundIcon: Icons.factory,
+                            title: 'Pedido a\nFábrica',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => FactoryOrderPage(
                                         sucursal: widget.sucursal,
                                         currentUser: widget.currentUser,
                                       ),
@@ -484,6 +550,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildActionButton({
+    Key? key,
     required BuildContext context,
     required bool isDark,
     required IconData icon,
@@ -496,6 +563,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        key: key,
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(24),

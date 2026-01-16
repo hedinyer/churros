@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/supabase_service.dart';
 import 'screens/dashboard_page.dart';
+import 'screens/factory_dashboard_page.dart';
+import 'screens/deliveries_page.dart';
 import 'models/user.dart';
 import 'models/sucursal.dart';
 
@@ -183,6 +185,9 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (user != null) {
+        // Convertir a AppUser
+        final appUser = AppUser.fromJson(user);
+
         // Login exitoso
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -193,37 +198,60 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
 
-          // Convertir a AppUser
-          final appUser = AppUser.fromJson(user);
-
-          // Obtener la sucursal del usuario
-          Sucursal? sucursal;
-          if (appUser.sucursalId != null) {
-            sucursal = await SupabaseService.getSucursalById(
-              appUser.sucursalId!,
-            );
-          }
-
-          // Si no tiene sucursal asignada o no se encontró, obtener la principal
-          sucursal ??= await SupabaseService.getSucursalPrincipal();
-
-          if (sucursal != null) {
-            // Navegar al dashboard con la información del usuario y sucursal
+          // Verificar el tipo de usuario
+          if (appUser.type == 2) {
+            // Usuario tipo 2: Dashboard de fábrica
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder:
-                    (context) => DashboardPage(
-                      sucursal: sucursal!,
-                      currentUser: appUser,
-                    ),
+                    (context) => FactoryDashboardPage(currentUser: appUser),
               ),
             );
+          } else if (appUser.type == 3) {
+            // Usuario tipo 3: Domicilios y Entregas
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DeliveriesPage()),
+            );
+          } else if (appUser.type == 1) {
+            // Usuario tipo 1: Dashboard de punto de venta
+            // Obtener la sucursal del usuario
+            Sucursal? sucursal;
+            if (appUser.sucursalId != null) {
+              sucursal = await SupabaseService.getSucursalById(
+                appUser.sucursalId!,
+              );
+            }
+
+            // Si no tiene sucursal asignada o no se encontró, obtener la principal
+            sucursal ??= await SupabaseService.getSucursalPrincipal();
+
+            if (sucursal != null) {
+              // Navegar al dashboard con la información del usuario y sucursal
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => DashboardPage(
+                        sucursal: sucursal!,
+                        currentUser: appUser,
+                      ),
+                ),
+              );
+            } else {
+              // Si no hay sucursal disponible, mostrar error
+              if (mounted) {
+                _showError(
+                  'No se pudo obtener la información de la sucursal. Contacta al administrador.',
+                );
+              }
+            }
           } else {
-            // Si no hay sucursal disponible, mostrar error
+            // Tipo de usuario no reconocido
             if (mounted) {
               _showError(
-                'No se pudo obtener la información de la sucursal. Contacta al administrador.',
+                'No tienes permisos para acceder a esta aplicación. Contacta al administrador.',
               );
             }
           }
