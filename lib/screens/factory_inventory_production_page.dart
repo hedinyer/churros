@@ -72,13 +72,10 @@ class _FactoryInventoryProductionPageState extends State<FactoryInventoryProduct
       // Cargar inventario actual de fábrica
       final inventario = await SupabaseService.getInventarioFabricaCompleto();
 
-      // Inicializar controllers con las cantidades actuales
+      // Inicializar controllers vacíos (para ingresar cantidad producida)
       final cantidadControllers = <int, TextEditingController>{};
       for (final producto in productosFiltrados) {
-        final cantidadActual = inventario[producto.id] ?? 0;
-        cantidadControllers[producto.id] = TextEditingController(
-          text: cantidadActual.toString(),
-        );
+        cantidadControllers[producto.id] = TextEditingController();
       }
 
       setState(() {
@@ -103,18 +100,18 @@ class _FactoryInventoryProductionPageState extends State<FactoryInventoryProduct
     if (cantidadTexto.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor ingresa una cantidad'),
+          content: Text('Por favor ingresa una cantidad producida'),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    final cantidad = int.tryParse(cantidadTexto);
-    if (cantidad == null || cantidad < 0) {
+    final cantidadProducida = int.tryParse(cantidadTexto);
+    if (cantidadProducida == null || cantidadProducida <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('La cantidad debe ser un número mayor o igual a 0'),
+          content: Text('La cantidad producida debe ser un número mayor a 0'),
           backgroundColor: Colors.red,
         ),
       );
@@ -126,20 +123,28 @@ class _FactoryInventoryProductionPageState extends State<FactoryInventoryProduct
     });
 
     try {
+      // Obtener cantidad actual
+      final cantidadActual = _inventarioActual[productoId] ?? 0;
+      
+      // Sumar la cantidad producida a la cantidad actual
+      final nuevaCantidad = cantidadActual + cantidadProducida;
+
       final exito = await SupabaseService.actualizarInventarioFabrica(
         productoId: productoId,
-        cantidad: cantidad,
+        cantidad: nuevaCantidad,
       );
 
       if (exito) {
         setState(() {
-          _inventarioActual[productoId] = cantidad;
+          _inventarioActual[productoId] = nuevaCantidad;
+          // Vaciar el campo de texto para permitir ingresar otra cantidad
+          controller.clear();
         });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Cantidad actualizada exitosamente'),
+              content: Text('Se agregaron $cantidadProducida unidades. Total: $nuevaCantidad'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
             ),
@@ -393,13 +398,14 @@ class _FactoryInventoryProductionPageState extends State<FactoryInventoryProduct
           TextField(
             controller: controller,
             decoration: InputDecoration(
-              labelText: 'Cantidad producida',
-              hintText: 'Ingresa la cantidad',
+              labelText: 'Cantidad producida a agregar',
+              hintText: 'Ingresa la cantidad producida',
+              helperText: 'Esta cantidad se sumará al inventario actual',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
               suffixText: producto.unidadMedida,
-              prefixIcon: const Icon(Icons.inventory_2),
+              prefixIcon: const Icon(Icons.add_circle_outline),
             ),
             keyboardType: TextInputType.number,
             style: TextStyle(

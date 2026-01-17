@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/pedido_cliente.dart';
+import '../models/empleado.dart';
 import '../services/supabase_service.dart';
 
 class ExpensesPage extends StatefulWidget {
@@ -51,9 +52,18 @@ class _ExpensesPageState extends State<ExpensesPage> {
     final descripcionController = TextEditingController();
     final montoController = TextEditingController();
     final categoriaController = TextEditingController();
-    String tipoGasto = 'compra'; // 'compra', 'pago', 'otro'
+    String tipoGasto = 'compra'; // 'compra', 'pago', 'otro', 'nomina'
+    Empleado? empleadoSeleccionado;
+    List<Empleado> empleados = [];
 
-    final resultado = await showDialog<bool>(
+    // Cargar empleados
+    try {
+      empleados = await SupabaseService.getEmpleadosActivos();
+    } catch (e) {
+      print('Error cargando empleados: $e');
+    }
+
+    final resultado = await showDialog<Map<String, dynamic>?>(
       context: context,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -84,7 +94,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           selected: tipoGasto == 'compra',
                           onSelected: (selected) {
                             if (selected) {
-                              setDialogState(() => tipoGasto = 'compra');
+                              setDialogState(() {
+                                tipoGasto = 'compra';
+                                empleadoSeleccionado = null;
+                                descripcionController.clear();
+                              });
                             }
                           },
                         ),
@@ -93,7 +107,24 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           selected: tipoGasto == 'pago',
                           onSelected: (selected) {
                             if (selected) {
-                              setDialogState(() => tipoGasto = 'pago');
+                              setDialogState(() {
+                                tipoGasto = 'pago';
+                                empleadoSeleccionado = null;
+                                descripcionController.clear();
+                              });
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Nómina'),
+                          selected: tipoGasto == 'nomina',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setDialogState(() {
+                                tipoGasto = 'nomina';
+                                empleadoSeleccionado = null;
+                                descripcionController.clear();
+                              });
                             }
                           },
                         ),
@@ -102,30 +133,77 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           selected: tipoGasto == 'otro',
                           onSelected: (selected) {
                             if (selected) {
-                              setDialogState(() => tipoGasto = 'otro');
+                              setDialogState(() {
+                                tipoGasto = 'otro';
+                                empleadoSeleccionado = null;
+                                descripcionController.clear();
+                              });
                             }
                           },
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
+                    // Selector de empleado (solo para nómina)
+                    if (tipoGasto == 'nomina') ...[
+                      Text(
+                        'Empleado',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButton<Empleado>(
+                          value: empleadoSeleccionado,
+                          hint: const Text('Selecciona un empleado'),
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          items: empleados.map((empleado) {
+                            return DropdownMenuItem<Empleado>(
+                              value: empleado,
+                              child: Text(empleado.nombre),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              empleadoSeleccionado = value;
+                              if (value != null) {
+                                descripcionController.text = 'Nómina - ${value.nombre}';
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextField(
                       controller: descripcionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Descripción',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: tipoGasto == 'nomina' ? 'Descripción (automática)' : 'Descripción',
+                        border: const OutlineInputBorder(),
+                        enabled: tipoGasto != 'nomina',
                       ),
                       maxLines: 2,
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: categoriaController,
-                      decoration: const InputDecoration(
-                        labelText: 'Categoría (opcional)',
-                        border: OutlineInputBorder(),
-                        hintText: 'Ej: Insumos, Servicios, etc.',
+                    if (tipoGasto != 'nomina') ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: categoriaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Categoría (opcional)',
+                          border: OutlineInputBorder(),
+                          hintText: 'Ej: Insumos, Servicios, etc.',
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 16),
                     TextField(
                       controller: montoController,
@@ -141,11 +219,26 @@ class _ExpensesPageState extends State<ExpensesPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context, false),
+                  onPressed: () => Navigator.pop(context, null),
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
+                  onPressed: () {
+                    // Validar que si es nómina, haya un empleado seleccionado
+                    if (tipoGasto == 'nomina' && empleadoSeleccionado == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Debes seleccionar un empleado'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.pop(context, {
+                      'tipo': tipoGasto,
+                      'empleado': empleadoSeleccionado,
+                    });
+                  },
                   child: const Text('Guardar'),
                 ),
               ],
@@ -155,11 +248,12 @@ class _ExpensesPageState extends State<ExpensesPage> {
       },
     );
 
-    if (resultado != true) return;
+    if (resultado == null) return;
 
     final descripcion = descripcionController.text.trim();
     final categoria = categoriaController.text.trim();
     final monto = double.tryParse(montoController.text.trim());
+    final empleado = resultado['empleado'] as Empleado?;
 
     if (descripcion.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,11 +275,22 @@ class _ExpensesPageState extends State<ExpensesPage> {
       return;
     }
 
+    if (resultado['tipo'] == 'nomina' && empleado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes seleccionar un empleado'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final exito = await SupabaseService.crearGastoVario(
       descripcion: descripcion,
       monto: monto,
-      tipo: tipoGasto,
+      tipo: resultado['tipo'] as String,
       categoria: categoria.isEmpty ? null : categoria,
+      empleadoId: empleado?.id,
     );
 
     if (exito) {

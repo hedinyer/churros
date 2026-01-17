@@ -13,6 +13,7 @@ class ClientOrdersListPage extends StatefulWidget {
 
 class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
   List<PedidoCliente> _pedidos = [];
+  Map<int, bool> _esRecurrente = {}; // pedidoId -> esRecurrente
   List<Producto> _productos = [];
   String _filtroEstado =
       'todos'; // 'todos', 'pendiente', 'en_preparacion', 'enviado', 'entregado'
@@ -52,14 +53,27 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       // Cargar productos para mostrar nombres
       final productos = await SupabaseService.getProductosActivos();
 
-      // Cargar pedidos de clientes
+      // Cargar pedidos de clientes y pedidos recurrentes
       final pedidos = await SupabaseService.getPedidosClientesRecientes(
         limit: 100,
       );
+      final pedidosRecurrentes =
+          await SupabaseService.getPedidosRecurrentesRecientes(limit: 100);
+
+      // Crear mapa para identificar pedidos recurrentes
+      final esRecurrenteMap = <int, bool>{};
+      for (final pedido in pedidosRecurrentes) {
+        esRecurrenteMap[pedido.id] = true;
+      }
+
+      // Combinar ambos tipos de pedidos y ordenar por fecha
+      final todosLosPedidos = [...pedidos, ...pedidosRecurrentes];
+      todosLosPedidos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() {
         _productos = productos;
-        _pedidos = pedidos;
+        _pedidos = todosLosPedidos;
+        _esRecurrente = esRecurrenteMap;
         _isLoading = false;
       });
     } catch (e) {
@@ -129,31 +143,31 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
   }
 
   bool _puedeDespachar(String estado) {
-    return estado == 'pendiente' ||
-        estado == 'en_preparacion';
+    return estado == 'pendiente' || estado == 'en_preparacion';
   }
 
   Future<void> _despacharPedido(PedidoCliente pedido) async {
     // Confirmar antes de despachar
     final confirmado = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar despacho'),
-        content: Text(
-          '¿Deseas despachar el pedido ${pedido.numeroPedido ?? '#${pedido.id}'}?\n\n'
-          'Esto cambiará el estado a "Enviado" y descontará el inventario.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmar despacho'),
+            content: Text(
+              '¿Deseas despachar el pedido ${pedido.numeroPedido ?? '#${pedido.id}'}?\n\n'
+              'Esto cambiará el estado a "Enviado" y descontará el inventario.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirmar'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
     );
 
     if (confirmado != true) return;
@@ -163,18 +177,27 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
     }
 
     try {
-      // Actualizar estado a "enviado" (esto validará inventario y descontará automáticamente)
-      final resultado = await SupabaseService.actualizarEstadoPedidoCliente(
-        pedidoId: pedido.id,
-        nuevoEstado: 'enviado',
-      );
+      // Determinar si es un pedido recurrente
+      final esRecurrente = _esRecurrente[pedido.id] == true;
+
+      print('Despachando pedido ${pedido.id} - Es recurrente: $esRecurrente');
+
+      // Actualizar estado a "enviado" según el tipo de pedido
+      final resultado =
+          esRecurrente
+              ? await SupabaseService.actualizarEstadoPedidoRecurrente(
+                pedidoId: pedido.id,
+                nuevoEstado: 'enviado',
+              )
+              : await SupabaseService.actualizarEstadoPedidoCliente(
+                pedidoId: pedido.id,
+                nuevoEstado: 'enviado',
+              );
 
       // Cerrar indicador de carga
       if (mounted) {
@@ -195,7 +218,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
         await _loadData();
       } else {
         if (mounted) {
-          final mensaje = resultado['mensaje'] as String? ?? 'Error al despachar el pedido';
+          final mensaje =
+              resultado['mensaje'] as String? ?? 'Error al despachar el pedido';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(mensaje),
@@ -210,10 +234,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -389,8 +410,9 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                       isDark: isDark,
                       label: 'En Preparación',
                       isSelected: _filtroEstado == 'en_preparacion',
-                      onTap: () =>
-                          setState(() => _filtroEstado = 'en_preparacion'),
+                      onTap:
+                          () =>
+                              setState(() => _filtroEstado = 'en_preparacion'),
                       color: Colors.orange,
                     ),
                     const SizedBox(width: 8),
@@ -416,64 +438,65 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
 
             // Lista de pedidos
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : (pedidosFiltrados.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 64,
-                                color:
-                                    isDark
-                                        ? const Color(0xFFA8A29E)
-                                        : const Color(0xFF78716C),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No hay pedidos',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      isDark
-                                          ? Colors.white
-                                          : const Color(0xFF1B130D),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No se encontraron pedidos con el filtro seleccionado',
-                                style: TextStyle(
-                                  fontSize: 14,
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : (pedidosFiltrados.isEmpty
+                          ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.inbox_outlined,
+                                  size: 64,
                                   color:
                                       isDark
                                           ? const Color(0xFFA8A29E)
                                           : const Color(0xFF78716C),
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 16 : 20,
-                            vertical: 16,
-                          ),
-                          itemCount: pedidosFiltrados.length,
-                          itemBuilder: (context, index) {
-                            final pedido = pedidosFiltrados[index];
-                            return _buildOrderCard(
-                              isDark: isDark,
-                              pedido: pedido,
-                              primaryColor: primaryColor,
-                              isSmallScreen: isSmallScreen,
-                            );
-                          },
-                        )),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No hay pedidos',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1B130D),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No se encontraron pedidos con el filtro seleccionado',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          )
+                          : ListView.builder(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 16 : 20,
+                              vertical: 16,
+                            ),
+                            itemCount: pedidosFiltrados.length,
+                            itemBuilder: (context, index) {
+                              final pedido = pedidosFiltrados[index];
+                              return _buildOrderCard(
+                                isDark: isDark,
+                                pedido: pedido,
+                                primaryColor: primaryColor,
+                                isSmallScreen: isSmallScreen,
+                              );
+                            },
+                          )),
             ),
           ],
         ),
@@ -594,16 +617,63 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  pedido.numeroPedido ?? 'Pedido #${pedido.id}',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color:
-                                        isDark
-                                            ? Colors.white
-                                            : const Color(0xFF1B130D),
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        pedido.numeroPedido ??
+                                            'Pedido #${pedido.id}',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1B130D),
+                                        ),
+                                      ),
+                                    ),
+                                    if (_esRecurrente[pedido.id] == true)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.teal.withOpacity(
+                                            isDark ? 0.2 : 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.teal.withOpacity(
+                                              isDark ? 0.3 : 0.2,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.repeat,
+                                              size: 12,
+                                              color: Colors.teal,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Recurrente',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.teal,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
@@ -693,98 +763,21 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                       // Información responsive - se adapta a pantallas pequeñas
                       isSmallScreen
                           ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.access_time,
-                                      size: 14,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        '$timeAgo • $fechaHora',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color:
-                                              isDark
-                                                  ? const Color(0xFFA8A29E)
-                                                  : const Color(0xFF78716C),
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.shopping_cart,
-                                      size: 14,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${pedido.totalItems} items',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Icon(
-                                      Icons.attach_money,
-                                      size: 14,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _formatCurrency(pedido.total),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color:
-                                            isDark
-                                                ? Colors.white
-                                                : const Color(0xFF1B130D),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          : Wrap(
-                              spacing: 16,
-                              runSpacing: 8,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.access_time,
-                                      size: 14,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
                                       '$timeAgo • $fechaHora',
                                       style: TextStyle(
                                         fontSize: 12,
@@ -793,60 +786,137 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                                 ? const Color(0xFFA8A29E)
                                                 : const Color(0xFF78716C),
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ],
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.shopping_cart,
-                                      size: 14,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.shopping_cart,
+                                    size: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${pedido.totalItems} items',
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
                                               : const Color(0xFF78716C),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${pedido.totalItems} items',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Icon(
+                                    Icons.attach_money,
+                                    size: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatCurrency(pedido.total),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          isDark
+                                              ? Colors.white
+                                              : const Color(0xFF1B130D),
                                     ),
-                                  ],
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.attach_money,
-                                      size: 14,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                          : Wrap(
+                            spacing: 16,
+                            runSpacing: 8,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$timeAgo • $fechaHora',
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
                                               : const Color(0xFF78716C),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _formatCurrency(pedido.total),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color:
-                                            isDark
-                                                ? Colors.white
-                                                : const Color(0xFF1B130D),
-                                      ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.shopping_cart,
+                                    size: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${pedido.totalItems} items',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          isDark
+                                              ? const Color(0xFFA8A29E)
+                                              : const Color(0xFF78716C),
                                     ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.attach_money,
+                                    size: 14,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatCurrency(pedido.total),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          isDark
+                                              ? Colors.white
+                                              : const Color(0xFF1B130D),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                     ],
                   ),
                 ),
@@ -919,7 +989,9 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                   ),
                   const SizedBox(height: 8),
                   ...pedido.detalles!.map((detalle) {
-                    final producto = detalle.producto ?? _getProductoById(detalle.productoId);
+                    final producto =
+                        detalle.producto ??
+                        _getProductoById(detalle.productoId);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(

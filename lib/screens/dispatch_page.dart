@@ -15,6 +15,7 @@ class DispatchPage extends StatefulWidget {
 class _DispatchPageState extends State<DispatchPage> {
   List<PedidoFabrica> _pedidosFabrica = [];
   List<PedidoCliente> _pedidosClientes = [];
+  List<PedidoCliente> _pedidosRecurrentes = [];
   List<Producto> _productos = [];
   String _filtroEstado = 'todos'; // 'todos', 'enviado', 'entregado'
   bool _isLoading = true;
@@ -53,11 +54,14 @@ class _DispatchPageState extends State<DispatchPage> {
       // Cargar productos para mostrar nombres
       final productos = await SupabaseService.getProductosActivos();
 
-      // Cargar pedidos de fábrica y clientes para despacho
+      // Cargar pedidos de fábrica, clientes y recurrentes para despacho
       final pedidosFabrica = await SupabaseService.getPedidosFabricaParaDespacho(
         limit: 100,
       );
       final pedidosClientes = await SupabaseService.getPedidosClientesParaDespacho(
+        limit: 100,
+      );
+      final pedidosRecurrentes = await SupabaseService.getPedidosRecurrentesParaDespacho(
         limit: 100,
       );
 
@@ -65,6 +69,7 @@ class _DispatchPageState extends State<DispatchPage> {
         _productos = productos;
         _pedidosFabrica = pedidosFabrica;
         _pedidosClientes = pedidosClientes;
+        _pedidosRecurrentes = pedidosRecurrentes;
         _isLoading = false;
       });
     } catch (e) {
@@ -89,6 +94,13 @@ class _DispatchPageState extends State<DispatchPage> {
     for (var pedido in _pedidosClientes) {
       if (_filtroEstado == 'todos' || pedido.estado == _filtroEstado) {
         todosPedidos.add({'tipo': 'cliente', 'pedido': pedido});
+      }
+    }
+    
+    // Agregar pedidos recurrentes
+    for (var pedido in _pedidosRecurrentes) {
+      if (_filtroEstado == 'todos' || pedido.estado == _filtroEstado) {
+        todosPedidos.add({'tipo': 'recurrente', 'pedido': pedido});
       }
     }
     
@@ -170,6 +182,11 @@ class _DispatchPageState extends State<DispatchPage> {
     if (tipo == 'fabrica') {
       resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
         pedidoId: (pedido as PedidoFabrica).id,
+        nuevoEstado: 'entregado',
+      );
+    } else if (tipo == 'recurrente') {
+      resultado = await SupabaseService.actualizarEstadoPedidoRecurrente(
+        pedidoId: (pedido as PedidoCliente).id,
         nuevoEstado: 'entregado',
       );
     } else {
@@ -506,11 +523,14 @@ class _DispatchPageState extends State<DispatchPage> {
         isSmallScreen: isSmallScreen,
       );
     } else {
+      final pedido = pedidoData['pedido'] as PedidoCliente;
+      final esRecurrente = tipo == 'recurrente';
       return _buildPedidoClienteCard(
         isDark: isDark,
-        pedido: pedidoData['pedido'] as PedidoCliente,
+        pedido: pedido,
         primaryColor: primaryColor,
         isSmallScreen: isSmallScreen,
+        esRecurrente: esRecurrente,
       );
     }
   }
@@ -911,6 +931,7 @@ class _DispatchPageState extends State<DispatchPage> {
     required PedidoCliente pedido,
     required Color primaryColor,
     required bool isSmallScreen,
+    bool esRecurrente = false,
   }) {
     final estado = pedido.estado;
     final estadoBadge = _getEstadoBadge(estado);
@@ -952,20 +973,24 @@ class _DispatchPageState extends State<DispatchPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(isDark ? 0.2 : 0.1),
+                    color: (esRecurrente ? Colors.teal : Colors.green).withOpacity(isDark ? 0.2 : 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.chat, size: 12, color: Colors.green),
+                      Icon(
+                        esRecurrente ? Icons.repeat : Icons.chat,
+                        size: 12,
+                        color: esRecurrente ? Colors.teal : Colors.green,
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        'WhatsApp',
+                        esRecurrente ? 'Recurrente' : 'WhatsApp',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: esRecurrente ? Colors.teal : Colors.green,
                         ),
                       ),
                     ],
@@ -1263,7 +1288,7 @@ class _DispatchPageState extends State<DispatchPage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () => _marcarComoEntregado({
-                    'tipo': 'cliente',
+                    'tipo': esRecurrente ? 'recurrente' : 'cliente',
                     'pedido': pedido,
                   }),
                   icon: const Icon(Icons.check_circle, size: 18),

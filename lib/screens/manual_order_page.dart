@@ -16,6 +16,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   final _clienteTelefonoController = TextEditingController();
   final _direccionController = TextEditingController();
   final _observacionesController = TextEditingController();
+  final _domicilioController = TextEditingController();
 
   List<Producto> _productos = [];
   Map<int, int> _cantidades = {}; // productoId -> cantidad
@@ -38,6 +39,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     _clienteTelefonoController.dispose();
     _direccionController.dispose();
     _observacionesController.dispose();
+    _domicilioController.dispose();
     // Dispose de todos los controllers de cantidad
     for (var controller in _cantidadControllers.values) {
       controller.dispose();
@@ -159,6 +161,9 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       );
       total += producto.precio * entry.value;
     }
+    // Agregar domicilio si existe
+    final domicilio = double.tryParse(_domicilioController.text.trim()) ?? 0.0;
+    total += domicilio;
     return total;
   }
 
@@ -194,6 +199,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     });
 
     try {
+      final domicilio = double.tryParse(_domicilioController.text.trim());
+      
       final pedido = await SupabaseService.crearPedidoCliente(
         clienteNombre: _clienteNombreController.text.trim(),
         clienteTelefono: _clienteTelefonoController.text.trim().isEmpty
@@ -205,6 +212,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
             ? null
             : _observacionesController.text.trim(),
         metodoPago: _metodoPago,
+        domicilio: domicilio != null && domicilio > 0 ? domicilio : null,
       );
 
       if (pedido != null && mounted) {
@@ -213,6 +221,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         _clienteTelefonoController.clear();
         _direccionController.clear();
         _observacionesController.clear();
+        _domicilioController.clear();
         setState(() {
           _cantidades.clear();
           _metodoPago = 'efectivo';
@@ -472,6 +481,33 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                 }
                                 return null;
                               },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Valor del Domicilio
+                            TextFormField(
+                              controller: _domicilioController,
+                              decoration: InputDecoration(
+                                labelText: 'Valor del Domicilio (Opcional)',
+                                hintText: 'Ingrese el valor del domicilio',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor:
+                                    isDark
+                                        ? const Color(0xFF2D211A)
+                                        : Colors.white,
+                                prefixText: '\$ ',
+                              ),
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              style: TextStyle(
+                                color:
+                                    isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1B130D),
+                              ),
+                              onChanged: (_) => setState(() {}), // Para actualizar el total
                             ),
                             const SizedBox(height: 16),
 
@@ -760,11 +796,11 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                           : Colors.black.withOpacity(0.05),
                                 ),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         'Total Items: ${_calcularTotalItems()}',
@@ -776,9 +812,51 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                   : const Color(0xFF9A6C4C),
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                    ],
+                                  ),
+                                  if (double.tryParse(_domicilioController.text.trim()) != null && 
+                                      (double.tryParse(_domicilioController.text.trim()) ?? 0) > 0) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Domicilio:',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color:
+                                                isDark
+                                                    ? const Color(0xFF9A6C4C)
+                                                    : const Color(0xFF9A6C4C),
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatCurrency(double.tryParse(_domicilioController.text.trim()) ?? 0),
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color:
+                                                isDark
+                                                    ? const Color(0xFF9A6C4C)
+                                                    : const Color(0xFF9A6C4C),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
                                       Text(
-                                        'Total: ${_formatCurrency(_calcularTotal())}',
+                                        'Total:',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: primaryColor,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatCurrency(_calcularTotal()),
                                         style: TextStyle(
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,

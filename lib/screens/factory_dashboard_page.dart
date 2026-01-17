@@ -12,6 +12,7 @@ import 'products_management_page.dart';
 import 'employees_management_page.dart';
 import 'factory_inventory_production_page.dart';
 import 'expenses_page.dart';
+import 'recurrent_orders_page.dart';
 
 class FactoryDashboardPage extends StatefulWidget {
   final AppUser currentUser;
@@ -262,6 +263,17 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     final mediaQuery = MediaQuery.of(context);
     final screenWidth = mediaQuery.size.width;
     final isSmallScreen = screenWidth < 600;
+    final isVerySmallScreen = screenWidth < 400;
+    
+    // Tamaños responsive
+    final headerFontSize = isVerySmallScreen ? 16.0 : (isSmallScreen ? 18.0 : 20.0);
+    final sectionTitleFontSize = isVerySmallScreen ? 16.0 : (isSmallScreen ? 18.0 : 20.0);
+    final buttonTitleFontSize = isVerySmallScreen ? 13.0 : (isSmallScreen ? 14.0 : 16.0);
+    final buttonSubtitleFontSize = isVerySmallScreen ? 10.0 : (isSmallScreen ? 11.0 : 12.0);
+    final bottomButtonFontSize = isVerySmallScreen ? 14.0 : (isSmallScreen ? 16.0 : 18.0);
+    final iconSize = isVerySmallScreen ? 20.0 : (isSmallScreen ? 22.0 : 24.0);
+    final buttonPadding = isVerySmallScreen ? 12.0 : (isSmallScreen ? 16.0 : 20.0);
+    final gridSpacing = isVerySmallScreen ? 12.0 : (isSmallScreen ? 14.0 : 16.0);
 
     return Scaffold(
       backgroundColor:
@@ -293,7 +305,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 child: Text(
                   'Fábrica Central',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: headerFontSize,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
@@ -321,7 +333,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                             Text(
                               'Accesos Directos',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: sectionTitleFontSize,
                                 fontWeight: FontWeight.bold,
                                 color:
                                     isDark
@@ -329,14 +341,14 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                         : const Color(0xFF1B130D),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: isVerySmallScreen ? 12 : 16),
                             GridView.count(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               crossAxisCount: 2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: 1.1,
+                              crossAxisSpacing: gridSpacing,
+                              mainAxisSpacing: gridSpacing,
+                              childAspectRatio: isVerySmallScreen ? 1.0 : 1.1,
                               children: [
                                 _buildAccessButton(
                                   isDark: isDark,
@@ -344,6 +356,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   iconColor: Colors.blue,
                                   title: 'Pedidos Puntos',
                                   subtitle: 'App Interna',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   notificationCount: _newFactoryOrdersCount > 0 ? _newFactoryOrdersCount : null,
                                   onTap: () async {
                                     // Resetear contador al entrar
@@ -368,6 +384,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   iconColor: Colors.green,
                                   title: 'Pedidos Clientes',
                                   subtitle: 'WhatsApp',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   notificationCount: _newClientOrdersCount > 0 ? _newClientOrdersCount : null,
                                   onTap: () async {
                                     // Resetear contador al entrar
@@ -388,10 +408,36 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                 ),
                                 _buildAccessButton(
                                   isDark: isDark,
+                                  icon: Icons.repeat,
+                                  iconColor: Colors.teal,
+                                  title: 'Pedido Recurrente',
+                                  subtitle: 'Clientes Fijos',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const RecurrentOrdersPage(),
+                                      ),
+                                    );
+                                    // Actualizar resumen al volver
+                                    _loadData();
+                                  },
+                                ),
+                                _buildAccessButton(
+                                  isDark: isDark,
                                   icon: Icons.restaurant,
                                   iconColor: primaryColor,
                                   title: 'Producción',
                                   subtitle: 'Gestión Cocina',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   onTap: () async {
                                     await Navigator.push(
                                       context,
@@ -410,6 +456,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   iconColor: Colors.grey,
                                   title: 'Despacho',
                                   subtitle: 'Logística',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   notificationCount: _newDeliveredOrdersCount > 0 ? _newDeliveredOrdersCount : null,
                                   onTap: () {
                                     // Resetear contador al entrar
@@ -434,6 +484,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   iconColor: Colors.orange,
                                   title: 'Productos',
                                   subtitle: 'Gestión',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -450,6 +504,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   iconColor: Colors.purple,
                                   title: 'Empleados',
                                   subtitle: 'Gestión',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -466,6 +524,10 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   iconColor: Colors.red,
                                   title: 'Gastos',
                                   subtitle: 'Pagos y Compras',
+                                  titleFontSize: buttonTitleFontSize,
+                                  subtitleFontSize: buttonSubtitleFontSize,
+                                  iconSize: iconSize,
+                                  padding: buttonPadding,
                                   onTap: () async {
                                     await Navigator.push(
                                       context,
@@ -482,8 +544,14 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                             ),
 
                             // Estadísticas Button (Full Width)
-                            const SizedBox(height: 16),
-                            _buildStatsButton(isDark: isDark),
+                            SizedBox(height: isVerySmallScreen ? 12 : 16),
+                            _buildStatsButton(
+                              isDark: isDark,
+                              titleFontSize: buttonTitleFontSize,
+                              subtitleFontSize: buttonSubtitleFontSize,
+                              iconSize: iconSize,
+                              padding: buttonPadding,
+                            ),
 
                             const SizedBox(
                               height: 100,
@@ -539,11 +607,19 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add_circle, size: 24),
-                const SizedBox(width: 8),
-                const Text(
-                  'Registrar Pedido Manual',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Icon(Icons.add_circle, size: isVerySmallScreen ? 20 : (isSmallScreen ? 22 : 24)),
+                SizedBox(width: isVerySmallScreen ? 6 : 8),
+                Flexible(
+                  child: Text(
+                    'Registrar Pedido Manual',
+                    style: TextStyle(
+                      fontSize: bottomButtonFontSize,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -561,11 +637,20 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     required String subtitle,
     int? notificationCount,
     required VoidCallback onTap,
+    double? titleFontSize,
+    double? subtitleFontSize,
+    double? iconSize,
+    double? padding,
   }) {
+    final effectiveTitleFontSize = titleFontSize ?? 16.0;
+    final effectiveSubtitleFontSize = subtitleFontSize ?? 12.0;
+    final effectiveIconSize = iconSize ?? 24.0;
+    final effectivePadding = padding ?? 20.0;
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(effectivePadding),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2D211A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -584,7 +669,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
               top: -8,
               child: Opacity(
                 opacity: 0.1,
-                child: Icon(icon, size: 64, color: iconColor),
+                child: Icon(icon, size: effectiveIconSize * 2.5, color: iconColor),
               ),
             ),
             Column(
@@ -593,13 +678,13 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 Stack(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: effectiveIconSize * 2,
+                      height: effectiveIconSize * 2,
                       decoration: BoxDecoration(
                         color: iconColor.withOpacity(isDark ? 0.2 : 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(icon, color: iconColor, size: 24),
+                      child: Icon(icon, color: iconColor, size: effectiveIconSize),
                     ),
                     if (notificationCount != null && notificationCount > 0)
                       Positioned(
@@ -632,25 +717,29 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: effectivePadding * 0.8),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: effectiveTitleFontSize,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: effectiveSubtitleFontSize,
                     color:
                         isDark
                             ? const Color(0xFF9A6C4C)
                             : const Color(0xFF9A6C4C),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -660,7 +749,18 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     );
   }
 
-  Widget _buildStatsButton({required bool isDark}) {
+  Widget _buildStatsButton({
+    required bool isDark,
+    double? titleFontSize,
+    double? subtitleFontSize,
+    double? iconSize,
+    double? padding,
+  }) {
+    final effectiveTitleFontSize = titleFontSize ?? 16.0;
+    final effectiveSubtitleFontSize = subtitleFontSize ?? 12.0;
+    final effectiveIconSize = iconSize ?? 24.0;
+    final effectivePadding = padding ?? 20.0;
+    
     return GestureDetector(
       onTap: () async {
         await Navigator.push(
@@ -673,7 +773,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
         _loadData();
       },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(effectivePadding),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2D211A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -687,15 +787,15 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: effectiveIconSize * 2,
+              height: effectiveIconSize * 2,
               decoration: BoxDecoration(
                 color: Colors.purple.withOpacity(isDark ? 0.2 : 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.analytics, color: Colors.purple, size: 24),
+              child: Icon(Icons.analytics, color: Colors.purple, size: effectiveIconSize),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: effectivePadding * 0.8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,27 +803,32 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                   Text(
                     'Estadísticas de Fábrica',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: effectiveTitleFontSize,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     'Reportes y métricas',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: effectiveSubtitleFontSize,
                       color:
                           isDark
                               ? const Color(0xFF9A6C4C)
                               : const Color(0xFF9A6C4C),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
             Icon(
               Icons.chevron_right,
+              size: effectiveIconSize,
               color:
                   isDark
                       ? Colors.white.withOpacity(0.4)

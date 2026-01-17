@@ -9,6 +9,7 @@ import 'quick_sale_page.dart';
 import 'inventory_control_page.dart';
 import 'day_closing_page.dart';
 import 'factory_order_page.dart';
+import 'store_expenses_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -529,6 +530,30 @@ class _DashboardPageState extends State<DashboardPage> {
                                 MaterialPageRoute(
                                   builder:
                                       (context) => FactoryOrderPage(
+                                        sucursal: widget.sucursal,
+                                        currentUser: widget.currentUser,
+                                      ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Gastos
+                          _buildActionButton(
+                            key: null,
+                            context: context,
+                            isDark: isDark,
+                            icon: Icons.receipt_long,
+                            iconColor: Colors.red,
+                            backgroundColor: Colors.red,
+                            backgroundIcon: Icons.receipt_long,
+                            title: 'Gastos',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => StoreExpensesPage(
                                         sucursal: widget.sucursal,
                                         currentUser: widget.currentUser,
                                       ),

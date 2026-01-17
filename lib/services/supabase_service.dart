@@ -1557,7 +1557,7 @@ class SupabaseService {
   /// Retorna un Map con 'valido' (bool) y 'productosInsuficientes' (List<Map>)
   static Future<Map<String, dynamic>> validarInventarioParaDespacho({
     required int pedidoId,
-    required String tipoPedido, // 'fabrica' o 'cliente'
+    required String tipoPedido, // 'fabrica', 'cliente' o 'recurrente'
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -1568,6 +1568,8 @@ class SupabaseService {
       // Obtener los detalles del pedido
       final tablaDetalles = tipoPedido == 'fabrica' 
           ? 'pedido_fabrica_detalles' 
+          : tipoPedido == 'recurrente'
+          ? 'pedido_recurrente_detalles'
           : 'pedido_cliente_detalles';
       
       final detallesResponse = await client
@@ -1575,34 +1577,96 @@ class SupabaseService {
           .select('producto_id, cantidad')
           .eq('pedido_id', pedidoId);
 
-      // Obtener inventario actual
-      final inventario = await getInventarioFabricaCompleto();
+      // Para pedidos recurrentes, necesitamos validar diferentes inventarios según el producto
+      if (tipoPedido == 'recurrente') {
+        // Obtener productos para verificar nombres
+        final productos = await getProductosActivos();
+        final productosMap = {for (var p in productos) p.id: p};
 
-      final productosInsuficientes = <Map<String, dynamic>>[];
-
-      // Validar cada producto
-      for (final detalle in detallesResponse) {
-        final productoId = detalle['producto_id'] as int;
-        final cantidadPedida = (detalle['cantidad'] as num?)?.toInt() ?? 0;
-        final cantidadDisponible = inventario[productoId] ?? 0;
-
-        if (cantidadPedida > cantidadDisponible) {
-          // Obtener nombre del producto
-          final producto = await getProductoById(productoId);
-          productosInsuficientes.add({
-            'producto_id': productoId,
-            'producto_nombre': producto?.nombre ?? 'Producto #$productoId',
-            'cantidad_pedida': cantidadPedida,
-            'cantidad_disponible': cantidadDisponible,
-            'faltante': cantidadPedida - cantidadDisponible,
-          });
+        // Obtener inventarios
+        final inventarioFabrica = await getInventarioFabricaCompleto();
+        
+        // Obtener inventario actual de sucursal 5
+        final inventarioActualResponse = await client
+            .from('inventario_actual')
+            .select('producto_id, cantidad')
+            .eq('sucursal_id', 5);
+        final inventarioActual = <int, int>{};
+        for (final item in inventarioActualResponse) {
+          inventarioActual[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
         }
-      }
 
-      return {
-        'valido': productosInsuficientes.isEmpty,
-        'productosInsuficientes': productosInsuficientes,
-      };
+        final productosInsuficientes = <Map<String, dynamic>>[];
+
+        // Validar cada producto según su nombre
+        for (final detalle in detallesResponse) {
+          final productoId = detalle['producto_id'] as int;
+          final cantidadPedida = (detalle['cantidad'] as num?)?.toInt() ?? 0;
+          final producto = productosMap[productoId];
+          
+          if (producto == null) continue;
+
+          final nombreProducto = producto.nombre.toLowerCase();
+          int cantidadDisponible;
+
+          // Si contiene "frito" → validar inventario_actual (sucursal_id = 5)
+          if (nombreProducto.contains('frito')) {
+            cantidadDisponible = inventarioActual[productoId] ?? 0;
+          }
+          // Si contiene "crudo" → validar inventario_fabrica
+          else if (nombreProducto.contains('crudo')) {
+            cantidadDisponible = inventarioFabrica[productoId] ?? 0;
+          }
+          // Por defecto, validar inventario_fabrica
+          else {
+            cantidadDisponible = inventarioFabrica[productoId] ?? 0;
+          }
+
+          if (cantidadPedida > cantidadDisponible) {
+            productosInsuficientes.add({
+              'producto_id': productoId,
+              'producto_nombre': producto.nombre,
+              'cantidad_pedida': cantidadPedida,
+              'cantidad_disponible': cantidadDisponible,
+              'faltante': cantidadPedida - cantidadDisponible,
+            });
+          }
+        }
+
+        return {
+          'valido': productosInsuficientes.isEmpty,
+          'productosInsuficientes': productosInsuficientes,
+        };
+      } else {
+        // Para pedidos de fábrica y clientes normales, usar inventario_fabrica
+        final inventario = await getInventarioFabricaCompleto();
+
+        final productosInsuficientes = <Map<String, dynamic>>[];
+
+        // Validar cada producto
+        for (final detalle in detallesResponse) {
+          final productoId = detalle['producto_id'] as int;
+          final cantidadPedida = (detalle['cantidad'] as num?)?.toInt() ?? 0;
+          final cantidadDisponible = inventario[productoId] ?? 0;
+
+          if (cantidadPedida > cantidadDisponible) {
+            // Obtener nombre del producto
+            final producto = await getProductoById(productoId);
+            productosInsuficientes.add({
+              'producto_id': productoId,
+              'producto_nombre': producto?.nombre ?? 'Producto #$productoId',
+              'cantidad_pedida': cantidadPedida,
+              'cantidad_disponible': cantidadDisponible,
+              'faltante': cantidadPedida - cantidadDisponible,
+            });
+          }
+        }
+
+        return {
+          'valido': productosInsuficientes.isEmpty,
+          'productosInsuficientes': productosInsuficientes,
+        };
+      }
     } catch (e) {
       print('Error validando inventario: $e');
       return {'valido': false, 'productosInsuficientes': [], 'mensaje': 'Error: $e'};
@@ -1865,7 +1929,7 @@ class SupabaseService {
   /// Método interno usado cuando se despacha un pedido
   /// Retorna un Map con 'exito' (bool) y 'mensaje' (String)
   static Future<Map<String, dynamic>> _descontarInventarioFabrica({
-    required int productoId,
+required int productoId,
     required int cantidad,
   }) async {
     try {
@@ -1916,6 +1980,68 @@ class SupabaseService {
       }
     } catch (e) {
       print('Error descontando inventario de fábrica: $e');
+      return {'exito': false, 'mensaje': 'Error: $e'};
+    }
+  }
+
+  /// Descuenta cantidad del inventario actual de una sucursal
+  /// Método interno usado cuando se despacha un pedido recurrente con productos fritos
+  /// Retorna un Map con 'exito' (bool) y 'mensaje' (String)
+  static Future<Map<String, dynamic>> _descontarInventarioActual({
+    required int sucursalId,
+    required int productoId,
+    required int cantidad,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        return {'exito': false, 'mensaje': 'No hay conexión para descontar inventario actual'};
+      }
+
+      if (cantidad <= 0) {
+        return {'exito': true, 'mensaje': 'Cantidad inválida'};
+      }
+
+      // Verificar si existe el registro en inventario_actual
+      final inventarioExistente = await client
+          .from('inventario_actual')
+          .select('id, cantidad')
+          .eq('sucursal_id', sucursalId)
+          .eq('producto_id', productoId)
+          .maybeSingle();
+
+      if (inventarioExistente != null) {
+        // Descontar cantidad existente
+        final cantidadActual = (inventarioExistente['cantidad'] as num?)?.toInt() ?? 0;
+        
+        if (cantidadActual < cantidad) {
+          return {
+            'exito': false,
+            'mensaje': 'Inventario insuficiente. Disponible: $cantidadActual, Solicitado: $cantidad'
+          };
+        }
+
+        final nuevaCantidad = cantidadActual - cantidad;
+
+        await client
+            .from('inventario_actual')
+            .update({
+              'cantidad': nuevaCantidad,
+              'ultima_actualizacion': DateTime.now().toIso8601String(),
+            })
+            .eq('sucursal_id', sucursalId)
+            .eq('producto_id', productoId);
+
+        return {'exito': true, 'mensaje': 'Inventario descontado exitosamente'};
+      } else {
+        // Si no existe inventario, no hay nada que descontar
+        return {
+          'exito': false,
+          'mensaje': 'No existe inventario para el producto $productoId en la sucursal $sucursalId'
+        };
+      }
+    } catch (e) {
+      print('Error descontando inventario actual: $e');
       return {'exito': false, 'mensaje': 'Error: $e'};
     }
   }
@@ -2053,6 +2179,73 @@ class SupabaseService {
     }
   }
 
+  /// Obtiene pedidos recurrentes recientes
+  static Future<List<PedidoCliente>> getPedidosRecurrentesRecientes({
+    int limit = 100,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos recurrentes');
+        return [];
+      }
+
+      // Obtener los pedidos recurrentes
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_recurrente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          // Usar precio_unitario del detalle (que puede ser precio especial)
+          return PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          );
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos recurrentes recientes: $e');
+      return [];
+    }
+  }
+
   /// Actualiza el estado de un pedido de cliente
   static Future<Map<String, dynamic>> actualizarEstadoPedidoCliente({
     required int pedidoId,
@@ -2116,6 +2309,100 @@ class SupabaseService {
     }
   }
 
+  /// Actualiza el estado de un pedido recurrente
+  static Future<Map<String, dynamic>> actualizarEstadoPedidoRecurrente({
+    required int pedidoId,
+    required String nuevoEstado,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        return {'exito': false, 'mensaje': 'No hay conexión para actualizar estado del pedido'};
+      }
+
+      // Si el nuevo estado es "enviado", validar y descontar del inventario
+      if (nuevoEstado == 'enviado') {
+        // Validar inventario antes de despachar
+        final validacion = await validarInventarioParaDespacho(
+          pedidoId: pedidoId,
+          tipoPedido: 'recurrente',
+        );
+
+        if (!validacion['valido']) {
+          final productosInsuficientes = validacion['productosInsuficientes'] as List;
+          String mensaje = 'No hay suficiente inventario para despachar:\n';
+          for (final producto in productosInsuficientes) {
+            mensaje += '• ${producto['producto_nombre']}: Faltan ${producto['faltante']} unidades\n';
+          }
+          return {'exito': false, 'mensaje': mensaje, 'productosInsuficientes': productosInsuficientes};
+        }
+
+        // Obtener los detalles del pedido recurrente
+        final detallesResponse = await client
+            .from('pedido_recurrente_detalles')
+            .select('producto_id, cantidad')
+            .eq('pedido_id', pedidoId);
+
+        // Obtener productos para verificar nombres
+        final productos = await getProductosActivos();
+        final productosMap = {for (var p in productos) p.id: p};
+
+        // Descontar cada producto del inventario según su nombre
+        for (final detalle in detallesResponse) {
+          final productoId = detalle['producto_id'] as int;
+          final cantidad = (detalle['cantidad'] as num?)?.toInt() ?? 0;
+          
+          if (cantidad > 0) {
+            final producto = productosMap[productoId];
+            if (producto == null) {
+              return {'exito': false, 'mensaje': 'Producto $productoId no encontrado'};
+            }
+
+            final nombreProducto = producto.nombre.toLowerCase();
+            Map<String, dynamic> resultado;
+
+            // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 5)
+            if (nombreProducto.contains('frito')) {
+              resultado = await _descontarInventarioActual(
+                sucursalId: 5,
+                productoId: productoId,
+                cantidad: cantidad,
+              );
+            }
+            // Si contiene "crudo" → descontar de inventario_fabrica
+            else if (nombreProducto.contains('crudo')) {
+              resultado = await _descontarInventarioFabrica(
+                productoId: productoId,
+                cantidad: cantidad,
+              );
+            }
+            // Por defecto, descontar de inventario_fabrica
+            else {
+              resultado = await _descontarInventarioFabrica(
+                productoId: productoId,
+                cantidad: cantidad,
+              );
+            }
+
+            if (!resultado['exito']) {
+              return {'exito': false, 'mensaje': 'Error al descontar inventario: ${resultado['mensaje']}'};
+            }
+          }
+        }
+      }
+
+      await client
+          .from('pedidos_recurrentes')
+          .update({'estado': nuevoEstado})
+          .eq('id', pedidoId);
+
+      return {'exito': true, 'mensaje': 'Pedido actualizado exitosamente'};
+    } catch (e) {
+      print('Error actualizando estado del pedido recurrente: $e');
+      return {'exito': false, 'mensaje': 'Error: $e'};
+    }
+  }
+
   /// Obtiene pedidos de fábrica con estado "enviado" o "entregado"
   static Future<List<PedidoFabrica>> getPedidosFabricaParaDespacho({
     int limit = 100,
@@ -2171,6 +2458,67 @@ class SupabaseService {
     }
   }
 
+  /// Obtiene todos los gastos de punto de venta
+  static Future<List<Map<String, dynamic>>> getGastosPuntoVenta({
+    required int sucursalId,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener gastos de punto de venta');
+        return [];
+      }
+
+      final response = await client
+          .from('gastos_puntoventa')
+          .select()
+          .eq('sucursal_id', sucursalId)
+          .order('fecha', ascending: false)
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error obteniendo gastos de punto de venta: $e');
+      return [];
+    }
+  }
+
+  /// Crea un nuevo gasto de punto de venta
+  static Future<bool> crearGastoPuntoVenta({
+    required int sucursalId,
+    required int usuarioId,
+    required String descripcion,
+    required double monto,
+    required String tipo, // 'personal', 'pago_pedido', 'pago_ocasional', 'otro'
+    String? categoria,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para crear gasto de punto de venta');
+        return false;
+      }
+
+      final data = {
+        'sucursal_id': sucursalId,
+        'usuario_id': usuarioId,
+        'descripcion': descripcion,
+        'monto': monto,
+        'tipo': tipo,
+        'categoria': categoria,
+        'fecha': DateTime.now().toIso8601String().split('T')[0],
+        'hora': DateTime.now().toIso8601String().split('T')[1].split('.')[0],
+      };
+
+      await client.from('gastos_puntoventa').insert(data);
+
+      return true;
+    } catch (e) {
+      print('Error creando gasto de punto de venta: $e');
+      return false;
+    }
+  }
+
   /// Obtiene todos los gastos varios
   static Future<List<Map<String, dynamic>>> getGastosVarios() async {
     try {
@@ -2197,8 +2545,9 @@ class SupabaseService {
   static Future<bool> crearGastoVario({
     required String descripcion,
     required double monto,
-    required String tipo, // 'compra', 'pago', 'otro'
+    required String tipo, // 'compra', 'pago', 'otro', 'nomina'
     String? categoria,
+    int? empleadoId,
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -2207,13 +2556,23 @@ class SupabaseService {
         return false;
       }
 
-      final data = {
+      final data = <String, dynamic>{
         'descripcion': descripcion,
         'monto': monto,
         'tipo': tipo,
         'categoria': categoria,
         'fecha': DateTime.now().toIso8601String().split('T')[0],
       };
+
+      // Si hay empleado_id, intentar agregarlo (puede que la tabla no lo tenga)
+      if (empleadoId != null) {
+        try {
+          data['empleado_id'] = empleadoId;
+        } catch (e) {
+          // Si la tabla no tiene el campo empleado_id, no se agrega
+          print('Campo empleado_id no disponible en la tabla: $e');
+        }
+      }
 
       await client.from('gastos_varios').insert(data);
 
@@ -2282,6 +2641,74 @@ class SupabaseService {
     }
   }
 
+  /// Obtiene pedidos recurrentes con estado "enviado" o "entregado"
+  static Future<List<PedidoCliente>> getPedidosRecurrentesParaDespacho({
+    int limit = 100,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos recurrentes para despacho');
+        return [];
+      }
+
+      // Obtener los pedidos recurrentes con estado enviado o entregado
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .or('estado.eq.enviado,estado.eq.entregado')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_recurrente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          // Usar precio_unitario del detalle (que puede ser precio especial)
+          return PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          );
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos recurrentes para despacho: $e');
+      return [];
+    }
+  }
+
   /// Genera un número de pedido de cliente único
   static String _generatePedidoClienteNumber(bool isOnline) {
     if (!isOnline) {
@@ -2306,6 +2733,7 @@ class SupabaseService {
     required Map<int, int> productos, // productoId -> cantidad
     String? observaciones,
     String? metodoPago,
+    double? domicilio,
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -2344,8 +2772,13 @@ class SupabaseService {
         return null;
       }
 
+      // Agregar domicilio al total si existe
+      if (domicilio != null && domicilio > 0) {
+        total += domicilio;
+      }
+
       // Crear el pedido
-      final pedidoData = {
+      final pedidoData = <String, dynamic>{
         'cliente_nombre': clienteNombre,
         'cliente_telefono': clienteTelefono,
         'direccion_entrega': direccionEntrega,
@@ -2360,6 +2793,11 @@ class SupabaseService {
         'metodo_pago': metodoPago,
         'sincronizado': hasConnection,
       };
+
+      // Agregar domicilio si existe
+      if (domicilio != null && domicilio > 0) {
+        pedidoData['domicilio'] = domicilio;
+      }
 
       // Insertar el pedido
       final pedidoResponse =

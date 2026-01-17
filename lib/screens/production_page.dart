@@ -14,11 +14,14 @@ class ProductionPage extends StatefulWidget {
 }
 
 class _ProductionPageState extends State<ProductionPage> {
-  List<Map<String, dynamic>> _pedidosEnPreparacion = []; // {'tipo': 'fabrica'|'cliente', 'pedido': PedidoFabrica|PedidoCliente}
+  List<Map<String, dynamic>> _pedidosEnPreparacion =
+      []; // {'tipo': 'fabrica'|'cliente', 'pedido': PedidoFabrica|PedidoCliente}
   List<Producto> _productos = [];
-  Map<String, dynamic>? _pedidoSeleccionado; // {'tipo': 'fabrica'|'cliente', 'pedido': PedidoFabrica|PedidoCliente}
+  Map<String, dynamic>?
+  _pedidoSeleccionado; // {'tipo': 'fabrica'|'cliente', 'pedido': PedidoFabrica|PedidoCliente}
   Map<int, bool> _productosCompletados = {}; // detalleId -> completado
-  Map<int, List<ProduccionEmpleado>> _produccionPorDetalle = {}; // detalleId -> List<ProduccionEmpleado>
+  Map<int, List<ProduccionEmpleado>> _produccionPorDetalle =
+      {}; // detalleId -> List<ProduccionEmpleado>
   String _busqueda = '';
   bool _isLoading = true;
   bool _isConfirmando = false;
@@ -39,38 +42,50 @@ class _ProductionPageState extends State<ProductionPage> {
       final productos = await SupabaseService.getProductosActivos();
 
       // Cargar pedidos de fábrica en preparación
-      final todosPedidosFabrica = await SupabaseService.getPedidosFabricaRecientesTodasSucursales(limit: 100);
-      final pedidosFabricaEnPreparacion = todosPedidosFabrica.where((p) => p.estado == 'en_preparacion').toList();
+      final todosPedidosFabrica =
+          await SupabaseService.getPedidosFabricaRecientesTodasSucursales(
+            limit: 100,
+          );
+      final pedidosFabricaEnPreparacion =
+          todosPedidosFabrica
+              .where((p) => p.estado == 'en_preparacion')
+              .toList();
 
       // Cargar pedidos de clientes en preparación
-      final todosPedidosClientes = await SupabaseService.getPedidosClientesRecientes(limit: 100);
-      final pedidosClientesEnPreparacion = todosPedidosClientes.where((p) => p.estado == 'en_preparacion').toList();
+      final todosPedidosClientes =
+          await SupabaseService.getPedidosClientesRecientes(limit: 100);
+      final pedidosClientesEnPreparacion =
+          todosPedidosClientes
+              .where((p) => p.estado == 'en_preparacion')
+              .toList();
 
       // Combinar ambos tipos de pedidos
       final pedidosCombinados = <Map<String, dynamic>>[];
-      
+
       for (final pedido in pedidosFabricaEnPreparacion) {
         pedidosCombinados.add({'tipo': 'fabrica', 'pedido': pedido});
       }
-      
+
       for (final pedido in pedidosClientesEnPreparacion) {
         pedidosCombinados.add({'tipo': 'cliente', 'pedido': pedido});
       }
 
       // Ordenar por fecha de creación (más recientes primero)
       pedidosCombinados.sort((a, b) {
-        final fechaA = a['tipo'] == 'fabrica'
-            ? (a['pedido'] as PedidoFabrica).createdAt
-            : (a['pedido'] as PedidoCliente).createdAt;
-        final fechaB = b['tipo'] == 'fabrica'
-            ? (b['pedido'] as PedidoFabrica).createdAt
-            : (b['pedido'] as PedidoCliente).createdAt;
+        final fechaA =
+            a['tipo'] == 'fabrica'
+                ? (a['pedido'] as PedidoFabrica).createdAt
+                : (a['pedido'] as PedidoCliente).createdAt;
+        final fechaB =
+            b['tipo'] == 'fabrica'
+                ? (b['pedido'] as PedidoFabrica).createdAt
+                : (b['pedido'] as PedidoCliente).createdAt;
         return fechaB.compareTo(fechaA);
       });
 
       // Inicializar productos completados
       final productosCompletados = <int, bool>{};
-      
+
       for (final pedidoData in pedidosCombinados) {
         final pedido = pedidoData['pedido'];
         if (pedidoData['tipo'] == 'fabrica') {
@@ -92,11 +107,11 @@ class _ProductionPageState extends State<ProductionPage> {
 
       // Cargar producción existente para cada detalle
       final produccionPorDetalle = <int, List<ProduccionEmpleado>>{};
-      
+
       for (final pedidoData in pedidosCombinados) {
         final tipo = pedidoData['tipo'] as String;
         final pedido = pedidoData['pedido'];
-        
+
         if (tipo == 'fabrica') {
           final pedidoFabrica = pedido as PedidoFabrica;
           if (pedidoFabrica.detalles != null) {
@@ -127,31 +142,35 @@ class _ProductionPageState extends State<ProductionPage> {
       if (_pedidoSeleccionado != null) {
         final tipoSeleccionado = _pedidoSeleccionado!['tipo'] as String;
         final pedidoSeleccionado = _pedidoSeleccionado!['pedido'];
-        
+
         // Buscar si el pedido seleccionado todavía está en la lista
         final pedidoExiste = pedidosCombinados.any((pedidoData) {
           final tipo = pedidoData['tipo'] as String;
           final pedido = pedidoData['pedido'];
-          
+
           if (tipoSeleccionado != tipo) return false;
-          
+
           if (tipoSeleccionado == 'fabrica') {
-            return (pedidoSeleccionado as PedidoFabrica).id == (pedido as PedidoFabrica).id;
+            return (pedidoSeleccionado as PedidoFabrica).id ==
+                (pedido as PedidoFabrica).id;
           } else {
-            return (pedidoSeleccionado as PedidoCliente).id == (pedido as PedidoCliente).id;
+            return (pedidoSeleccionado as PedidoCliente).id ==
+                (pedido as PedidoCliente).id;
           }
         });
-        
+
         if (pedidoExiste) {
           // El pedido todavía está en la lista, mantenerlo seleccionado
           nuevoPedidoSeleccionado = _pedidoSeleccionado;
         } else {
           // El pedido ya no está en la lista, seleccionar el primero disponible o null
-          nuevoPedidoSeleccionado = pedidosCombinados.isNotEmpty ? pedidosCombinados.first : null;
+          nuevoPedidoSeleccionado =
+              pedidosCombinados.isNotEmpty ? pedidosCombinados.first : null;
         }
       } else {
         // Si no había pedido seleccionado, seleccionar el primero si existe
-        nuevoPedidoSeleccionado = pedidosCombinados.isNotEmpty ? pedidosCombinados.first : null;
+        nuevoPedidoSeleccionado =
+            pedidosCombinados.isNotEmpty ? pedidosCombinados.first : null;
       }
 
       setState(() {
@@ -178,17 +197,23 @@ class _ProductionPageState extends State<ProductionPage> {
     return _pedidosEnPreparacion.where((pedidoData) {
       final tipo = pedidoData['tipo'] as String;
       final pedido = pedidoData['pedido'];
-      
+
       if (tipo == 'fabrica') {
         final pedidoFabrica = pedido as PedidoFabrica;
-        final numero = (pedidoFabrica.numeroPedido ?? 'Pedido #${pedidoFabrica.id}').toLowerCase();
+        final numero =
+            (pedidoFabrica.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
+                .toLowerCase();
         final sucursal = (pedidoFabrica.sucursal?.nombre ?? '').toLowerCase();
-        return numero.contains(busquedaLower) || sucursal.contains(busquedaLower);
+        return numero.contains(busquedaLower) ||
+            sucursal.contains(busquedaLower);
       } else {
         final pedidoCliente = pedido as PedidoCliente;
-        final numero = (pedidoCliente.numeroPedido ?? 'Pedido #${pedidoCliente.id}').toLowerCase();
+        final numero =
+            (pedidoCliente.numeroPedido ?? 'Pedido #${pedidoCliente.id}')
+                .toLowerCase();
         final cliente = pedidoCliente.clienteNombre.toLowerCase();
-        return numero.contains(busquedaLower) || cliente.contains(busquedaLower);
+        return numero.contains(busquedaLower) ||
+            cliente.contains(busquedaLower);
       }
     }).toList();
   }
@@ -213,7 +238,9 @@ class _ProductionPageState extends State<ProductionPage> {
     required int productoId,
     required int cantidadSolicitada,
   }) async {
-    final cantidadController = TextEditingController(text: cantidadSolicitada.toString());
+    final cantidadController = TextEditingController(
+      text: cantidadSolicitada.toString(),
+    );
     final observacionesController = TextEditingController();
 
     final resultado = await showDialog<bool>(
@@ -301,9 +328,10 @@ class _ProductionPageState extends State<ProductionPage> {
       cantidadProducida: cantidadProducida,
       pedidoFabricaId: pedidoFabricaId,
       pedidoClienteId: pedidoClienteId,
-      observaciones: observacionesController.text.isEmpty
-          ? null
-          : observacionesController.text,
+      observaciones:
+          observacionesController.text.isEmpty
+              ? null
+              : observacionesController.text,
     );
 
     if (exito) {
@@ -347,7 +375,7 @@ class _ProductionPageState extends State<ProductionPage> {
     if (_pedidoSeleccionado == null) return 0;
     final tipo = _pedidoSeleccionado!['tipo'] as String;
     final pedido = _pedidoSeleccionado!['pedido'];
-    
+
     List<dynamic> detalles = [];
     if (tipo == 'fabrica') {
       final pedidoFabrica = pedido as PedidoFabrica;
@@ -356,9 +384,9 @@ class _ProductionPageState extends State<ProductionPage> {
       final pedidoCliente = pedido as PedidoCliente;
       detalles = pedidoCliente.detalles ?? [];
     }
-    
+
     if (detalles.isEmpty) return 0;
-    
+
     int completados = 0;
     for (final detalle in detalles) {
       final detalleId = detalle.id as int;
@@ -373,7 +401,7 @@ class _ProductionPageState extends State<ProductionPage> {
     if (_pedidoSeleccionado == null) return false;
     final tipo = _pedidoSeleccionado!['tipo'] as String;
     final pedido = _pedidoSeleccionado!['pedido'];
-    
+
     List<dynamic> detalles = [];
     if (tipo == 'fabrica') {
       final pedidoFabrica = pedido as PedidoFabrica;
@@ -382,7 +410,7 @@ class _ProductionPageState extends State<ProductionPage> {
       final pedidoCliente = pedido as PedidoCliente;
       detalles = pedidoCliente.detalles ?? [];
     }
-    
+
     if (detalles.isEmpty) return false;
     return _getTotalItemsCompletados() == detalles.length;
   }
@@ -392,20 +420,23 @@ class _ProductionPageState extends State<ProductionPage> {
 
     final confirmado = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar despacho'),
-        content: const Text('¿Confirmar que el pedido está listo para despachar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmar despacho'),
+            content: const Text(
+              '¿Confirmar que el pedido está listo para despachar?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirmar'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
     );
 
     if (confirmado != true) return;
@@ -417,7 +448,7 @@ class _ProductionPageState extends State<ProductionPage> {
     try {
       final tipo = _pedidoSeleccionado!['tipo'] as String;
       final pedido = _pedidoSeleccionado!['pedido'];
-      
+
       Map<String, dynamic> resultado;
       if (tipo == 'fabrica') {
         final pedidoFabrica = pedido as PedidoFabrica;
@@ -443,7 +474,8 @@ class _ProductionPageState extends State<ProductionPage> {
         // Recargar datos
         await _loadData();
       } else if (mounted) {
-        final mensaje = resultado['mensaje'] as String? ?? 'Error al confirmar el pedido';
+        final mensaje =
+            resultado['mensaje'] as String? ?? 'Error al confirmar el pedido';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(mensaje),
@@ -455,10 +487,7 @@ class _ProductionPageState extends State<ProductionPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -568,9 +597,10 @@ class _ProductionPageState extends State<ProductionPage> {
       cantidadProducida: cantidadProducida,
       pedidoFabricaId: null, // Producción continua, sin pedido
       pedidoClienteId: null, // Producción continua, sin pedido
-      observaciones: observacionesController.text.isEmpty
-          ? 'Producción continua'
-          : observacionesController.text,
+      observaciones:
+          observacionesController.text.isEmpty
+              ? 'Producción continua'
+              : observacionesController.text,
     );
 
     // Aumentar inventario de fábrica
@@ -583,7 +613,9 @@ class _ProductionPageState extends State<ProductionPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Producción de $productoNombre registrada y inventario actualizado exitosamente'),
+            content: Text(
+              'Producción de $productoNombre registrada y inventario actualizado exitosamente',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -592,17 +624,17 @@ class _ProductionPageState extends State<ProductionPage> {
       if (mounted) {
         String mensajeError = 'Error al registrar la producción';
         if (!exitoProduccion && !exitoInventario) {
-          mensajeError = 'Error al registrar la producción y actualizar el inventario';
+          mensajeError =
+              'Error al registrar la producción y actualizar el inventario';
         } else if (!exitoProduccion) {
-          mensajeError = 'Error al registrar la producción (inventario actualizado)';
+          mensajeError =
+              'Error al registrar la producción (inventario actualizado)';
         } else if (!exitoInventario) {
-          mensajeError = 'Error al actualizar el inventario (producción registrada)';
+          mensajeError =
+              'Error al actualizar el inventario (producción registrada)';
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(mensajeError),
-            backgroundColor: Colors.orange,
-          ),
+          SnackBar(content: Text(mensajeError), backgroundColor: Colors.orange),
         );
       }
     }
@@ -621,10 +653,7 @@ class _ProductionPageState extends State<ProductionPage> {
         decoration: BoxDecoration(
           color: color.withOpacity(isDark ? 0.15 : 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: color.withOpacity(0.5),
-            width: 1,
-          ),
+          border: Border.all(color: color.withOpacity(0.5), width: 1),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -642,9 +671,8 @@ class _ProductionPageState extends State<ProductionPage> {
               'Registrar',
               style: TextStyle(
                 fontSize: 10,
-                color: isDark
-                    ? const Color(0xFF9A6C4C)
-                    : const Color(0xFF9A6C4C),
+                color:
+                    isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
               ),
             ),
           ],
@@ -663,7 +691,8 @@ class _ProductionPageState extends State<ProductionPage> {
     final pedidosFiltrados = _getPedidosFiltrados();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
+      backgroundColor:
+          isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
       body: SafeArea(
         child: Column(
           children: [
@@ -674,13 +703,16 @@ class _ProductionPageState extends State<ProductionPage> {
                 vertical: 16,
               ),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
+                color: (isDark
+                        ? const Color(0xFF221810)
+                        : const Color(0xFFF8F7F6))
                     .withOpacity(0.95),
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.black.withOpacity(0.05),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.05),
                   ),
                 ),
               ),
@@ -725,18 +757,15 @@ class _ProductionPageState extends State<ProductionPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.autorenew,
-                          color: primaryColor,
-                          size: 20,
-                        ),
+                        Icon(Icons.autorenew, color: primaryColor, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           'Producción Continua',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF1B130D),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF1B130D),
                           ),
                         ),
                       ],
@@ -746,9 +775,10 @@ class _ProductionPageState extends State<ProductionPage> {
                       'Registra producción de J, Q, B sin pedido asociado',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark
-                            ? const Color(0xFF9A6C4C)
-                            : const Color(0xFF9A6C4C),
+                        color:
+                            isDark
+                                ? const Color(0xFF9A6C4C)
+                                : const Color(0xFF9A6C4C),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -795,9 +825,10 @@ class _ProductionPageState extends State<ProductionPage> {
                   color: isDark ? const Color(0xFF2F2218) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.1),
                   ),
                 ),
                 child: TextField(
@@ -805,15 +836,17 @@ class _ProductionPageState extends State<ProductionPage> {
                   decoration: InputDecoration(
                     hintText: 'Buscar por # pedido, sucursal o cliente...',
                     hintStyle: TextStyle(
-                      color: isDark
-                          ? const Color(0xFF9A6C4C)
-                          : const Color(0xFF9A6C4C),
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                     prefixIcon: Icon(
                       Icons.search,
-                      color: isDark
-                          ? const Color(0xFF9A6C4C)
-                          : const Color(0xFF9A6C4C),
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -830,165 +863,203 @@ class _ProductionPageState extends State<ProductionPage> {
 
             // Main Content
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _pedidoSeleccionado == null
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _pedidoSeleccionado == null
                       ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.restaurant_outlined,
-                                  size: 64,
-                                  color: isDark
-                                      ? const Color(0xFFA8A29E)
-                                      : const Color(0xFF78716C),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No hay pedidos en preparación',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Los pedidos aparecerán aquí cuando estén en estado "En Preparación"',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDark
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.restaurant_outlined,
+                                size: 64,
+                                color:
+                                    isDark
                                         ? const Color(0xFFA8A29E)
                                         : const Color(0xFF78716C),
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : SingleChildScrollView(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 16 : 20,
-                            vertical: 16,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Pedido activo (expandido)
-                              _buildPedidoActivoCard(
-                                isDark: isDark,
-                                pedidoData: _pedidoSeleccionado!,
-                                primaryColor: primaryColor,
                               ),
-
-                              const SizedBox(height: 24),
-
-                              // Lista de siguientes pedidos
-                              if (pedidosFiltrados.length > 1) ...[
-                                Text(
-                                  'Siguientes en cola',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? const Color(0xFF9A6C4C)
-                                        : const Color(0xFF9A6C4C),
-                                    letterSpacing: 1.2,
-                                  ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No hay pedidos en preparación',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
                                 ),
-                                const SizedBox(height: 12),
-                                ...pedidosFiltrados
-                                    .where((pedidoData) {
-                                      final tipoSeleccionado = _pedidoSeleccionado!['tipo'] as String;
-                                      final pedidoSeleccionado = _pedidoSeleccionado!['pedido'];
-                                      final tipoActual = pedidoData['tipo'] as String;
-                                      final pedidoActual = pedidoData['pedido'];
-                                      
-                                      if (tipoSeleccionado != tipoActual) return true;
-                                      
-                                      if (tipoSeleccionado == 'fabrica') {
-                                        return (pedidoSeleccionado as PedidoFabrica).id != (pedidoActual as PedidoFabrica).id;
-                                      } else {
-                                        return (pedidoSeleccionado as PedidoCliente).id != (pedidoActual as PedidoCliente).id;
-                                      }
-                                    })
-                                    .map((pedidoData) => _buildPedidoEnColaCard(
-                                          isDark: isDark,
-                                          pedidoData: pedidoData,
-                                          onTap: () async {
-                                            setState(() {
-                                              _pedidoSeleccionado = pedidoData;
-                                              // Inicializar productos completados para el nuevo pedido
-                                              final tipo = pedidoData['tipo'] as String;
-                                              final pedido = pedidoData['pedido'];
-                                              
-                                              List<dynamic> detalles = [];
-                                              if (tipo == 'fabrica') {
-                                                final pedidoFabrica = pedido as PedidoFabrica;
-                                                detalles = pedidoFabrica.detalles ?? [];
-                                              } else {
-                                                final pedidoCliente = pedido as PedidoCliente;
-                                                detalles = pedidoCliente.detalles ?? [];
-                                              }
-                                              
-                                              for (final detalle in detalles) {
-                                                final detalleId = detalle.id as int;
-                                                if (!_productosCompletados.containsKey(detalleId)) {
-                                                  _productosCompletados[detalleId] = false;
-                                                }
-                                              }
-                                            });
-                                            
-                                            // Cargar producción para el nuevo pedido seleccionado
-                                            final tipo = pedidoData['tipo'] as String;
-                                            final pedido = pedidoData['pedido'];
-                                            
-                                            final produccionPorDetalle = <int, List<ProduccionEmpleado>>{};
-                                            
-                                            if (tipo == 'fabrica') {
-                                              final pedidoFabrica = pedido as PedidoFabrica;
-                                              if (pedidoFabrica.detalles != null) {
-                                                for (final detalle in pedidoFabrica.detalles!) {
-                                                  final produccion = await SupabaseService.getProduccionPorDetalle(
-                                                    productoId: detalle.productoId,
-                                                    pedidoFabricaId: pedidoFabrica.id,
-                                                  );
-                                                  produccionPorDetalle[detalle.id] = produccion;
-                                                }
-                                              }
-                                            } else {
-                                              final pedidoCliente = pedido as PedidoCliente;
-                                              if (pedidoCliente.detalles != null) {
-                                                for (final detalle in pedidoCliente.detalles!) {
-                                                  final produccion = await SupabaseService.getProduccionPorDetalle(
-                                                    productoId: detalle.productoId,
-                                                    pedidoClienteId: pedidoCliente.id,
-                                                  );
-                                                  produccionPorDetalle[detalle.id] = produccion;
-                                                }
-                                              }
-                                            }
-                                            
-                                            setState(() {
-                                              _produccionPorDetalle = {
-                                                ..._produccionPorDetalle,
-                                                ...produccionPorDetalle,
-                                              };
-                                            });
-                                          },
-                                        )),
-                              ],
-
-                              const SizedBox(height: 24), // Space at bottom
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Los pedidos aparecerán aquí cuando estén en estado "En Preparación"',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ],
                           ),
                         ),
+                      )
+                      : SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 16 : 20,
+                          vertical: 16,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Pedido activo (expandido)
+                            _buildPedidoActivoCard(
+                              isDark: isDark,
+                              pedidoData: _pedidoSeleccionado!,
+                              primaryColor: primaryColor,
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Lista de siguientes pedidos
+                            if (pedidosFiltrados.length > 1) ...[
+                              Text(
+                                'Siguientes en cola',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ...pedidosFiltrados
+                                  .where((pedidoData) {
+                                    final tipoSeleccionado =
+                                        _pedidoSeleccionado!['tipo'] as String;
+                                    final pedidoSeleccionado =
+                                        _pedidoSeleccionado!['pedido'];
+                                    final tipoActual =
+                                        pedidoData['tipo'] as String;
+                                    final pedidoActual = pedidoData['pedido'];
+
+                                    if (tipoSeleccionado != tipoActual)
+                                      return true;
+
+                                    if (tipoSeleccionado == 'fabrica') {
+                                      return (pedidoSeleccionado
+                                                  as PedidoFabrica)
+                                              .id !=
+                                          (pedidoActual as PedidoFabrica).id;
+                                    } else {
+                                      return (pedidoSeleccionado
+                                                  as PedidoCliente)
+                                              .id !=
+                                          (pedidoActual as PedidoCliente).id;
+                                    }
+                                  })
+                                  .map(
+                                    (pedidoData) => _buildPedidoEnColaCard(
+                                      isDark: isDark,
+                                      pedidoData: pedidoData,
+                                      onTap: () async {
+                                        setState(() {
+                                          _pedidoSeleccionado = pedidoData;
+                                          // Inicializar productos completados para el nuevo pedido
+                                          final tipo =
+                                              pedidoData['tipo'] as String;
+                                          final pedido = pedidoData['pedido'];
+
+                                          List<dynamic> detalles = [];
+                                          if (tipo == 'fabrica') {
+                                            final pedidoFabrica =
+                                                pedido as PedidoFabrica;
+                                            detalles =
+                                                pedidoFabrica.detalles ?? [];
+                                          } else {
+                                            final pedidoCliente =
+                                                pedido as PedidoCliente;
+                                            detalles =
+                                                pedidoCliente.detalles ?? [];
+                                          }
+
+                                          for (final detalle in detalles) {
+                                            final detalleId = detalle.id as int;
+                                            if (!_productosCompletados
+                                                .containsKey(detalleId)) {
+                                              _productosCompletados[detalleId] =
+                                                  false;
+                                            }
+                                          }
+                                        });
+
+                                        // Cargar producción para el nuevo pedido seleccionado
+                                        final tipo =
+                                            pedidoData['tipo'] as String;
+                                        final pedido = pedidoData['pedido'];
+
+                                        final produccionPorDetalle =
+                                            <int, List<ProduccionEmpleado>>{};
+
+                                        if (tipo == 'fabrica') {
+                                          final pedidoFabrica =
+                                              pedido as PedidoFabrica;
+                                          if (pedidoFabrica.detalles != null) {
+                                            for (final detalle
+                                                in pedidoFabrica.detalles!) {
+                                              final produccion =
+                                                  await SupabaseService.getProduccionPorDetalle(
+                                                    productoId:
+                                                        detalle.productoId,
+                                                    pedidoFabricaId:
+                                                        pedidoFabrica.id,
+                                                  );
+                                              produccionPorDetalle[detalle.id] =
+                                                  produccion;
+                                            }
+                                          }
+                                        } else {
+                                          final pedidoCliente =
+                                              pedido as PedidoCliente;
+                                          if (pedidoCliente.detalles != null) {
+                                            for (final detalle
+                                                in pedidoCliente.detalles!) {
+                                              final produccion =
+                                                  await SupabaseService.getProduccionPorDetalle(
+                                                    productoId:
+                                                        detalle.productoId,
+                                                    pedidoClienteId:
+                                                        pedidoCliente.id,
+                                                  );
+                                              produccionPorDetalle[detalle.id] =
+                                                  produccion;
+                                            }
+                                          }
+                                        }
+
+                                        setState(() {
+                                          _produccionPorDetalle = {
+                                            ..._produccionPorDetalle,
+                                            ...produccionPorDetalle,
+                                          };
+                                        });
+                                      },
+                                    ),
+                                  ),
+                            ],
+
+                            const SizedBox(height: 24), // Space at bottom
+                          ],
+                        ),
+                      ),
             ),
           ],
         ),
@@ -1004,28 +1075,24 @@ class _ProductionPageState extends State<ProductionPage> {
     final tipo = pedidoData['tipo'] as String;
     final pedido = pedidoData['pedido'];
     final isFabrica = tipo == 'fabrica';
-    
+
     final pedidoFabrica = isFabrica ? pedido as PedidoFabrica : null;
     final pedidoCliente = !isFabrica ? pedido as PedidoCliente : null;
-    
+
     final timeAgo = _formatTimeAgo(
-      isFabrica 
-        ? pedidoFabrica!.createdAt 
-        : pedidoCliente!.createdAt
+      isFabrica ? pedidoFabrica!.createdAt : pedidoCliente!.createdAt,
     );
-    
-    final detalles = isFabrica
-        ? pedidoFabrica!.detalles ?? []
-        : pedidoCliente!.detalles ?? [];
+
+    final detalles =
+        isFabrica
+            ? pedidoFabrica!.detalles ?? []
+            : pedidoCliente!.detalles ?? [];
 
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2F2218) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: primaryColor.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: primaryColor.withOpacity(0.2), width: 1),
       ),
       child: Column(
         children: [
@@ -1080,9 +1147,10 @@ class _ProductionPageState extends State<ProductionPage> {
                                 timeAgo,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark
-                                      ? const Color(0xFF9A6C4C)
-                                      : const Color(0xFF9A6C4C),
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
                                 ),
                               ),
                             ],
@@ -1090,12 +1158,17 @@ class _ProductionPageState extends State<ProductionPage> {
                           const SizedBox(height: 8),
                           Text(
                             isFabrica
-                                ? (pedidoFabrica!.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
-                                : (pedidoCliente!.numeroPedido ?? 'Pedido #${pedidoCliente.id}'),
+                                ? (pedidoFabrica!.numeroPedido ??
+                                    'Pedido #${pedidoFabrica.id}')
+                                : (pedidoCliente!.numeroPedido ??
+                                    'Pedido #${pedidoCliente.id}'),
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1B130D),
+                              color:
+                                  isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1B130D),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1104,20 +1177,23 @@ class _ProductionPageState extends State<ProductionPage> {
                               Icon(
                                 isFabrica ? Icons.storefront : Icons.chat,
                                 size: 16,
-                                color: isDark
-                                    ? const Color(0xFF9A6C4C)
-                                    : const Color(0xFF9A6C4C),
+                                color:
+                                    isDark
+                                        ? const Color(0xFF9A6C4C)
+                                        : const Color(0xFF9A6C4C),
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 isFabrica
-                                    ? (pedidoFabrica!.sucursal?.nombre ?? 'Sucursal')
+                                    ? (pedidoFabrica!.sucursal?.nombre ??
+                                        'Sucursal')
                                     : pedidoCliente!.clienteNombre,
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: isDark
-                                      ? const Color(0xFF9A6C4C)
-                                      : const Color(0xFF9A6C4C),
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
                                 ),
                               ),
                             ],
@@ -1129,9 +1205,10 @@ class _ProductionPageState extends State<ProductionPage> {
                                 Icon(
                                   Icons.location_on,
                                   size: 14,
-                                  color: isDark
-                                      ? const Color(0xFF9A6C4C)
-                                      : const Color(0xFF9A6C4C),
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
                                 ),
                                 const SizedBox(width: 4),
                                 Expanded(
@@ -1139,9 +1216,10 @@ class _ProductionPageState extends State<ProductionPage> {
                                     pedidoCliente!.direccionEntrega,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isDark
-                                          ? const Color(0xFF9A6C4C)
-                                          : const Color(0xFF9A6C4C),
+                                      color:
+                                          isDark
+                                              ? const Color(0xFF9A6C4C)
+                                              : const Color(0xFF9A6C4C),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1186,7 +1264,7 @@ class _ProductionPageState extends State<ProductionPage> {
                     int productoId;
                     int cantidadSolicitada;
                     int detalleId;
-                    
+
                     if (isFabrica) {
                       final detalleFabrica = detalle as PedidoFabricaDetalle;
                       productoId = detalleFabrica.productoId;
@@ -1198,25 +1276,30 @@ class _ProductionPageState extends State<ProductionPage> {
                       cantidadSolicitada = detalleCliente.cantidad;
                       detalleId = detalleCliente.id;
                     }
-                    
+
                     final producto = _getProductoById(productoId);
-                    final completado = _productosCompletados[detalleId] ?? false;
-                    final totalProducido = _getTotalProducidoPorDetalle(detalleId);
+                    final completado =
+                        _productosCompletados[detalleId] ?? false;
+                    final totalProducido = _getTotalProducidoPorDetalle(
+                      detalleId,
+                    );
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: completado
-                            ? Colors.green.withOpacity(isDark ? 0.1 : 0.05)
-                            : (isDark
-                                ? Colors.black.withOpacity(0.2)
-                                : const Color(0xFFF8F7F6)),
+                        color:
+                            completado
+                                ? Colors.green.withOpacity(isDark ? 0.1 : 0.05)
+                                : (isDark
+                                    ? Colors.black.withOpacity(0.2)
+                                    : const Color(0xFFF8F7F6)),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: completado
-                              ? Colors.green.withOpacity(0.3)
-                              : Colors.transparent,
+                          color:
+                              completado
+                                  ? Colors.green.withOpacity(0.3)
+                                  : Colors.transparent,
                         ),
                       ),
                       child: Column(
@@ -1227,8 +1310,11 @@ class _ProductionPageState extends State<ProductionPage> {
                               // Checkbox
                               Checkbox(
                                 value: completado,
-                                onChanged: (value) =>
-                                    _toggleProductoCompletado(detalleId, cantidadSolicitada),
+                                onChanged:
+                                    (value) => _toggleProductoCompletado(
+                                      detalleId,
+                                      cantidadSolicitada,
+                                    ),
                                 activeColor: primaryColor,
                               ),
                               const SizedBox(width: 8),
@@ -1238,11 +1324,15 @@ class _ProductionPageState extends State<ProductionPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      producto?.nombre ?? 'Producto #$productoId',
+                                      producto?.nombre ??
+                                          'Producto #$productoId',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white : const Color(0xFF1B130D),
+                                        color:
+                                            isDark
+                                                ? Colors.white
+                                                : const Color(0xFF1B130D),
                                       ),
                                     ),
                                     const SizedBox(height: 2),
@@ -1250,9 +1340,10 @@ class _ProductionPageState extends State<ProductionPage> {
                                       'Solicitado: ${cantidadSolicitada} ${producto?.unidadMedida ?? 'unidad'}',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: isDark
-                                            ? const Color(0xFF9A6C4C)
-                                            : const Color(0xFF9A6C4C),
+                                        color:
+                                            isDark
+                                                ? const Color(0xFF9A6C4C)
+                                                : const Color(0xFF9A6C4C),
                                       ),
                                     ),
                                     if (totalProducido > 0) ...[
@@ -1262,9 +1353,11 @@ class _ProductionPageState extends State<ProductionPage> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
-                                          color: totalProducido >= cantidadSolicitada
-                                              ? Colors.green
-                                              : primaryColor,
+                                          color:
+                                              totalProducido >=
+                                                      cantidadSolicitada
+                                                  ? Colors.green
+                                                  : primaryColor,
                                         ),
                                       ),
                                     ],
@@ -1285,17 +1378,25 @@ class _ProductionPageState extends State<ProductionPage> {
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
-                              onPressed: () => _registrarProduccion(
-                                detalleId: detalleId,
-                                productoId: productoId,
-                                cantidadSolicitada: cantidadSolicitada,
+                              onPressed:
+                                  () => _registrarProduccion(
+                                    detalleId: detalleId,
+                                    productoId: productoId,
+                                    cantidadSolicitada: cantidadSolicitada,
+                                  ),
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                size: 16,
                               ),
-                              icon: const Icon(Icons.add_circle_outline, size: 16),
                               label: const Text('Registrar Producción'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: primaryColor,
-                                side: BorderSide(color: primaryColor.withOpacity(0.5)),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                side: BorderSide(
+                                  color: primaryColor.withOpacity(0.5),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                               ),
                             ),
                           ),
@@ -1311,9 +1412,10 @@ class _ProductionPageState extends State<ProductionPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.black.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.05),
+                    color:
+                        isDark
+                            ? Colors.black.withOpacity(0.2)
+                            : Colors.grey.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -1323,17 +1425,21 @@ class _ProductionPageState extends State<ProductionPage> {
                         'Total ítems: ${detalles.length}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: isDark
-                              ? const Color(0xFF9A6C4C)
-                              : const Color(0xFF9A6C4C),
+                          color:
+                              isDark
+                                  ? const Color(0xFF9A6C4C)
+                                  : const Color(0xFF9A6C4C),
                         ),
                       ),
                       Text(
-                        _puedeDespachar() ? 'Listo para despachar' : 'En producción',
+                        _puedeDespachar()
+                            ? 'Listo para despachar'
+                            : 'En producción',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: _puedeDespachar() ? Colors.green : primaryColor,
+                          color:
+                              _puedeDespachar() ? Colors.green : primaryColor,
                         ),
                       ),
                     ],
@@ -1347,16 +1453,19 @@ class _ProductionPageState extends State<ProductionPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: _isConfirmando ? null : _confirmarYDespachar,
-                      icon: _isConfirmando
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.local_shipping, size: 24),
+                      icon:
+                          _isConfirmando
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : const Icon(Icons.local_shipping, size: 24),
                       label: Text(
                         _isConfirmando
                             ? 'Confirmando...'
@@ -1394,17 +1503,19 @@ class _ProductionPageState extends State<ProductionPage> {
     final tipo = pedidoData['tipo'] as String;
     final pedido = pedidoData['pedido'];
     final isFabrica = tipo == 'fabrica';
-    
+
     final pedidoFabrica = isFabrica ? pedido as PedidoFabrica : null;
     final pedidoCliente = !isFabrica ? pedido as PedidoCliente : null;
-    
-    final numeroPedido = isFabrica
-        ? (pedidoFabrica!.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
-        : (pedidoCliente!.numeroPedido ?? 'Pedido #${pedidoCliente.id}');
-    
-    final info = isFabrica
-        ? '${pedidoFabrica!.sucursal?.nombre ?? 'Sucursal'} • ${pedidoFabrica.totalItems} items'
-        : '${pedidoCliente!.clienteNombre} • ${pedidoCliente.totalItems} items';
+
+    final numeroPedido =
+        isFabrica
+            ? (pedidoFabrica!.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
+            : (pedidoCliente!.numeroPedido ?? 'Pedido #${pedidoCliente.id}');
+
+    final info =
+        isFabrica
+            ? '${pedidoFabrica!.sucursal?.nombre ?? 'Sucursal'} • ${pedidoFabrica.totalItems} items'
+            : '${pedidoCliente!.clienteNombre} • ${pedidoCliente.totalItems} items';
 
     return GestureDetector(
       onTap: onTap,
@@ -1415,9 +1526,10 @@ class _ProductionPageState extends State<ProductionPage> {
           color: isDark ? const Color(0xFF2F2218) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.05),
+            color:
+                isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.05),
           ),
         ),
         child: Row(
@@ -1426,16 +1538,18 @@ class _ProductionPageState extends State<ProductionPage> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.05),
+                color:
+                    isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.black.withOpacity(0.05),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isFabrica ? Icons.storefront : Icons.chat,
-                color: isDark
-                    ? Colors.white.withOpacity(0.6)
-                    : Colors.black.withOpacity(0.6),
+                color:
+                    isDark
+                        ? Colors.white.withOpacity(0.6)
+                        : Colors.black.withOpacity(0.6),
                 size: 24,
               ),
             ),
@@ -1457,9 +1571,10 @@ class _ProductionPageState extends State<ProductionPage> {
                     info,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isDark
-                          ? const Color(0xFF9A6C4C)
-                          : const Color(0xFF9A6C4C),
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                   ),
                 ],
@@ -1468,17 +1583,15 @@ class _ProductionPageState extends State<ProductionPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.05),
+                color:
+                    isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.black.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'Seleccionar',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
               ),
             ),
           ],
