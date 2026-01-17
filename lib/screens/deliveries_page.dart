@@ -105,20 +105,20 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     if (confirmado != true) return;
 
     try {
-      bool exito = false;
+      Map<String, dynamic> resultado;
       if (tipo == 'fabrica') {
-        exito = await SupabaseService.actualizarEstadoPedidoFabrica(
+        resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
           pedidoId: pedidoId,
           nuevoEstado: 'entregado',
         );
       } else {
-        exito = await SupabaseService.actualizarEstadoPedidoCliente(
+        resultado = await SupabaseService.actualizarEstadoPedidoCliente(
           pedidoId: pedidoId,
           nuevoEstado: 'entregado',
         );
       }
 
-      if (exito && mounted) {
+      if (resultado['exito'] == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pedido marcado como entregado'),
@@ -128,9 +128,10 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
         // Recargar datos
         await _loadData();
       } else if (mounted) {
+        final mensaje = resultado['mensaje'] as String? ?? 'Error al marcar el pedido como entregado';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al marcar el pedido como entregado'),
+          SnackBar(
+            content: Text(mensaje),
             backgroundColor: Colors.red,
           ),
         );

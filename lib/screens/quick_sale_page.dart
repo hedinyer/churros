@@ -22,6 +22,7 @@ class QuickSalePage extends StatefulWidget {
 class _QuickSalePageState extends State<QuickSalePage> {
   List<Producto> _productos = [];
   final Map<int, int> _cart = {}; // productoId -> cantidad
+  Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
   Map<int, int> _inventario = {}; // productoId -> cantidad disponible
   bool _isLoading = true;
   final bool _isOnline = true;
@@ -31,6 +32,16 @@ class _QuickSalePageState extends State<QuickSalePage> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    // Dispose de todos los controllers
+    for (var controller in _cantidadControllers.values) {
+      controller.dispose();
+    }
+    _cantidadControllers.clear();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -52,7 +63,8 @@ class _QuickSalePageState extends State<QuickSalePage> {
       );
 
       setState(() {
-        _productos = productos;
+        // Ordenar productos por ID de menor a mayor
+        _productos = productos..sort((a, b) => a.id.compareTo(b.id));
         _inventario = inventario;
         _isLoading = false;
       });
@@ -72,6 +84,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
     if (cantidadActual < stockDisponible) {
       setState(() {
         _cart[productoId] = cantidadActual + 1;
+        _updateController(productoId);
       });
     }
   }
@@ -84,8 +97,57 @@ class _QuickSalePageState extends State<QuickSalePage> {
         if (_cart[productoId] == 0) {
           _cart.remove(productoId);
         }
+        _updateController(productoId);
       }
     });
+  }
+
+  void _updateController(int productoId) {
+    final controller = _cantidadControllers[productoId];
+    if (controller != null) {
+      final cantidad = _cart[productoId] ?? 0;
+      if (controller.text != cantidad.toString()) {
+        controller.text = cantidad.toString();
+      }
+    }
+  }
+
+  void _onCantidadChanged(int productoId, String value) {
+    final stockDisponible = _inventario[productoId] ?? 0;
+    
+    if (value.isEmpty) {
+      setState(() {
+        _cart.remove(productoId);
+      });
+      return;
+    }
+
+    final cantidad = int.tryParse(value) ?? 0;
+    if (cantidad >= 0) {
+      // Validar que no exceda el stock disponible
+      final cantidadFinal = cantidad > stockDisponible ? stockDisponible : cantidad;
+      setState(() {
+        if (cantidadFinal > 0) {
+          _cart[productoId] = cantidadFinal;
+        } else {
+          _cart.remove(productoId);
+        }
+        // Actualizar el controller si se limitó la cantidad
+        if (cantidad > stockDisponible && _cantidadControllers.containsKey(productoId)) {
+          _cantidadControllers[productoId]!.text = cantidadFinal.toString();
+        }
+      });
+    }
+  }
+
+  TextEditingController _getOrCreateController(int productoId) {
+    if (!_cantidadControllers.containsKey(productoId)) {
+      final cantidad = _cart[productoId] ?? 0;
+      _cantidadControllers[productoId] = TextEditingController(
+        text: cantidad.toString(),
+      );
+    }
+    return _cantidadControllers[productoId]!;
   }
 
   double get _totalAmount {
@@ -1353,40 +1415,42 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                           ),
                                           // Quantity Display
                                           Container(
-                                            width: (40 * textScaleFactor).clamp(
-                                              36.0,
-                                              48.0,
+                                            width: (50 * textScaleFactor).clamp(
+                                              40.0,
+                                              60.0,
                                             ),
                                             padding: EdgeInsets.symmetric(
-                                              horizontal: (8 * textScaleFactor)
-                                                  .clamp(4.0, 12.0),
+                                              horizontal: (4 * textScaleFactor)
+                                                  .clamp(2.0, 8.0),
                                             ),
-                                            child: Center(
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Text(
-                                                  quantity.toString(),
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        bodyFontSize * 1.1,
-                                                    fontWeight: FontWeight.bold,
-                                                    color:
-                                                        quantity > 0
-                                                            ? (isDark
-                                                                ? Colors.white
-                                                                : const Color(
-                                                                  0xFF1B130D,
-                                                                ))
-                                                            : (isDark
-                                                                ? const Color(
-                                                                  0xFF78716C,
-                                                                )
-                                                                : const Color(
-                                                                  0xFFA8A29E,
-                                                                )),
-                                                  ),
-                                                ),
+                                            child: TextField(
+                                              controller: _getOrCreateController(producto.id),
+                                              textAlign: TextAlign.center,
+                                              keyboardType: TextInputType.number,
+                                              style: TextStyle(
+                                                fontSize: bodyFontSize * 1.1,
+                                                fontWeight: FontWeight.bold,
+                                                color:
+                                                    quantity > 0
+                                                        ? (isDark
+                                                            ? Colors.white
+                                                            : const Color(
+                                                              0xFF1B130D,
+                                                            ))
+                                                        : (isDark
+                                                            ? const Color(
+                                                              0xFF78716C,
+                                                            )
+                                                            : const Color(
+                                                              0xFFA8A29E,
+                                                            )),
                                               ),
+                                              decoration: InputDecoration(
+                                                border: InputBorder.none,
+                                                contentPadding: EdgeInsets.zero,
+                                                isDense: true,
+                                              ),
+                                              onChanged: (value) => _onCantidadChanged(producto.id, value),
                                             ),
                                           ),
                                           // Increment Button

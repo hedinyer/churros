@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../models/pedido_fabrica.dart';
 import '../models/pedido_cliente.dart';
 import '../models/producto.dart';
-import '../models/empleado.dart';
 import '../models/produccion_empleado.dart';
 import '../services/supabase_service.dart';
 
@@ -17,7 +16,6 @@ class ProductionPage extends StatefulWidget {
 class _ProductionPageState extends State<ProductionPage> {
   List<Map<String, dynamic>> _pedidosEnPreparacion = []; // {'tipo': 'fabrica'|'cliente', 'pedido': PedidoFabrica|PedidoCliente}
   List<Producto> _productos = [];
-  List<Empleado> _empleados = [];
   Map<String, dynamic>? _pedidoSeleccionado; // {'tipo': 'fabrica'|'cliente', 'pedido': PedidoFabrica|PedidoCliente}
   Map<int, bool> _productosCompletados = {}; // detalleId -> completado
   Map<int, List<ProduccionEmpleado>> _produccionPorDetalle = {}; // detalleId -> List<ProduccionEmpleado>
@@ -39,9 +37,6 @@ class _ProductionPageState extends State<ProductionPage> {
     try {
       // Cargar productos
       final productos = await SupabaseService.getProductosActivos();
-
-      // Cargar empleados activos
-      final empleados = await SupabaseService.getEmpleadosActivos();
 
       // Cargar pedidos de fábrica en preparación
       final todosPedidosFabrica = await SupabaseService.getPedidosFabricaRecientesTodasSucursales(limit: 100);
@@ -161,7 +156,6 @@ class _ProductionPageState extends State<ProductionPage> {
 
       setState(() {
         _productos = productos;
-        _empleados = empleados;
         _pedidosEnPreparacion = pedidosCombinados;
         _productosCompletados = productosCompletados;
         _produccionPorDetalle = produccionPorDetalle;
@@ -214,114 +208,68 @@ class _ProductionPageState extends State<ProductionPage> {
     });
   }
 
-  Future<void> _asignarEmpleadoAProducto({
+  Future<void> _registrarProduccion({
     required int detalleId,
     required int productoId,
     required int cantidadSolicitada,
   }) async {
-    if (_empleados.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No hay empleados disponibles'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    Empleado? empleadoSeleccionado;
-    final cantidadController = TextEditingController(text: '1');
+    final cantidadController = TextEditingController(text: cantidadSolicitada.toString());
     final observacionesController = TextEditingController();
 
     final resultado = await showDialog<bool>(
       context: context,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Asignar Empleado'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Cantidad solicitada: $cantidadSolicitada',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
+        return AlertDialog(
+          title: const Text('Registrar Producción'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cantidad solicitada: $cantidadSolicitada',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.black87,
                   ),
-                  const SizedBox(height: 16),
-                  const Text('Seleccionar empleado:'),
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.2)
-                            : Colors.black.withOpacity(0.2),
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<Empleado>(
-                        value: empleadoSeleccionado,
-                        isExpanded: true,
-                        hint: const Text('Selecciona un empleado'),
-                        items: _empleados.map((empleado) {
-                          return DropdownMenuItem<Empleado>(
-                            value: empleado,
-                            child: Text(empleado.nombre),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            empleadoSeleccionado = value;
-                          });
-                        },
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: cantidadController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad producida',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: cantidadController,
-                    decoration: const InputDecoration(
-                      labelText: 'Cantidad producida',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: observacionesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Observaciones (opcional)',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: observacionesController,
-                    decoration: const InputDecoration(
-                      labelText: 'Observaciones (opcional)',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 2,
-                  ),
-                ],
-              ),
+                  maxLines: 2,
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: empleadoSeleccionado == null
-                    ? null
-                    : () => Navigator.pop(context, true),
-                child: const Text('Guardar'),
-              ),
-            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar'),
+            ),
+          ],
         );
       },
     );
 
-    if (resultado != true || empleadoSeleccionado == null) return;
+    if (resultado != true) return;
 
     final cantidadProducida = int.tryParse(cantidadController.text) ?? 1;
     if (cantidadProducida <= 0) {
@@ -348,7 +296,7 @@ class _ProductionPageState extends State<ProductionPage> {
 
     // Guardar producción
     final exito = await SupabaseService.guardarProduccionEmpleado(
-      empleadoId: empleadoSeleccionado!.id,
+      empleadoId: null, // Ya no se asocia a empleados
       productoId: productoId,
       cantidadProducida: cantidadProducida,
       pedidoFabricaId: pedidoFabricaId,
@@ -470,22 +418,22 @@ class _ProductionPageState extends State<ProductionPage> {
       final tipo = _pedidoSeleccionado!['tipo'] as String;
       final pedido = _pedidoSeleccionado!['pedido'];
       
-      bool exito = false;
+      Map<String, dynamic> resultado;
       if (tipo == 'fabrica') {
         final pedidoFabrica = pedido as PedidoFabrica;
-        exito = await SupabaseService.actualizarEstadoPedidoFabrica(
+        resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
           pedidoId: pedidoFabrica.id,
           nuevoEstado: 'enviado',
         );
       } else {
         final pedidoCliente = pedido as PedidoCliente;
-        exito = await SupabaseService.actualizarEstadoPedidoCliente(
+        resultado = await SupabaseService.actualizarEstadoPedidoCliente(
           pedidoId: pedidoCliente.id,
           nuevoEstado: 'enviado',
         );
       }
 
-      if (exito && mounted) {
+      if (resultado['exito'] == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pedido confirmado y despachado'),
@@ -495,10 +443,12 @@ class _ProductionPageState extends State<ProductionPage> {
         // Recargar datos
         await _loadData();
       } else if (mounted) {
+        final mensaje = resultado['mensaje'] as String? ?? 'Error al confirmar el pedido';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al confirmar el pedido'),
+          SnackBar(
+            content: Text(mensaje),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -533,6 +483,174 @@ class _ProductionPageState extends State<ProductionPage> {
     } else {
       return DateFormat('d MMM', 'es').format(dateTime);
     }
+  }
+
+  Future<void> _registrarProduccionContinua(String productoNombre) async {
+    // Buscar el producto por nombre
+    final producto = _productos.firstWhere(
+      (p) => p.nombre == productoNombre,
+      orElse: () => _productos.first,
+    );
+
+    final cantidadController = TextEditingController(text: '1');
+    final observacionesController = TextEditingController();
+
+    final resultado = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          title: Text('Producción Continua - $productoNombre'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Registrar producción continua sin pedido asociado',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: cantidadController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad producida',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: observacionesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Observaciones (opcional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (resultado != true) return;
+
+    final cantidadProducida = int.tryParse(cantidadController.text) ?? 1;
+    if (cantidadProducida <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La cantidad debe ser mayor a 0'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Guardar producción sin pedido asociado (pedidoFabricaId y pedidoClienteId son null)
+    final exitoProduccion = await SupabaseService.guardarProduccionEmpleado(
+      empleadoId: null, // Ya no se asocia a empleados
+      productoId: producto.id,
+      cantidadProducida: cantidadProducida,
+      pedidoFabricaId: null, // Producción continua, sin pedido
+      pedidoClienteId: null, // Producción continua, sin pedido
+      observaciones: observacionesController.text.isEmpty
+          ? 'Producción continua'
+          : observacionesController.text,
+    );
+
+    // Aumentar inventario de fábrica
+    final exitoInventario = await SupabaseService.aumentarInventarioFabrica(
+      productoId: producto.id,
+      cantidad: cantidadProducida,
+    );
+
+    if (exitoProduccion && exitoInventario) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Producción de $productoNombre registrada y inventario actualizado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        String mensajeError = 'Error al registrar la producción';
+        if (!exitoProduccion && !exitoInventario) {
+          mensajeError = 'Error al registrar la producción y actualizar el inventario';
+        } else if (!exitoProduccion) {
+          mensajeError = 'Error al registrar la producción (inventario actualizado)';
+        } else if (!exitoInventario) {
+          mensajeError = 'Error al actualizar el inventario (producción registrada)';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensajeError),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildProduccionContinuaButton({
+    required bool isDark,
+    required String producto,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: color.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              producto,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Registrar',
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark
+                    ? const Color(0xFF9A6C4C)
+                    : const Color(0xFF9A6C4C),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -586,6 +704,86 @@ class _ProductionPageState extends State<ProductionPage> {
                   ),
                   const SizedBox(width: 48), // Balance para el botón de back
                 ],
+              ),
+            ),
+
+            // Producción Continua Section
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2F2218) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: primaryColor.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.autorenew,
+                          color: primaryColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Producción Continua',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Registra producción de J, Q, B sin pedido asociado',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? const Color(0xFF9A6C4C)
+                            : const Color(0xFF9A6C4C),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildProduccionContinuaButton(
+                            isDark: isDark,
+                            producto: 'J',
+                            color: Colors.blue,
+                            onTap: () => _registrarProduccionContinua('J'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildProduccionContinuaButton(
+                            isDark: isDark,
+                            producto: 'Q',
+                            color: Colors.green,
+                            onTap: () => _registrarProduccionContinua('Q'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildProduccionContinuaButton(
+                            isDark: isDark,
+                            producto: 'B',
+                            color: Colors.orange,
+                            onTap: () => _registrarProduccionContinua('B'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -1003,7 +1201,6 @@ class _ProductionPageState extends State<ProductionPage> {
                     
                     final producto = _getProductoById(productoId);
                     final completado = _productosCompletados[detalleId] ?? false;
-                    final produccion = _produccionPorDetalle[detalleId] ?? [];
                     final totalProducido = _getTotalProducidoPorDetalle(detalleId);
 
                     return Container(
@@ -1083,50 +1280,18 @@ class _ProductionPageState extends State<ProductionPage> {
                                 ),
                             ],
                           ),
-                          // Lista de empleados asignados
-                          if (produccion.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            const Divider(height: 1),
-                            const SizedBox(height: 8),
-                            ...produccion.map((p) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: isDark
-                                          ? const Color(0xFF9A6C4C)
-                                          : const Color(0xFF9A6C4C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${p.empleado?.nombre ?? 'Empleado #${p.empleadoId}'}: ${p.cantidadProducida}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? const Color(0xFF9A6C4C)
-                                            : const Color(0xFF9A6C4C),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
-                          // Botón para asignar empleado
+                          // Botón para registrar producción
                           const SizedBox(height: 8),
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
-                              onPressed: () => _asignarEmpleadoAProducto(
+                              onPressed: () => _registrarProduccion(
                                 detalleId: detalleId,
                                 productoId: productoId,
                                 cantidadSolicitada: cantidadSolicitada,
                               ),
-                              icon: const Icon(Icons.person_add, size: 16),
-                              label: const Text('Asignar Empleado'),
+                              icon: const Icon(Icons.add_circle_outline, size: 16),
+                              label: const Text('Registrar Producción'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: primaryColor,
                                 side: BorderSide(color: primaryColor.withOpacity(0.5)),

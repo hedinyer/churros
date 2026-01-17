@@ -63,6 +63,8 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
 
       // Cargar productos
       _productos = await SupabaseService.getProductosActivos();
+      // Ordenar productos por ID de menor a mayor
+      _productos.sort((a, b) => a.id.compareTo(b.id));
       if (_productos.isEmpty) {
         throw Exception('No se pudieron cargar los productos');
       }

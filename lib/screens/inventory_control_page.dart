@@ -61,7 +61,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
       );
 
       setState(() {
-        _productos = productos;
+        // Ordenar productos por ID de menor a mayor
+        _productos = productos..sort((a, b) => a.id.compareTo(b.id));
         _inventarioInicial = inventarioInicial;
         _ventasHoy = ventasHoy;
         _inventarioActual = inventarioActual;

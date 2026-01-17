@@ -19,6 +19,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
   List<Producto> _productos = [];
   Map<int, int> _cantidades = {}; // productoId -> cantidad
+  Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
   String _metodoPago = 'efectivo';
   bool _isLoading = true;
   bool _isGuardando = false;
@@ -37,6 +38,11 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     _clienteTelefonoController.dispose();
     _direccionController.dispose();
     _observacionesController.dispose();
+    // Dispose de todos los controllers de cantidad
+    for (var controller in _cantidadControllers.values) {
+      controller.dispose();
+    }
+    _cantidadControllers.clear();
     super.dispose();
   }
 
@@ -79,6 +85,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   void _incrementProduct(int productoId) {
     setState(() {
       _cantidades[productoId] = (_cantidades[productoId] ?? 0) + 1;
+      _updateController(productoId);
     });
   }
 
@@ -90,8 +97,49 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         if (_cantidades[productoId] == 0) {
           _cantidades.remove(productoId);
         }
+        _updateController(productoId);
       }
     });
+  }
+
+  void _updateController(int productoId) {
+    final controller = _cantidadControllers[productoId];
+    if (controller != null) {
+      final cantidad = _cantidades[productoId] ?? 0;
+      if (controller.text != cantidad.toString()) {
+        controller.text = cantidad.toString();
+      }
+    }
+  }
+
+  void _onCantidadChanged(int productoId, String value) {
+    if (value.isEmpty) {
+      setState(() {
+        _cantidades.remove(productoId);
+      });
+      return;
+    }
+
+    final cantidad = int.tryParse(value) ?? 0;
+    if (cantidad >= 0) {
+      setState(() {
+        if (cantidad > 0) {
+          _cantidades[productoId] = cantidad;
+        } else {
+          _cantidades.remove(productoId);
+        }
+      });
+    }
+  }
+
+  TextEditingController _getOrCreateController(int productoId) {
+    if (!_cantidadControllers.containsKey(productoId)) {
+      final cantidad = _cantidades[productoId] ?? 0;
+      _cantidadControllers[productoId] = TextEditingController(
+        text: cantidad.toString(),
+      );
+    }
+    return _cantidadControllers[productoId]!;
   }
 
   double _calcularTotal() {
@@ -630,10 +678,11 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                     const BoxConstraints(),
                                               ),
                                               SizedBox(
-                                                width: 48,
-                                                child: Text(
-                                                  cantidad.toString(),
+                                                width: 60,
+                                                child: TextField(
+                                                  controller: _getOrCreateController(producto.id),
                                                   textAlign: TextAlign.center,
+                                                  keyboardType: TextInputType.number,
                                                   style: TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.bold,
@@ -643,6 +692,12 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                             : const Color(
                                                                 0xFF1B130D),
                                                   ),
+                                                  decoration: InputDecoration(
+                                                    border: InputBorder.none,
+                                                    contentPadding: EdgeInsets.zero,
+                                                    isDense: true,
+                                                  ),
+                                                  onChanged: (value) => _onCantidadChanged(producto.id, value),
                                                 ),
                                               ),
                                               IconButton(

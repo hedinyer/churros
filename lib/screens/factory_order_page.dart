@@ -23,6 +23,7 @@ class FactoryOrderPage extends StatefulWidget {
 class _FactoryOrderPageState extends State<FactoryOrderPage> {
   List<Producto> _productos = [];
   Map<int, int> _cantidades = {}; // productoId -> cantidad
+  Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
   // ignore: unused_field
   Map<int, int> _inventario =
       {}; // productoId -> stock actual (cargado para uso futuro)
@@ -36,6 +37,16 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
     super.initState();
     _loadData();
     _checkConnection();
+  }
+
+  @override
+  void dispose() {
+    // Dispose de todos los controllers
+    for (var controller in _cantidadControllers.values) {
+      controller.dispose();
+    }
+    _cantidadControllers.clear();
+    super.dispose();
   }
 
   Future<void> _checkConnection() async {
@@ -64,6 +75,35 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       // Cargar todos los productos activos de la tabla productos
       final productos = await SupabaseService.getProductosActivos();
 
+      // Filtrar productos: 
+      // - categoria_id = 1 o 4: nombre contiene "crudo" y unidad_medida = "bandeja"
+      // - categoria_id = 5: sin restricciones adicionales
+      final productosFiltrados = productos.where((producto) {
+        final categoriaId = producto.categoria?.id;
+        
+        // Si es categoría 5, se puede pedir sin restricciones
+        if (categoriaId == 5) {
+          return true;
+        }
+        
+        // Para categorías 1 y 4, verificar condiciones adicionales
+        if (categoriaId == 1 || categoriaId == 4) {
+          final nombre = producto.nombre.toLowerCase();
+          final unidadMedida = producto.unidadMedida.toLowerCase();
+          
+          // Verificar que el nombre contenga "crudo"
+          final contieneCrudo = nombre.contains('crudo');
+          
+          // Verificar que la unidad de medida sea "bandeja"
+          final esBandeja = unidadMedida == 'bandeja';
+          
+          return contieneCrudo && esBandeja;
+        }
+        
+        // Otras categorías no se pueden pedir
+        return false;
+      }).toList();
+
       // Cargar inventario actual
       final inventario = await SupabaseService.getInventarioActual(
         widget.sucursal.id,
@@ -75,7 +115,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       );
 
       setState(() {
-        _productos = productos;
+        _productos = productosFiltrados;
         _inventario = inventario;
         _pedidosRecientes = pedidos;
         _isLoading = false;
@@ -91,6 +131,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
   void _incrementProduct(int productoId) {
     setState(() {
       _cantidades[productoId] = (_cantidades[productoId] ?? 0) + 1;
+      _updateController(productoId);
     });
     // Note: _inventario is loaded and available for future stock validation
   }
@@ -100,8 +141,45 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       final current = _cantidades[productoId] ?? 0;
       if (current > 0) {
         _cantidades[productoId] = current - 1;
+        _updateController(productoId);
       }
     });
+  }
+
+  void _updateController(int productoId) {
+    final controller = _cantidadControllers[productoId];
+    if (controller != null) {
+      final cantidad = _cantidades[productoId] ?? 0;
+      if (controller.text != cantidad.toString()) {
+        controller.text = cantidad.toString();
+      }
+    }
+  }
+
+  void _onCantidadChanged(int productoId, String value) {
+    if (value.isEmpty) {
+      setState(() {
+        _cantidades[productoId] = 0;
+      });
+      return;
+    }
+
+    final cantidad = int.tryParse(value) ?? 0;
+    if (cantidad >= 0) {
+      setState(() {
+        _cantidades[productoId] = cantidad;
+      });
+    }
+  }
+
+  TextEditingController _getOrCreateController(int productoId) {
+    if (!_cantidadControllers.containsKey(productoId)) {
+      final cantidad = _cantidades[productoId] ?? 0;
+      _cantidadControllers[productoId] = TextEditingController(
+        text: cantidad.toString(),
+      );
+    }
+    return _cantidadControllers[productoId]!;
   }
 
   int _getTotalItems() {
@@ -394,7 +472,6 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
 
                             // Product Cards
                             ..._productos.map((producto) {
-                              final cantidad = _cantidades[producto.id] ?? 0;
                               // Note: _inventario is available for future stock display/validation
 
                               return Container(
@@ -496,10 +573,11 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                           ),
                                           // Quantity Input
                                           SizedBox(
-                                            width: 48,
-                                            child: Text(
-                                              cantidad.toString(),
+                                            width: 60,
+                                            child: TextField(
+                                              controller: _getOrCreateController(producto.id),
                                               textAlign: TextAlign.center,
+                                              keyboardType: TextInputType.number,
                                               style: TextStyle(
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.bold,
@@ -510,6 +588,12 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                           0xFF1B130D,
                                                         ),
                                               ),
+                                              decoration: InputDecoration(
+                                                border: InputBorder.none,
+                                                contentPadding: EdgeInsets.zero,
+                                                isDense: true,
+                                              ),
+                                              onChanged: (value) => _onCantidadChanged(producto.id, value),
                                             ),
                                           ),
                                           // Increment Button

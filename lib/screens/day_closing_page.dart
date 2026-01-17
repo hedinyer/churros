@@ -84,7 +84,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
       }
 
       setState(() {
-        _productos = productos;
+        // Ordenar productos por ID de menor a mayor
+        _productos = productos..sort((a, b) => a.id.compareTo(b.id));
         _categoriasMap = categoriasMap;
         _inventarioInicial = inventarioInicial;
         _inventarioActual = inventarioActual;

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/pedido_fabrica.dart';
 import '../models/producto.dart';
 import '../services/supabase_service.dart';
+import 'dispatch_page.dart';
 
 class FactoryOrdersListPage extends StatefulWidget {
   const FactoryOrdersListPage({super.key});
@@ -129,115 +130,21 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     }
   }
 
-  String _getSiguienteEstadoLabel(String estadoActual) {
-    final siguienteEstado = SupabaseService.getSiguienteEstado(estadoActual);
-    switch (siguienteEstado.toLowerCase()) {
-      case 'en_preparacion':
-        return 'Iniciar Preparación';
-      case 'enviado':
-        return 'Marcar como Enviado';
-      case 'entregado':
-        return 'Marcar como Entregado';
-      default:
-        return 'Avanzar';
-    }
+  bool _puedeDespachar(String estadoActual) {
+    return estadoActual.toLowerCase() == 'pendiente' ||
+        estadoActual.toLowerCase() == 'en_preparacion';
   }
 
-  bool _puedeAvanzarEstado(String estadoActual) {
-    return estadoActual.toLowerCase() != 'entregado' &&
-        estadoActual.toLowerCase() != 'cancelado';
-  }
-
-  Future<void> _avanzarEstado(PedidoFabrica pedido) async {
-    final siguienteEstado = SupabaseService.getSiguienteEstado(pedido.estado);
-
-    if (!_puedeAvanzarEstado(pedido.estado)) {
-      return;
-    }
-
-    final siguienteEstadoLabel = _getEstadoBadge(siguienteEstado);
-
-    // Mostrar diálogo de confirmación
-    final confirmado = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmar cambio de estado'),
-            content: Text(
-              '¿Cambiar el estado del pedido a "$siguienteEstadoLabel"?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Confirmar'),
-              ),
-            ],
-          ),
+  Future<void> _despacharPedido(PedidoFabrica pedido) async {
+    // Navegar a la página de despacho
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DispatchPage(),
+      ),
     );
-
-    if (confirmado != true) return;
-
-    // Actualizar estado en la lista local primero para feedback inmediato
-    setState(() {
-      final index = _pedidos.indexWhere((p) => p.id == pedido.id);
-      if (index != -1) {
-        // Crear una copia del pedido con el nuevo estado
-        final pedidoActualizado = PedidoFabrica(
-          id: pedido.id,
-          sucursalId: pedido.sucursalId,
-          sucursal: pedido.sucursal,
-          usuarioId: pedido.usuarioId,
-          usuario: pedido.usuario,
-          fechaPedido: pedido.fechaPedido,
-          horaPedido: pedido.horaPedido,
-          totalItems: pedido.totalItems,
-          estado: siguienteEstado,
-          numeroPedido: pedido.numeroPedido,
-          observaciones: pedido.observaciones,
-          sincronizado: pedido.sincronizado,
-          createdAt: pedido.createdAt,
-          updatedAt: DateTime.now(),
-          detalles: pedido.detalles,
-        );
-        _pedidos[index] = pedidoActualizado;
-      }
-    });
-
-    // Actualizar estado en la base de datos
-    final exito = await SupabaseService.actualizarEstadoPedidoFabrica(
-      pedidoId: pedido.id,
-      nuevoEstado: siguienteEstado,
-    );
-
-    if (exito && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Estado actualizado a $siguienteEstadoLabel'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      // Recargar datos para asegurar sincronización
-      await _loadData();
-    } else if (mounted) {
-      // Si falla, revertir el cambio local
-      setState(() {
-        final index = _pedidos.indexWhere((p) => p.id == pedido.id);
-        if (index != -1) {
-          _pedidos[index] = pedido;
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error al actualizar el estado'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    // Recargar datos al volver
+    await _loadData();
   }
 
   String _formatTimeAgo(DateTime dateTime) {
@@ -737,8 +644,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
             ),
           ),
 
-          // Botón para avanzar estado
-          if (_puedeAvanzarEstado(estado))
+          // Botón para despacho
+          if (_puedeDespachar(estado))
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -757,11 +664,11 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _avanzarEstado(pedido),
-                  icon: const Icon(Icons.arrow_forward, size: 18),
-                  label: Text(_getSiguienteEstadoLabel(estado)),
+                  onPressed: () => _despacharPedido(pedido),
+                  icon: const Icon(Icons.local_shipping, size: 18),
+                  label: const Text('Despachar'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: estadoColor,
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(

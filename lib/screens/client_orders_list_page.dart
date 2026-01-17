@@ -128,36 +128,20 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
     }
   }
 
-  bool _puedeAvanzarEstado(String estado) {
+  bool _puedeDespachar(String estado) {
     return estado == 'pendiente' ||
-        estado == 'en_preparacion' ||
-        estado == 'enviado';
+        estado == 'en_preparacion';
   }
 
-  String _getSiguienteEstadoLabel(String estado) {
-    switch (estado.toLowerCase()) {
-      case 'pendiente':
-        return 'Marcar en Preparación';
-      case 'en_preparacion':
-        return 'Marcar como Enviado';
-      case 'enviado':
-        return 'Marcar como Entregado';
-      default:
-        return 'Avanzar Estado';
-    }
-  }
-
-  Future<void> _avanzarEstado(PedidoCliente pedido) async {
-    final siguienteEstado = SupabaseService.getSiguienteEstado(pedido.estado);
-    final siguienteEstadoLabel = _getEstadoBadge(siguienteEstado);
-
-    // Confirmar antes de avanzar
-    final confirmar = await showDialog<bool>(
+  Future<void> _despacharPedido(PedidoCliente pedido) async {
+    // Confirmar antes de despachar
+    final confirmado = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar cambio de estado'),
+        title: const Text('Confirmar despacho'),
         content: Text(
-          '¿Deseas cambiar el estado de este pedido a "$siguienteEstadoLabel"?',
+          '¿Deseas despachar el pedido ${pedido.numeroPedido ?? '#${pedido.id}'}?\n\n'
+          'Esto cambiará el estado a "Enviado" y descontará el inventario.',
         ),
         actions: [
           TextButton(
@@ -172,64 +156,66 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       ),
     );
 
-    if (confirmar != true) return;
+    if (confirmado != true) return;
 
-    // Actualizar estado localmente primero para feedback inmediato
-    setState(() {
-      final index = _pedidos.indexWhere((p) => p.id == pedido.id);
-      if (index != -1) {
-        final pedidoActualizado = PedidoCliente(
-          id: pedido.id,
-          clienteNombre: pedido.clienteNombre,
-          clienteTelefono: pedido.clienteTelefono,
-          direccionEntrega: pedido.direccionEntrega,
-          fechaPedido: pedido.fechaPedido,
-          horaPedido: pedido.horaPedido,
-          totalItems: pedido.totalItems,
-          total: pedido.total,
-          estado: siguienteEstado,
-          numeroPedido: pedido.numeroPedido,
-          observaciones: pedido.observaciones,
-          metodoPago: pedido.metodoPago,
-          sincronizado: pedido.sincronizado,
-          createdAt: pedido.createdAt,
-          updatedAt: DateTime.now(),
-          detalles: pedido.detalles,
-        );
-        _pedidos[index] = pedidoActualizado;
+    // Mostrar indicador de carga
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    try {
+      // Actualizar estado a "enviado" (esto validará inventario y descontará automáticamente)
+      final resultado = await SupabaseService.actualizarEstadoPedidoCliente(
+        pedidoId: pedido.id,
+        nuevoEstado: 'enviado',
+      );
+
+      // Cerrar indicador de carga
+      if (mounted) {
+        Navigator.pop(context);
       }
-    });
 
-    // Actualizar estado en la base de datos
-    final exito = await SupabaseService.actualizarEstadoPedidoCliente(
-      pedidoId: pedido.id,
-      nuevoEstado: siguienteEstado,
-    );
-
-    if (exito && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Estado actualizado a $siguienteEstadoLabel'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      // Recargar datos para asegurar sincronización
-      await _loadData();
-    } else if (mounted) {
-      // Si falla, revertir el cambio local
-      setState(() {
-        final index = _pedidos.indexWhere((p) => p.id == pedido.id);
-        if (index != -1) {
-          _pedidos[index] = pedido;
+      if (resultado['exito'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pedido despachado exitosamente'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
         }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error al actualizar el estado'),
-          backgroundColor: Colors.red,
-        ),
-      );
+        // Recargar datos
+        await _loadData();
+      } else {
+        if (mounted) {
+          final mensaje = resultado['mensaje'] as String? ?? 'Error al despachar el pedido';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(mensaje),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Cerrar indicador de carga si hay error
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -868,8 +854,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
             ),
           ),
 
-          // Botón para avanzar estado
-          if (_puedeAvanzarEstado(estado))
+          // Botón para despacho
+          if (_puedeDespachar(estado))
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -888,11 +874,11 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _avanzarEstado(pedido),
-                  icon: const Icon(Icons.arrow_forward, size: 18),
-                  label: Text(_getSiguienteEstadoLabel(estado)),
+                  onPressed: () => _despacharPedido(pedido),
+                  icon: const Icon(Icons.local_shipping, size: 18),
+                  label: const Text('Despachar'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: estadoColor,
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(

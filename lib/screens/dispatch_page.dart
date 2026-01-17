@@ -166,20 +166,20 @@ class _DispatchPageState extends State<DispatchPage> {
 
     if (confirmar != true) return;
 
-    bool exito = false;
+    Map<String, dynamic> resultado;
     if (tipo == 'fabrica') {
-      exito = await SupabaseService.actualizarEstadoPedidoFabrica(
+      resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
         pedidoId: (pedido as PedidoFabrica).id,
         nuevoEstado: 'entregado',
       );
     } else {
-      exito = await SupabaseService.actualizarEstadoPedidoCliente(
+      resultado = await SupabaseService.actualizarEstadoPedidoCliente(
         pedidoId: (pedido as PedidoCliente).id,
         nuevoEstado: 'entregado',
       );
     }
 
-    if (exito && mounted) {
+    if (resultado['exito'] == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Pedido marcado como entregado'),
@@ -189,9 +189,10 @@ class _DispatchPageState extends State<DispatchPage> {
       );
       await _loadData();
     } else if (mounted) {
+      final mensaje = resultado['mensaje'] as String? ?? 'Error al actualizar el estado';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error al actualizar el estado'),
+        SnackBar(
+          content: Text(mensaje),
           backgroundColor: Colors.red,
         ),
       );

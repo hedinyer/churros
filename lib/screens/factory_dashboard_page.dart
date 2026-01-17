@@ -4,13 +4,14 @@ import '../models/user.dart';
 import '../services/supabase_service.dart';
 import '../services/notification_service.dart';
 import 'factory_orders_list_page.dart';
-import 'production_page.dart';
 import 'client_orders_list_page.dart';
 import 'dispatch_page.dart';
 import 'manual_order_page.dart';
 import 'factory_statistics_page.dart';
 import 'products_management_page.dart';
 import 'employees_management_page.dart';
+import 'factory_inventory_production_page.dart';
+import 'expenses_page.dart';
 
 class FactoryDashboardPage extends StatefulWidget {
   final AppUser currentUser;
@@ -22,7 +23,6 @@ class FactoryDashboardPage extends StatefulWidget {
 }
 
 class _FactoryDashboardPageState extends State<FactoryDashboardPage> with WidgetsBindingObserver {
-  Map<String, dynamic> _resumen = {};
   bool _isLoading = true;
   int _newFactoryOrdersCount = 0;
   int _newClientOrdersCount = 0;
@@ -64,11 +64,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     });
 
     try {
-      // Cargar resumen de fábrica
-      final resumen = await SupabaseService.getResumenFabrica();
-
       setState(() {
-        _resumen = resumen;
         _isLoading = false;
         // Resetear contadores cuando se recarga manualmente
         _newFactoryOrdersCount = 0;
@@ -321,145 +317,6 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            // Resumen Section
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Estado de hoy',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color:
-                                                isDark
-                                                    ? const Color(0xFF9A6C4C)
-                                                    : const Color(0xFF9A6C4C),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Resumen',
-                                          style: TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color:
-                                                isDark
-                                                    ? Colors.white
-                                                    : const Color(0xFF1B130D),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(
-                                          isDark ? 0.3 : 0.1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            margin: const EdgeInsets.only(
-                                              right: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Center(
-                                              child: SizedBox(
-                                                width: 8,
-                                                height: 8,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 1.5,
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                        Color
-                                                      >(Colors.green),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            'En operación',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                // KPIs Grid
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildKPICard(
-                                        isDark: isDark,
-                                        value:
-                                            _resumen['total_pedidos']
-                                                ?.toString() ??
-                                            '0',
-                                        label: 'Pedidos\nTotales',
-                                        color: primaryColor,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _buildKPICard(
-                                        isDark: isDark,
-                                        value:
-                                            _resumen['pedidos_pendientes']
-                                                ?.toString() ??
-                                            '0',
-                                        label: 'Pendientes\nProd.',
-                                        color:
-                                            isDark
-                                                ? Colors.white
-                                                : const Color(0xFF1B130D),
-                                        hasNotification: true,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _buildKPICard(
-                                        isDark: isDark,
-                                        value:
-                                            '${(_resumen['meta_diaria'] as num?)?.toInt() ?? 0}%',
-                                        label: 'Meta\nDiaria',
-                                        color: Colors.green,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 32),
-
                             // Accesos Directos Section
                             Text(
                               'Accesos Directos',
@@ -540,7 +397,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                       context,
                                       MaterialPageRoute(
                                         builder:
-                                            (context) => const ProductionPage(),
+                                            (context) => const FactoryInventoryProductionPage(),
                                       ),
                                     );
                                     // Actualizar resumen al volver
@@ -601,6 +458,24 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                             (context) => const EmployeesManagementPage(),
                                       ),
                                     );
+                                  },
+                                ),
+                                _buildAccessButton(
+                                  isDark: isDark,
+                                  icon: Icons.receipt_long,
+                                  iconColor: Colors.red,
+                                  title: 'Gastos',
+                                  subtitle: 'Pagos y Compras',
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const ExpensesPage(),
+                                      ),
+                                    );
+                                    // Actualizar resumen al volver
+                                    _loadData();
                                   },
                                 ),
                               ],
@@ -674,77 +549,6 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildKPICard({
-    required bool isDark,
-    required String value,
-    required String label,
-    required Color color,
-    bool hasNotification = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D211A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
-        ),
-      ),
-      child: Stack(
-        children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color:
-                        isDark
-                            ? const Color(0xFF9A6C4C)
-                            : const Color(0xFF9A6C4C),
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-          if (hasNotification)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
