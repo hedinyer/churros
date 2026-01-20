@@ -1,16 +1,30 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+enum NotificationSound {
+  defaultSound,
+  factoryOrderSent,
+  factoryOrderDelivered,
+}
+
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
   static bool _initialized = false;
 
+  static const String _androidIcon = 'ic_notification_delivery';
+
+  // Android 8+ channels (sound is fixed per channel once created)
+  static const String _channelDefaultId = 'pedidos_channel';
+  static const String _channelFactorySentId = 'factory_order_sent_channel_v1';
+  static const String _channelFactoryDeliveredId =
+      'factory_order_delivered_channel_v1';
+
   /// Inicializa el servicio de notificaciones
   static Future<void> initialize() async {
     if (_initialized) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(_androidIcon);
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -26,6 +40,42 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+
+    // Create Android channels (required for custom sounds on Android 8+)
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelDefaultId,
+          'Notificaciones de Pedidos',
+          description: 'Notificaciones cuando llegan nuevos pedidos',
+          importance: Importance.high,
+        ),
+      );
+
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelFactorySentId,
+          'Pedido enviado',
+          description: 'Notificación cuando un pedido a fábrica es enviado',
+          importance: Importance.high,
+          sound: RawResourceAndroidNotificationSound('pedido_enviado'),
+        ),
+      );
+
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelFactoryDeliveredId,
+          'Pedido entregado',
+          description: 'Notificación cuando un pedido a fábrica es entregado',
+          importance: Importance.high,
+          sound: RawResourceAndroidNotificationSound('pedido_entregado'),
+        ),
+      );
+    }
 
     // Solicitar permisos en Android 13+
     if (await _notifications
@@ -51,29 +101,55 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    NotificationSound sound = NotificationSound.defaultSound,
   }) async {
     if (!_initialized) {
       await initialize();
     }
 
-    const androidDetails = AndroidNotificationDetails(
-      'pedidos_channel',
-      'Notificaciones de Pedidos',
-      channelDescription: 'Notificaciones cuando llegan nuevos pedidos',
+    final (androidChannelId, androidChannelName, androidSound, iosSound) =
+        switch (sound) {
+          NotificationSound.factoryOrderSent => (
+              _channelFactorySentId,
+              'Pedido enviado',
+              const RawResourceAndroidNotificationSound('pedido_enviado'),
+              'pedido_enviado.aiff',
+            ),
+          NotificationSound.factoryOrderDelivered => (
+              _channelFactoryDeliveredId,
+              'Pedido entregado',
+              const RawResourceAndroidNotificationSound('pedido_entregado'),
+              'pedido_entregado.aiff',
+            ),
+          NotificationSound.defaultSound => (
+              _channelDefaultId,
+              'Notificaciones de Pedidos',
+              null,
+              null,
+            ),
+        };
+
+    final androidDetails = AndroidNotificationDetails(
+      androidChannelId,
+      androidChannelName,
+      channelDescription: 'Notificaciones de pedidos',
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
       enableVibration: true,
       playSound: true,
+      icon: _androidIcon,
+      sound: androidSound,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: iosSound,
     );
 
-    const notificationDetails = NotificationDetails(
+    final notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -150,12 +226,13 @@ class NotificationService {
   }) async {
     final sucursal = sucursalNombre ?? 'Fábrica';
     final pedido = numeroPedido.isNotEmpty ? ' #$numeroPedido' : '';
-    
+
     await showNotification(
       id: DateTime.now().millisecondsSinceEpoch % 100000,
       title: 'Pedido Enviado',
       body: 'Tu pedido a fábrica$pedido ha sido enviado desde $sucursal',
       payload: 'factory_order_sent',
+      sound: NotificationSound.factoryOrderSent,
     );
   }
 
@@ -166,12 +243,13 @@ class NotificationService {
   }) async {
     final sucursal = sucursalNombre ?? 'Fábrica';
     final pedido = numeroPedido.isNotEmpty ? ' #$numeroPedido' : '';
-    
+
     await showNotification(
       id: DateTime.now().millisecondsSinceEpoch % 100000,
       title: 'Pedido Entregado',
       body: 'Tu pedido a fábrica$pedido ha sido entregado desde $sucursal',
       payload: 'factory_order_delivered',
+      sound: NotificationSound.factoryOrderDelivered,
     );
   }
 
