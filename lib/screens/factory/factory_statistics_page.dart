@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/supabase_service.dart';
-import '../models/empleado.dart';
-import '../models/producto.dart';
+import '../../services/supabase_service.dart';
+import '../../models/empleado.dart';
+import '../../models/producto.dart';
 
 class FactoryStatisticsPage extends StatefulWidget {
   const FactoryStatisticsPage({super.key});

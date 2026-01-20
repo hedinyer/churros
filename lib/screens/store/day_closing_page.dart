@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/sucursal.dart';
-import '../models/user.dart';
-import '../models/producto.dart';
-import '../models/categoria.dart';
-import '../services/supabase_service.dart';
-import '../main.dart';
+import '../../models/sucursal.dart';
+import '../../models/user.dart';
+import '../../models/producto.dart';
+import '../../models/categoria.dart';
+import '../../services/supabase_service.dart';
+import '../../main.dart';
 
 class DayClosingPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -31,6 +31,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
   Map<int, int> _sobrantes = {}; // productoId -> sobrantes
   Map<int, int> _vencido = {}; // productoId -> vencido/mal estado
   double _totalVentasHoy = 0.0;
+  double _totalGastosHoy = 0.0;
   int _totalDesperdicio = 0;
   int? _aperturaId;
 
@@ -71,6 +72,15 @@ class _DayClosingPageState extends State<DayClosingPage> {
         widget.sucursal.id,
       );
 
+      // Cargar gastos del día
+      final gastos = await SupabaseService.getGastosPuntoVenta(
+        sucursalId: widget.sucursal.id,
+      );
+      final totalGastos = gastos.fold<double>(
+        0.0,
+        (sum, gasto) => sum + ((gasto['monto'] as num?)?.toDouble() ?? 0.0),
+      );
+
       // Inicializar valores
       final existenciaFinal = <int, int>{};
       final sobrantes = <int, int>{};
@@ -84,8 +94,12 @@ class _DayClosingPageState extends State<DayClosingPage> {
       }
 
       setState(() {
-        // Ordenar productos por ID de menor a mayor
-        _productos = productos..sort((a, b) => a.id.compareTo(b.id));
+        // Ordenar productos por inventario actual descendente (mayor a menor)
+        _productos = productos..sort((a, b) {
+          final inventarioA = inventarioActual[a.id] ?? 0;
+          final inventarioB = inventarioActual[b.id] ?? 0;
+          return inventarioB.compareTo(inventarioA);
+        });
         _categoriasMap = categoriasMap;
         _inventarioInicial = inventarioInicial;
         _inventarioActual = inventarioActual;
@@ -93,6 +107,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
         _sobrantes = sobrantes;
         _vencido = vencido;
         _totalVentasHoy = (resumenVentas['total'] as num).toDouble();
+        _totalGastosHoy = totalGastos;
         _aperturaId = apertura?.id;
         _isLoading = false;
       });
@@ -197,10 +212,6 @@ class _DayClosingPageState extends State<DayClosingPage> {
     final largeFontSize = (baseFontSize * 1.5 * textScaleFactor).clamp(
       20.0,
       32.0,
-    );
-    final extraLargeFontSize = (baseFontSize * 2.0 * textScaleFactor).clamp(
-      24.0,
-      40.0,
     );
 
     // Espaciado adaptativo
@@ -433,7 +444,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                               fit: BoxFit.scaleDown,
                                               alignment: Alignment.centerLeft,
                                               child: Text(
-                                                'TOTAL VENDIDO',
+                                                'TOTAL',
                                                 style: TextStyle(
                                                   fontSize: smallFontSize * 0.8,
                                                   fontWeight: FontWeight.bold,
@@ -461,8 +472,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                         child: Text(
                                           NumberFormat.currency(
                                             symbol: '\$',
-                                            decimalDigits: 2,
-                                          ).format(_totalVentasHoy),
+                                            decimalDigits: 0,
+                                          ).format(_totalVentasHoy - _totalGastosHoy),
                                           style: TextStyle(
                                             fontSize: largeFontSize,
                                             fontWeight: FontWeight.bold,
@@ -1325,7 +1336,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    'Total Caja: ${NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(_totalVentasHoy)}',
+                    'Total Caja: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalVentasHoy - _totalGastosHoy)}',
                     style: TextStyle(
                       fontSize: bodyFontSize * 1.1,
                       fontWeight: FontWeight.bold,

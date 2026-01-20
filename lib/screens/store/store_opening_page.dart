@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/supabase_service.dart';
-import '../models/producto.dart';
-import '../models/sucursal.dart';
-import '../models/apertura_dia.dart';
-import '../models/user.dart';
+import '../../services/supabase_service.dart';
+import '../../models/producto.dart';
+import '../../models/sucursal.dart';
+import '../../models/apertura_dia.dart';
+import '../../models/user.dart';
 import 'dashboard_page.dart';
 
 class StoreOpeningPage extends StatefulWidget {

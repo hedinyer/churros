@@ -1,14 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/sucursal.dart';
-import '../models/user.dart';
-import '../services/supabase_service.dart';
-import '../widgets/onboarding_overlay.dart';
+import '../../models/sucursal.dart';
+import '../../models/user.dart';
+import '../../models/pedido_fabrica.dart';
+import '../../services/supabase_service.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/onboarding_overlay.dart';
 import 'store_opening_page.dart';
 import 'quick_sale_page.dart';
 import 'inventory_control_page.dart';
 import 'day_closing_page.dart';
-import 'factory_order_page.dart';
+import '../factory/factory_order_page.dart';
 import 'store_expenses_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -27,6 +30,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   double _totalVentasHoy = 0.0;
+  double _totalGastosHoy = 0.0;
   int _ticketsHoy = 0;
   double _porcentajeVsAyer = 0.0;
   bool _isLoadingVentas = true;
@@ -37,11 +41,22 @@ class _DashboardPageState extends State<DashboardPage> {
   final GlobalKey _inventoryKey = GlobalKey();
   final GlobalKey _closingKey = GlobalKey();
 
+  // Monitoreo de cambios de estado de pedidos a fábrica
+  Timer? _orderStatusTimer;
+  Map<int, String> _previousOrderStates = {}; // pedidoId -> estado
+
   @override
   void initState() {
     super.initState();
     _loadVentasHoy();
     _checkAndShowOnboarding();
+    _initializeOrderStatusMonitoring();
+  }
+
+  @override
+  void dispose() {
+    _orderStatusTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkAndShowOnboarding() async {
@@ -82,8 +97,19 @@ class _DashboardPageState extends State<DashboardPage> {
       final resumen = await SupabaseService.getResumenVentasHoy(
         widget.sucursal.id,
       );
+      
+      // Cargar gastos del día
+      final gastos = await SupabaseService.getGastosPuntoVenta(
+        sucursalId: widget.sucursal.id,
+      );
+      final totalGastos = gastos.fold<double>(
+        0.0,
+        (sum, gasto) => sum + ((gasto['monto'] as num?)?.toDouble() ?? 0.0),
+      );
+      
       setState(() {
         _totalVentasHoy = resumen['total'] as double;
+        _totalGastosHoy = totalGastos;
         _ticketsHoy = resumen['tickets'] as int;
         _porcentajeVsAyer = resumen['porcentaje_vs_ayer'] as double;
         _isLoadingVentas = false;
@@ -93,6 +119,86 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() {
         _isLoadingVentas = false;
       });
+    }
+  }
+
+  /// Inicializa el monitoreo de cambios de estado de pedidos a fábrica
+  Future<void> _initializeOrderStatusMonitoring() async {
+    // Cargar estado inicial de los pedidos
+    await _loadInitialOrderStates();
+    
+    // Configurar timer para verificar cambios cada 30 segundos
+    _orderStatusTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _checkOrderStatusChanges(),
+    );
+  }
+
+  /// Carga el estado inicial de los pedidos a fábrica de esta sucursal
+  Future<void> _loadInitialOrderStates() async {
+    try {
+      final pedidos = await SupabaseService.getPedidosFabricaRecientes(
+        widget.sucursal.id,
+        limit: 50,
+      );
+      
+      _previousOrderStates = {
+        for (var pedido in pedidos)
+          pedido.id: pedido.estado,
+      };
+    } catch (e) {
+      print('Error cargando estado inicial de pedidos: $e');
+    }
+  }
+
+  /// Verifica cambios de estado en los pedidos a fábrica
+  Future<void> _checkOrderStatusChanges() async {
+    if (!mounted) return;
+
+    try {
+      final pedidos = await SupabaseService.getPedidosFabricaRecientes(
+        widget.sucursal.id,
+        limit: 50,
+      );
+
+      for (final PedidoFabrica pedido in pedidos) {
+        final pedidoId = pedido.id;
+        final estadoActual = pedido.estado;
+        final estadoAnterior = _previousOrderStates[pedidoId];
+
+        // Si el pedido no estaba en el mapa anterior, agregarlo sin notificar
+        if (estadoAnterior == null) {
+          _previousOrderStates[pedidoId] = estadoActual;
+          continue;
+        }
+
+        // Verificar cambio de Pendiente a Enviado
+        if (estadoAnterior == 'pendiente' && estadoActual == 'enviado') {
+          await NotificationService.showFactoryOrderSentNotification(
+            numeroPedido: pedido.numeroPedido ?? pedido.id.toString(),
+            sucursalNombre: 'Fábrica',
+          );
+          _previousOrderStates[pedidoId] = estadoActual;
+        }
+        // Verificar cambio de Enviado a Entregado
+        else if (estadoAnterior == 'enviado' && estadoActual == 'entregado') {
+          await NotificationService.showFactoryOrderDeliveredNotification(
+            numeroPedido: pedido.numeroPedido ?? pedido.id.toString(),
+            sucursalNombre: 'Fábrica',
+          );
+          _previousOrderStates[pedidoId] = estadoActual;
+        }
+        // Actualizar estado si cambió a otro estado
+        else if (estadoAnterior != estadoActual) {
+          _previousOrderStates[pedidoId] = estadoActual;
+        }
+      }
+
+      // Limpiar pedidos que ya no existen (más de 50 días)
+      final pedidosIds = pedidos.map((p) => p.id).toSet();
+      _previousOrderStates.removeWhere((id, _) => !pedidosIds.contains(id));
+    } catch (e) {
+      print('Error verificando cambios de estado de pedidos: $e');
     }
   }
 
@@ -163,17 +269,39 @@ class _DashboardPageState extends State<DashboardPage> {
                       // Sales Card
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color:
-                              isDark ? const Color(0xFF2C2018) : Colors.white,
-                          borderRadius: BorderRadius.circular(24),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isDark
+                                ? [
+                                    const Color(0xFF2C2018),
+                                    const Color(0xFF251C15),
+                                  ]
+                                : [
+                                    Colors.white,
+                                    const Color(0xFFFDFCFB),
+                                  ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color:
                                 isDark
-                                    ? const Color(0xFF44403C)
-                                    : const Color(0xFFE7E5E4),
+                                    ? const Color(0xFF44403C).withOpacity(0.4)
+                                    : const Color(0xFFE7E5E4).withOpacity(0.5),
+                            width: 1,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.black.withOpacity(0.04),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                              spreadRadius: 0,
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,33 +394,12 @@ class _DashboardPageState extends State<DashboardPage> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            Row(
+                            Wrap(
+                              spacing: 16,
+                              runSpacing: 8,
                               children: [
                                 Row(
-                                  children: [
-                                    Icon(
-                                      Icons.receipt_long,
-                                      size: 18,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '$_ticketsHoy Tickets',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 16),
-                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       _porcentajeVsAyer >= 0
@@ -318,6 +425,25 @@ class _DashboardPageState extends State<DashboardPage> {
                                     ),
                                   ],
                                 ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.receipt_long,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Gastos: \$${NumberFormat('#,###', 'es').format(_totalGastosHoy.round())}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ],
@@ -331,11 +457,11 @@ class _DashboardPageState extends State<DashboardPage> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 0.85,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: 1.1,
                         children: [
-                          // Venta Rápida (Large Button)
+                          // Venta Rápida
                           GestureDetector(
                             onTap: () {
                               Navigator.push(
@@ -349,96 +475,12 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ),
                               );
                             },
-                            child: Container(
+                            child: _buildModernCard(
                               key: _quickSaleKey,
-                              decoration: BoxDecoration(
-                                color: primaryColor,
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: primaryColor.withOpacity(0.25),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Stack(
-                                children: [
-                                  // Background Icon
-                                  Positioned(
-                                    right: -24,
-                                    bottom: -32,
-                                    child: Opacity(
-                                      opacity: 0.2,
-                                      child: Icon(
-                                        Icons.point_of_sale,
-                                        size: 160,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  // Content
-                                  Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Container(
-                                          width: 56,
-                                          height: 56,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(
-                                              0.2,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.white.withOpacity(
-                                                0.1,
-                                              ),
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.payments,
-                                            color: Colors.white,
-                                            size: 32,
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'Venta Rápida',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: -0.5,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Nuevo pedido al mostrador',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(
-                                                  0.8,
-                                                ),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              isDark: isDark,
+                              color: primaryColor,
+                              icon: Icons.payments,
+                              title: 'Venta Rápida',
                             ),
                           ),
 
@@ -574,6 +616,81 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  Widget _buildModernCard({
+    Key? key,
+    required bool isDark,
+    required Color color,
+    required IconData icon,
+    required String title,
+  }) {
+    return Container(
+      key: key,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  color.withOpacity(0.12),
+                  color.withOpacity(0.06),
+                ]
+              : [
+                  color.withOpacity(0.1),
+                  color.withOpacity(0.05),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withOpacity(0.25),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(isDark ? 0.1 : 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(isDark ? 0.2 : 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white.withOpacity(0.95) : const Color(0xFF1B130D),
+                height: 1.3,
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     Key? key,
     required BuildContext context,
@@ -587,62 +704,12 @@ class _DashboardPageState extends State<DashboardPage> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: _buildModernCard(
         key: key,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: backgroundColor.withOpacity(0.25),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            // Background Icon
-            Positioned(
-              right: -24,
-              bottom: -32,
-              child: Opacity(
-                opacity: 0.2,
-                child: Icon(backgroundIcon, size: 160, color: Colors.white),
-              ),
-            ),
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: Icon(icon, color: Colors.white, size: 28),
-                  ),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      height: 1.2,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        isDark: isDark,
+        color: backgroundColor,
+        icon: icon,
+        title: title,
       ),
     );
   }

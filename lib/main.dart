@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/supabase_service.dart';
 import 'services/notification_service.dart';
-import 'screens/dashboard_page.dart';
-import 'screens/factory_dashboard_page.dart';
-import 'screens/deliveries_page.dart';
+import 'screens/store/dashboard_page.dart';
+import 'screens/factory/factory_dashboard_page.dart';
+import 'screens/store/deliveries_page.dart';
 import 'models/user.dart';
 import 'models/sucursal.dart';
 

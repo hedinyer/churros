@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/sucursal.dart';
-import '../models/user.dart';
-import '../models/producto.dart';
-import '../services/supabase_service.dart';
+import '../../models/sucursal.dart';
+import '../../models/user.dart';
+import '../../models/producto.dart';
+import '../../services/supabase_service.dart';
 import 'dashboard_page.dart';
 
 class QuickSalePage extends StatefulWidget {
@@ -26,7 +26,6 @@ class _QuickSalePageState extends State<QuickSalePage> {
   Map<int, int> _inventario = {}; // productoId -> cantidad disponible
   bool _isLoading = true;
   final bool _isOnline = true;
-  int _totalInventario = 0;
 
   @override
   void initState() {
@@ -57,14 +56,14 @@ class _QuickSalePageState extends State<QuickSalePage> {
       final inventario = await SupabaseService.getInventarioActual(
         widget.sucursal.id,
       );
-      _totalInventario = inventario.values.fold(
-        0,
-        (sum, cantidad) => sum + cantidad,
-      );
 
       setState(() {
-        // Ordenar productos por ID de menor a mayor
-        _productos = productos..sort((a, b) => a.id.compareTo(b.id));
+        // Ordenar productos por inventario descendente (mayor a menor)
+        _productos = productos..sort((a, b) {
+          final inventarioA = inventario[a.id] ?? 0;
+          final inventarioB = inventario[b.id] ?? 0;
+          return inventarioB.compareTo(inventarioA);
+        });
         _inventario = inventario;
         _isLoading = false;
       });
@@ -782,10 +781,6 @@ class _QuickSalePageState extends State<QuickSalePage> {
         );
         setState(() {
           _inventario = inventario;
-          _totalInventario = inventario.values.fold(
-            0,
-            (sum, cantidad) => sum + cantidad,
-          );
         });
 
         // Mostrar éxito y navegar al dashboard
@@ -1040,79 +1035,6 @@ class _QuickSalePageState extends State<QuickSalePage> {
                           ),
                         ),
                       ],
-                    ),
-                    SizedBox(height: spacingSmall),
-                    // Inventario Total
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: (12 * textScaleFactor).clamp(8.0, 16.0),
-                        vertical: (8 * textScaleFactor).clamp(6.0, 12.0),
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2C2018) : Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color:
-                              isDark
-                                  ? const Color(0xFF44403C)
-                                  : const Color(0xFFE7E5E4),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.inventory_2,
-                                  color: primaryColor,
-                                  size: (20 * textScaleFactor).clamp(
-                                    16.0,
-                                    24.0,
-                                  ),
-                                ),
-                                SizedBox(width: spacingSmall / 2),
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      'Inventario Total',
-                                      style: TextStyle(
-                                        fontSize: bodyFontSize,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFD6D3D1)
-                                                : const Color(0xFF44403C),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: spacingSmall),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              '$_totalInventario unid.',
-                              style: TextStyle(
-                                fontSize: bodyFontSize,
-                                fontWeight: FontWeight.bold,
-                                color: primaryColor,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),

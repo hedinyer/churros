@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/pedido_fabrica.dart';
-import '../models/pedido_cliente.dart';
-import '../models/producto.dart';
-import '../services/supabase_service.dart';
+import '../../models/pedido_fabrica.dart';
+import '../../models/pedido_cliente.dart';
+import '../../models/producto.dart';
+import '../../services/supabase_service.dart';
 
 class DispatchPage extends StatefulWidget {
   const DispatchPage({super.key});

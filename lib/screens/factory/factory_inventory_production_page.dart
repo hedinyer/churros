@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/producto.dart';
-import '../services/supabase_service.dart';
+import '../../models/producto.dart';
+import '../../services/supabase_service.dart';
 
 class FactoryInventoryProductionPage extends StatefulWidget {
   const FactoryInventoryProductionPage({super.key});

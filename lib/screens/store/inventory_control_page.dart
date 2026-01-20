@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/sucursal.dart';
-import '../models/user.dart';
-import '../models/producto.dart';
-import '../services/supabase_service.dart';
+import '../../models/sucursal.dart';
+import '../../models/user.dart';
+import '../../models/producto.dart';
+import '../../services/supabase_service.dart';
 
 class InventoryControlPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -61,8 +61,12 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
       );
 
       setState(() {
-        // Ordenar productos por ID de menor a mayor
-        _productos = productos..sort((a, b) => a.id.compareTo(b.id));
+        // Ordenar productos por inventario actual descendente (mayor a menor)
+        _productos = productos..sort((a, b) {
+          final inventarioA = inventarioActual[a.id] ?? 0;
+          final inventarioB = inventarioActual[b.id] ?? 0;
+          return inventarioB.compareTo(inventarioA);
+        });
         _inventarioInicial = inventarioInicial;
         _ventasHoy = ventasHoy;
         _inventarioActual = inventarioActual;

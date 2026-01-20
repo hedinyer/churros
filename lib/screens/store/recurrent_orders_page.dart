@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/producto.dart';
-import '../services/supabase_service.dart';
+import '../../models/producto.dart';
+import '../../services/supabase_service.dart';
 
 class RecurrentOrdersPage extends StatefulWidget {
   const RecurrentOrdersPage({super.key});

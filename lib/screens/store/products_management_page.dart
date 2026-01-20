@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/producto.dart';
-import '../models/categoria.dart';
-import '../services/supabase_service.dart';
+import '../../models/producto.dart';
+import '../../models/categoria.dart';
+import '../../services/supabase_service.dart';
 
 class ProductsManagementPage extends StatefulWidget {
   const ProductsManagementPage({super.key});
@@ -111,7 +111,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
             Container(
               padding: EdgeInsets.symmetric(
                 horizontal: isSmallScreen ? 16 : 20,
-                vertical: 12,
+                vertical: 16,
               ),
               decoration: BoxDecoration(
                 color: (isDark
@@ -120,10 +120,10 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                     .withOpacity(0.95),
                 border: Border(
                   bottom: BorderSide(
-                    color:
-                        isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.black.withOpacity(0.1),
+                    color: isDark
+                        ? const Color(0xFF44403C)
+                        : const Color(0xFFE7E5E4),
+                    width: 1,
                   ),
                 ),
               ),
@@ -133,12 +133,17 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.pop(context),
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(4),
+                      shape: const CircleBorder(),
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                   Expanded(
                     child: Text(
                       'Gestión de Productos',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -149,6 +154,11 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                     icon: const Icon(Icons.add),
                     onPressed: () => _mostrarDialogoProducto(),
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(4),
+                      shape: const CircleBorder(),
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                 ],
               ),
@@ -224,14 +234,13 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
   Widget _buildProductoCard(Producto producto, bool isDark) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: isDark ? const Color(0xFF2D211A) : Colors.white,
+      color: isDark ? const Color(0xFF2C2018) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color:
-              isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
+          color: isDark
+              ? const Color(0xFF44403C)
+              : const Color(0xFFE7E5E4),
         ),
       ),
       child: ListTile(
@@ -287,7 +296,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                   ),
                 const SizedBox(width: 8),
                 Text(
-                  '\$${producto.precio.toStringAsFixed(2)}',
+                  '\$${producto.precio.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -376,7 +385,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
   void _mostrarDialogoProducto({Producto? producto}) {
     final nombreController = TextEditingController(text: producto?.nombre ?? '');
     final descripcionController = TextEditingController(text: producto?.descripcion ?? '');
-    final precioController = TextEditingController(text: producto?.precio.toStringAsFixed(2) ?? '0.00');
+    final precioController = TextEditingController(text: producto?.precio.toStringAsFixed(0) ?? '0');
     final unidadMedidaController = TextEditingController(text: producto?.unidadMedida ?? 'unidad');
     
     Categoria? categoriaSeleccionada = producto?.categoria;

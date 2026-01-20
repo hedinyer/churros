@@ -2125,6 +2125,7 @@ required int productoId,
   /// Obtiene pedidos de clientes recientes (desde WhatsApp)
   static Future<List<PedidoCliente>> getPedidosClientesRecientes({
     int limit = 100,
+    bool soloHoy = false,
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -2134,9 +2135,16 @@ required int productoId,
       }
 
       // Obtener los pedidos de clientes
-      final pedidosResponse = await client
+      var query = client
           .from('pedidos_clientes')
-          .select()
+          .select();
+      
+      if (soloHoy) {
+        final today = DateTime.now().toIso8601String().split('T')[0];
+        query = query.eq('fecha_pedido', today);
+      }
+      
+      final pedidosResponse = await query
           .order('created_at', ascending: false)
           .limit(limit);
 
@@ -2469,10 +2477,12 @@ required int productoId,
         return [];
       }
 
+      final today = DateTime.now().toIso8601String().split('T')[0];
       final response = await client
           .from('gastos_puntoventa')
           .select()
           .eq('sucursal_id', sucursalId)
+          .eq('fecha', today)
           .order('fecha', ascending: false)
           .order('created_at', ascending: false);
 
@@ -2519,7 +2529,7 @@ required int productoId,
     }
   }
 
-  /// Obtiene todos los gastos varios
+  /// Obtiene todos los gastos varios del día actual
   static Future<List<Map<String, dynamic>>> getGastosVarios() async {
     try {
       final hasConnection = await _checkConnection();
@@ -2528,9 +2538,11 @@ required int productoId,
         return [];
       }
 
+      final today = DateTime.now().toIso8601String().split('T')[0];
       final response = await client
           .from('gastos_varios')
           .select()
+          .eq('fecha', today)
           .order('fecha', ascending: false)
           .order('created_at', ascending: false);
 

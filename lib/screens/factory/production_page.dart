@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/pedido_fabrica.dart';
-import '../models/pedido_cliente.dart';
-import '../models/producto.dart';
-import '../models/produccion_empleado.dart';
-import '../services/supabase_service.dart';
+import '../../models/pedido_fabrica.dart';
+import '../../models/pedido_cliente.dart';
+import '../../models/producto.dart';
+import '../../models/produccion_empleado.dart';
+import '../../services/supabase_service.dart';
 
 class ProductionPage extends StatefulWidget {
   const ProductionPage({super.key});

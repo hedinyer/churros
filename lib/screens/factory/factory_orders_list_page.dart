@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/pedido_fabrica.dart';
-import '../models/producto.dart';
-import '../services/supabase_service.dart';
-import 'dispatch_page.dart';
+import '../../models/pedido_fabrica.dart';
+import '../../models/producto.dart';
+import '../../services/supabase_service.dart';
+import '../store/dispatch_page.dart';
 
 class FactoryOrdersListPage extends StatefulWidget {
   const FactoryOrdersListPage({super.key});

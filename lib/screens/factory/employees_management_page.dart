@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/empleado.dart';
-import '../services/supabase_service.dart';
+import '../../models/empleado.dart';
+import '../../services/supabase_service.dart';
 
 class EmployeesManagementPage extends StatefulWidget {
   const EmployeesManagementPage({super.key});

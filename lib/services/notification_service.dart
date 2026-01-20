@@ -143,6 +143,38 @@ class NotificationService {
     );
   }
 
+  /// Muestra una notificación cuando un pedido a fábrica cambia de Pendiente a Enviado
+  static Future<void> showFactoryOrderSentNotification({
+    required String numeroPedido,
+    String? sucursalNombre,
+  }) async {
+    final sucursal = sucursalNombre ?? 'Fábrica';
+    final pedido = numeroPedido.isNotEmpty ? ' #$numeroPedido' : '';
+    
+    await showNotification(
+      id: DateTime.now().millisecondsSinceEpoch % 100000,
+      title: 'Pedido Enviado',
+      body: 'Tu pedido a fábrica$pedido ha sido enviado desde $sucursal',
+      payload: 'factory_order_sent',
+    );
+  }
+
+  /// Muestra una notificación cuando un pedido a fábrica cambia de Enviado a Entregado
+  static Future<void> showFactoryOrderDeliveredNotification({
+    required String numeroPedido,
+    String? sucursalNombre,
+  }) async {
+    final sucursal = sucursalNombre ?? 'Fábrica';
+    final pedido = numeroPedido.isNotEmpty ? ' #$numeroPedido' : '';
+    
+    await showNotification(
+      id: DateTime.now().millisecondsSinceEpoch % 100000,
+      title: 'Pedido Entregado',
+      body: 'Tu pedido a fábrica$pedido ha sido entregado desde $sucursal',
+      payload: 'factory_order_delivered',
+    );
+  }
+
   /// Cancela todas las notificaciones
   static Future<void> cancelAll() async {
     await _notifications.cancelAll();

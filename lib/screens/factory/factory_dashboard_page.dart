@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user.dart';
-import '../services/supabase_service.dart';
-import '../services/notification_service.dart';
+import '../../models/user.dart';
+import '../../services/supabase_service.dart';
+import '../../services/notification_service.dart';
 import 'factory_orders_list_page.dart';
-import 'client_orders_list_page.dart';
-import 'dispatch_page.dart';
-import 'manual_order_page.dart';
+import '../store/client_orders_list_page.dart';
+import '../store/dispatch_page.dart';
+import '../store/manual_order_page.dart';
 import 'factory_statistics_page.dart';
-import 'products_management_page.dart';
+import '../store/products_management_page.dart';
 import 'employees_management_page.dart';
 import 'factory_inventory_production_page.dart';
-import 'expenses_page.dart';
-import 'recurrent_orders_page.dart';
+import '../store/expenses_page.dart';
+import '../store/recurrent_orders_page.dart';
 
 class FactoryDashboardPage extends StatefulWidget {
   final AppUser currentUser;

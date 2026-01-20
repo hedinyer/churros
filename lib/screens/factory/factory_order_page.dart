@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/sucursal.dart';
-import '../models/user.dart';
-import '../models/producto.dart';
-import '../models/pedido_fabrica.dart';
-import '../services/supabase_service.dart';
+import '../../models/sucursal.dart';
+import '../../models/user.dart';
+import '../../models/producto.dart';
+import '../../models/pedido_fabrica.dart';
+import '../../services/supabase_service.dart';
 
 class FactoryOrderPage extends StatefulWidget {
   final Sucursal sucursal;

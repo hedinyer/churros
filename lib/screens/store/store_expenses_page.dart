@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/sucursal.dart';
-import '../models/user.dart';
-import '../services/supabase_service.dart';
+import '../../models/sucursal.dart';
+import '../../models/user.dart';
+import '../../services/supabase_service.dart';
 
 class StoreExpensesPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -231,13 +231,6 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
     return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('dd/MM/yyyy').format(date);
-  }
-
-  String _formatTime(DateTime time) {
-    return DateFormat('HH:mm').format(time);
-  }
 
   String _getTipoLabel(String tipo) {
     switch (tipo) {
@@ -324,8 +317,9 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                 border: Border(
                   bottom: BorderSide(
                     color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
+                        ? const Color(0xFF44403C)
+                        : const Color(0xFFE7E5E4),
+                    width: 1,
                   ),
                 ),
               ),
@@ -335,10 +329,15 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.pop(context),
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(4),
+                      shape: const CircleBorder(),
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                   Expanded(
                     child: Text(
-                      'Gastos',
+                      'Gastos de Hoy',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -381,7 +380,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Total Gastos',
+                          'Total Gastos de Hoy',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -472,7 +471,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      'No hay gastos registrados',
+                                      'No hay gastos de hoy',
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -558,12 +557,6 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
     final monto = (gasto['monto'] as num?)?.toDouble() ?? 0.0;
     final tipo = gasto['tipo'] as String? ?? 'otro';
     final categoria = gasto['categoria'] as String?;
-    final fecha = gasto['fecha'] != null
-        ? DateTime.parse(gasto['fecha'] as String)
-        : DateTime.now();
-    final hora = gasto['hora'] != null
-        ? DateTime.parse('2000-01-01 ${gasto['hora'] as String}')
-        : DateTime.now();
 
     final tipoIcon = _getTipoIcon(tipo);
     final tipoColor = _getTipoColor(tipo);
@@ -573,12 +566,12 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D211A) : Colors.white,
+        color: isDark ? const Color(0xFF2C2018) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.black.withOpacity(0.1),
+              ? const Color(0xFF44403C)
+              : const Color(0xFFE7E5E4),
         ),
       ),
       child: Row(
@@ -639,24 +632,6 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 12,
-                      color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_formatDate(fecha)} ${_formatTime(hora)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
