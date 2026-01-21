@@ -23,9 +23,11 @@ class QuickSalePage extends StatefulWidget {
 class _QuickSalePageState extends State<QuickSalePage> {
   List<Producto> _productos = [];
   Map<int, Categoria> _categoriasMap = {};
-  int _selectedCategoriaFilter = -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
+  int _selectedCategoriaFilter =
+      -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
   final Map<int, int> _cart = {}; // productoId -> cantidad
-  Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
+  Map<int, TextEditingController> _cantidadControllers =
+      {}; // productoId -> controller
   Map<int, int> _inventario = {}; // productoId -> cantidad disponible
   bool _isLoading = true;
   final bool _isOnline = true;
@@ -64,11 +66,12 @@ class _QuickSalePageState extends State<QuickSalePage> {
 
       setState(() {
         // Ordenar productos por inventario descendente (mayor a menor)
-        _productos = productos..sort((a, b) {
-          final inventarioA = inventario[a.id] ?? 0;
-          final inventarioB = inventario[b.id] ?? 0;
-          return inventarioB.compareTo(inventarioA);
-        });
+        _productos =
+            productos..sort((a, b) {
+              final inventarioA = inventario[a.id] ?? 0;
+              final inventarioB = inventario[b.id] ?? 0;
+              return inventarioB.compareTo(inventarioA);
+            });
         _categoriasMap = categoriasMap;
         _inventario = inventario;
         _isLoading = false;
@@ -119,7 +122,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
 
   void _onCantidadChanged(int productoId, String value) {
     final stockDisponible = _inventario[productoId] ?? 0;
-    
+
     if (value.isEmpty) {
       setState(() {
         _cart.remove(productoId);
@@ -130,7 +133,8 @@ class _QuickSalePageState extends State<QuickSalePage> {
     final cantidad = int.tryParse(value) ?? 0;
     if (cantidad >= 0) {
       // Validar que no exceda el stock disponible
-      final cantidadFinal = cantidad > stockDisponible ? stockDisponible : cantidad;
+      final cantidadFinal =
+          cantidad > stockDisponible ? stockDisponible : cantidad;
       setState(() {
         if (cantidadFinal > 0) {
           _cart[productoId] = cantidadFinal;
@@ -138,7 +142,8 @@ class _QuickSalePageState extends State<QuickSalePage> {
           _cart.remove(productoId);
         }
         // Actualizar el controller si se limitó la cantidad
-        if (cantidad > stockDisponible && _cantidadControllers.containsKey(productoId)) {
+        if (cantidad > stockDisponible &&
+            _cantidadControllers.containsKey(productoId)) {
           _cantidadControllers[productoId]!.text = cantidadFinal.toString();
         }
       });
@@ -274,7 +279,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   child: Text(
                                     'CONFIRMAR VENTA',
                                     style: TextStyle(
-                                      fontSize: dialogTitleSize,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -294,7 +299,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   child: Text(
                                     'REVISA LOS DETALLES ANTES DE CONTINUAR',
                                     style: TextStyle(
-                                      fontSize: dialogSmallSize,
+                                      fontSize: 8,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -332,7 +337,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               child: Text(
                                 'TOTAL A COBRAR',
                                 style: TextStyle(
-                                  fontSize: dialogSmallSize,
+                                  fontSize: 8,
                                   fontWeight: FontWeight.w600,
                                   color:
                                       isDark
@@ -351,7 +356,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               child: Text(
                                 '\$${_totalAmount.toStringAsFixed(0)}',
                                 style: TextStyle(
-                                  fontSize: dialogLargeSize,
+                                  fontSize: 8,
                                   fontWeight: FontWeight.bold,
                                   color: primaryColor,
                                   letterSpacing: -1,
@@ -372,7 +377,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                         child: Text(
                           'MÉTODO DE PAGO',
                           style: TextStyle(
-                            fontSize: dialogBodySize,
+                            fontSize: 8,
                             fontWeight: FontWeight.w600,
                             color:
                                 isDark ? Colors.white : const Color(0xFF1B130D),
@@ -449,7 +454,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                       child: Text(
                                         'Efectivo',
                                         style: TextStyle(
-                                          fontSize: dialogBodySize,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               metodoPagoSeleccionado ==
@@ -539,7 +544,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                       child: Text(
                                         'Transferencia',
                                         style: TextStyle(
-                                          fontSize: dialogBodySize,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               metodoPagoSeleccionado ==
@@ -586,7 +591,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               child: Text(
                                 'Resumen',
                                 style: TextStyle(
-                                  fontSize: dialogSmallSize,
+                                  fontSize: 8,
                                   fontWeight: FontWeight.w600,
                                   color:
                                       isDark
@@ -623,7 +628,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                         child: Text(
                                           '${producto.nombre} x${entry.value}',
                                           style: TextStyle(
-                                            fontSize: dialogSmallSize,
+                                            fontSize: 8,
                                             color:
                                                 isDark
                                                     ? Colors.white
@@ -646,7 +651,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                       child: Text(
                                         '\$${(producto.precio * entry.value).toStringAsFixed(0)}',
                                         style: TextStyle(
-                                          fontSize: dialogSmallSize,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.w600,
                                           color:
                                               isDark
@@ -688,7 +693,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 child: Text(
                                   'Cancelar',
                                   style: TextStyle(
-                                    fontSize: dialogBodySize,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.w600,
                                     color:
                                         isDark
@@ -749,7 +754,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                     Text(
                                       'Confirmar',
                                       style: TextStyle(
-                                        fontSize: dialogBodySize,
+                                        fontSize: 8,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       maxLines: 1,
@@ -972,7 +977,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 child: Text(
                                   widget.sucursal.nombre,
                                   style: TextStyle(
-                                    fontSize: titleFontSize,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -990,7 +995,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 child: Text(
                                   'Cajero: ${widget.currentUser.userId}',
                                   style: TextStyle(
-                                    fontSize: smallFontSize,
+                                    fontSize: 8,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
@@ -1055,7 +1060,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 Text(
                                   _isOnline ? 'Online' : 'Offline',
                                   style: TextStyle(
-                                    fontSize: smallFontSize,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         _isOnline
@@ -1093,7 +1098,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                           child: Text(
                             'Productos',
                             style: TextStyle(
-                              fontSize: titleFontSize,
+                              fontSize: 8,
                               fontWeight: FontWeight.bold,
                               color:
                                   isDark
@@ -1105,7 +1110,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                           ),
                         ),
                         SizedBox(height: spacingMedium),
-                        
+
                         // Category Filter
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
@@ -1114,28 +1119,34 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               ChoiceChip(
                                 label: Text(
                                   'Todos',
-                                  style: TextStyle(fontSize: smallFontSize),
+                                  style: TextStyle(fontSize: 8),
                                 ),
                                 selected: _selectedCategoriaFilter == -1,
                                 selectedColor: primaryColor.withOpacity(0.15),
                                 backgroundColor:
-                                    isDark ? const Color(0xFF2C2018) : Colors.white,
+                                    isDark
+                                        ? const Color(0xFF2C2018)
+                                        : Colors.white,
                                 side: BorderSide(
-                                  color: _selectedCategoriaFilter == -1
-                                      ? primaryColor
-                                      : (isDark
-                                          ? const Color(0xFF44403C)
-                                          : const Color(0xFFE7E5E4)),
+                                  color:
+                                      _selectedCategoriaFilter == -1
+                                          ? primaryColor
+                                          : (isDark
+                                              ? const Color(0xFF44403C)
+                                              : const Color(0xFFE7E5E4)),
                                 ),
                                 onSelected: (_) {
                                   setState(() => _selectedCategoriaFilter = -1);
                                 },
                               ),
                               SizedBox(width: spacingMedium),
-                              ..._getProductosAgrupadosPorCategoria().keys.map((categoriaId) {
+                              ..._getProductosAgrupadosPorCategoria().keys.map((
+                                categoriaId,
+                              ) {
                                 final isUncategorized = categoriaId == null;
-                                final chipId = isUncategorized ? 0 : categoriaId;
-                                
+                                final chipId =
+                                    isUncategorized ? 0 : categoriaId;
+
                                 // Obtener el nombre de la categoría
                                 String label;
                                 if (isUncategorized) {
@@ -1147,9 +1158,16 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                     label = categoria.nombre;
                                   } else {
                                     // Si no está en el mapa, obtener del primer producto de esa categoría
-                                    final productosDeCategoria = _getProductosAgrupadosPorCategoria()[categoriaId];
-                                    if (productosDeCategoria != null && productosDeCategoria.isNotEmpty) {
-                                      label = productosDeCategoria.first.categoria?.nombre ?? 'Categoría';
+                                    final productosDeCategoria =
+                                        _getProductosAgrupadosPorCategoria()[categoriaId];
+                                    if (productosDeCategoria != null &&
+                                        productosDeCategoria.isNotEmpty) {
+                                      label =
+                                          productosDeCategoria
+                                              .first
+                                              .categoria
+                                              ?.nombre ??
+                                          'Categoría';
                                     } else {
                                       label = 'Categoría';
                                     }
@@ -1161,21 +1179,29 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   child: ChoiceChip(
                                     label: Text(
                                       label,
-                                      style: TextStyle(fontSize: smallFontSize),
+                                      style: TextStyle(fontSize: 8),
                                     ),
-                                    selected: _selectedCategoriaFilter == chipId,
-                                    selectedColor: primaryColor.withOpacity(0.15),
+                                    selected:
+                                        _selectedCategoriaFilter == chipId,
+                                    selectedColor: primaryColor.withOpacity(
+                                      0.15,
+                                    ),
                                     backgroundColor:
-                                        isDark ? const Color(0xFF2C2018) : Colors.white,
+                                        isDark
+                                            ? const Color(0xFF2C2018)
+                                            : Colors.white,
                                     side: BorderSide(
-                                      color: _selectedCategoriaFilter == chipId
-                                          ? primaryColor
-                                          : (isDark
-                                              ? const Color(0xFF44403C)
-                                              : const Color(0xFFE7E5E4)),
+                                      color:
+                                          _selectedCategoriaFilter == chipId
+                                              ? primaryColor
+                                              : (isDark
+                                                  ? const Color(0xFF44403C)
+                                                  : const Color(0xFFE7E5E4)),
                                     ),
                                     onSelected: (_) {
-                                      setState(() => _selectedCategoriaFilter = chipId);
+                                      setState(
+                                        () => _selectedCategoriaFilter = chipId,
+                                      );
                                     },
                                   ),
                                 );
@@ -1184,7 +1210,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                           ),
                         ),
                         SizedBox(height: spacingMedium),
-                        
+
                         if (_productos.isEmpty && _isLoading)
                           SizedBox(
                             height: 200,
@@ -1245,7 +1271,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                               child: Text(
                                                 producto.nombre,
                                                 style: TextStyle(
-                                                  fontSize: titleFontSize,
+                                                  fontSize: 8,
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       isDark
@@ -1270,7 +1296,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                                       categoria?.nombre ??
                                                           'Sin categoría',
                                                       style: TextStyle(
-                                                        fontSize: smallFontSize,
+                                                        fontSize: 8,
                                                         color:
                                                             isDark
                                                                 ? const Color(
@@ -1318,8 +1344,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                                     child: Text(
                                                       'Stock: $stockDisponible',
                                                       style: TextStyle(
-                                                        fontSize:
-                                                            smallFontSize * 0.9,
+                                                        fontSize: 8,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
@@ -1342,7 +1367,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                               child: Text(
                                                 '\$${producto.precio.toStringAsFixed(0)}',
                                                 style: TextStyle(
-                                                  fontSize: largeFontSize,
+                                                  fontSize: 8,
                                                   fontWeight: FontWeight.bold,
                                                   color: primaryColor,
                                                 ),
@@ -1459,11 +1484,15 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                                   .clamp(2.0, 8.0),
                                             ),
                                             child: TextField(
-                                              controller: _getOrCreateController(producto.id),
+                                              controller:
+                                                  _getOrCreateController(
+                                                    producto.id,
+                                                  ),
                                               textAlign: TextAlign.center,
-                                              keyboardType: TextInputType.number,
+                                              keyboardType:
+                                                  TextInputType.number,
                                               style: TextStyle(
-                                                fontSize: bodyFontSize * 1.1,
+                                                fontSize: 8,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     quantity > 0
@@ -1485,7 +1514,11 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                                 contentPadding: EdgeInsets.zero,
                                                 isDense: true,
                                               ),
-                                              onChanged: (value) => _onCantidadChanged(producto.id, value),
+                                              onChanged:
+                                                  (value) => _onCantidadChanged(
+                                                    producto.id,
+                                                    value,
+                                                  ),
                                             ),
                                           ),
                                           // Increment Button
@@ -1598,7 +1631,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                       child: Text(
                         'Total a cobrar',
                         style: TextStyle(
-                          fontSize: bodyFontSize,
+                          fontSize: 8,
                           fontWeight: FontWeight.w600,
                           color:
                               isDark
@@ -1617,7 +1650,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                     child: Text(
                       '\$${_totalAmount.toStringAsFixed(0)}',
                       style: TextStyle(
-                        fontSize: extraLargeFontSize,
+                        fontSize: 8,
                         fontWeight: FontWeight.w800,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                         letterSpacing: -1,
@@ -1657,7 +1690,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                         Text(
                           'REGISTRAR VENTA',
                           style: TextStyle(
-                            fontSize: bodyFontSize * 1.1,
+                            fontSize: 8,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),

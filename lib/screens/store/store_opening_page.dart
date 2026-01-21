@@ -28,7 +28,8 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
   List<Producto> _productos = [];
   AperturaDia? _aperturaActual;
   Map<int, Categoria> _categoriasMap = {};
-  int _selectedCategoriaFilter = -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
+  int _selectedCategoriaFilter =
+      -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
 
   // Inventario actual (productoId -> cantidad)
   final Map<int, int> _inventario = {};
@@ -174,19 +175,17 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
         child: Row(
           children: [
             ChoiceChip(
-              label: Text(
-                'Todos',
-                style: TextStyle(fontSize: smallFontSize),
-              ),
+              label: Text('Todos', style: TextStyle(fontSize: 8)),
               selected: _selectedCategoriaFilter == -1,
               selectedColor: primaryColor.withOpacity(0.15),
               backgroundColor: isDark ? const Color(0xFF2C2018) : Colors.white,
               side: BorderSide(
-                color: _selectedCategoriaFilter == -1
-                    ? primaryColor
-                    : (isDark
-                        ? const Color(0xFF44403C)
-                        : const Color(0xFFE7E5E4)),
+                color:
+                    _selectedCategoriaFilter == -1
+                        ? primaryColor
+                        : (isDark
+                            ? const Color(0xFF44403C)
+                            : const Color(0xFFE7E5E4)),
               ),
               onSelected: (_) => setState(() => _selectedCategoriaFilter = -1),
             ),
@@ -205,7 +204,8 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                 } else {
                   final productosDeCategoria =
                       _getProductosAgrupadosPorCategoria()[categoriaId];
-                  label = productosDeCategoria?.first.categoria?.nombre ??
+                  label =
+                      productosDeCategoria?.first.categoria?.nombre ??
                       'Categoría';
                 }
               }
@@ -213,23 +213,21 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
               return Padding(
                 padding: EdgeInsets.only(right: spacingSmall),
                 child: ChoiceChip(
-                  label: Text(
-                    label,
-                    style: TextStyle(fontSize: smallFontSize),
-                  ),
+                  label: Text(label, style: TextStyle(fontSize: 8)),
                   selected: _selectedCategoriaFilter == chipId,
                   selectedColor: primaryColor.withOpacity(0.15),
                   backgroundColor:
                       isDark ? const Color(0xFF2C2018) : Colors.white,
                   side: BorderSide(
-                    color: _selectedCategoriaFilter == chipId
-                        ? primaryColor
-                        : (isDark
-                            ? const Color(0xFF44403C)
-                            : const Color(0xFFE7E5E4)),
+                    color:
+                        _selectedCategoriaFilter == chipId
+                            ? primaryColor
+                            : (isDark
+                                ? const Color(0xFF44403C)
+                                : const Color(0xFFE7E5E4)),
                   ),
-                  onSelected: (_) =>
-                      setState(() => _selectedCategoriaFilter = chipId),
+                  onSelected:
+                      (_) => setState(() => _selectedCategoriaFilter = chipId),
                 ),
               );
             }),
@@ -351,7 +349,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                   child: Text(
                     '¿Confirmar apertura?',
                     style: TextStyle(
-                      fontSize: dialogTitleSize,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color:
                           isDarkDialog ? Colors.white : const Color(0xFF1C1917),
@@ -369,7 +367,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
             child: Text(
               'Estás a punto de iniciar el día con $_totalItems artículos en total. Esta acción no se puede deshacer.',
               style: TextStyle(
-                fontSize: dialogBodySize,
+                fontSize: 8,
                 color:
                     isDarkDialog
                         ? const Color(0xFFA8A29E)
@@ -394,7 +392,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   'Cancelar',
-                  style: TextStyle(fontSize: dialogBodySize),
+                  style: TextStyle(fontSize: 8),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -417,10 +415,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   'Confirmar',
-                  style: TextStyle(
-                    fontSize: dialogBodySize,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -623,7 +618,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                             child: Text(
                               _sucursal?.nombre ?? 'Sucursal',
                               style: TextStyle(
-                                fontSize: titleFontSize,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 color:
                                     isDark
@@ -683,7 +678,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                       'Apertura del Día',
                                       style: TextStyle(
                                         color: primaryColor,
-                                        fontSize: smallFontSize,
+                                        fontSize: 8,
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1.2,
                                       ),
@@ -698,7 +693,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                     child: Text(
                                       _getFormattedDate(),
                                       style: TextStyle(
-                                        fontSize: extraLargeFontSize,
+                                        fontSize: 8,
                                         fontWeight: FontWeight.bold,
                                         color:
                                             isDark
@@ -716,7 +711,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                     child: Text(
                                       'Ingresa el inventario inicial para comenzar.',
                                       style: TextStyle(
-                                        fontSize: bodyFontSize,
+                                        fontSize: 8,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -746,7 +741,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                       Text(
                                         'Error al cargar los datos',
                                         style: TextStyle(
-                                          fontSize: 18,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               isDark
@@ -779,18 +774,17 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                 ),
                               )
                             // Products
-                            else
-                              ...[
-                                _buildCategoryFilter(
-                                  isDark: isDark,
-                                  primaryColor: primaryColor,
-                                  smallFontSize: smallFontSize,
-                                  spacingSmall: spacingSmall,
-                                  spacingMedium: spacingMedium,
-                                ),
-                                ..._getProductosFiltrados().map<Widget>((
-                                  producto,
-                                ) {
+                            else ...[
+                              _buildCategoryFilter(
+                                isDark: isDark,
+                                primaryColor: primaryColor,
+                                smallFontSize: smallFontSize,
+                                spacingSmall: spacingSmall,
+                                spacingMedium: spacingMedium,
+                              ),
+                              ..._getProductosFiltrados().map<Widget>((
+                                producto,
+                              ) {
                                 final quantity = _inventario[producto.id] ?? 0;
                                 final categoria = producto.categoria;
                                 final stockDisponible =
@@ -837,7 +831,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                   child: Text(
                                                     producto.nombre,
                                                     style: TextStyle(
-                                                      fontSize: titleFontSize,
+                                                      fontSize: 8,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                       color:
@@ -867,8 +861,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                           categoria?.nombre ??
                                                               'Sin categoría',
                                                           style: TextStyle(
-                                                            fontSize:
-                                                                smallFontSize,
+                                                            fontSize: 8,
                                                             color:
                                                                 isDark
                                                                     ? const Color(
@@ -919,9 +912,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                         child: Text(
                                                           'Stock: $stockDisponible',
                                                           style: TextStyle(
-                                                            fontSize:
-                                                                smallFontSize *
-                                                                0.9,
+                                                            fontSize: 8,
                                                             fontWeight:
                                                                 FontWeight.w600,
                                                             color:
@@ -1044,8 +1035,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                       .digitsOnly,
                                                 ],
                                                 style: TextStyle(
-                                                  fontSize:
-                                                      extraLargeFontSize * 0.8,
+                                                  fontSize: 8,
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       isDark
@@ -1110,7 +1100,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                   ),
                                 );
                               }),
-                              ],
+                            ],
                           ],
                         ),
                       ),
@@ -1191,7 +1181,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                   Text(
                                     'Abrir Punto de Venta',
                                     style: TextStyle(
-                                      fontSize: bodyFontSize * 1.1,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
                                     ),

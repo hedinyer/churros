@@ -21,7 +21,8 @@ class StoreExpensesPage extends StatefulWidget {
 class _StoreExpensesPageState extends State<StoreExpensesPage> {
   List<Map<String, dynamic>> _gastos = [];
   bool _isLoading = true;
-  String _filtroTipo = 'todos'; // 'todos', 'personal', 'pago_pedido', 'pago_ocasional', 'otro'
+  String _filtroTipo =
+      'todos'; // 'todos', 'personal', 'pago_pedido', 'pago_ocasional', 'otro'
 
   @override
   void initState() {
@@ -55,7 +56,8 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
     final descripcionController = TextEditingController();
     final montoController = TextEditingController();
     final categoriaController = TextEditingController();
-    String tipoGasto = 'personal'; // 'personal', 'pago_pedido', 'pago_ocasional', 'otro'
+    String tipoGasto =
+        'personal'; // 'personal', 'pago_pedido', 'pago_ocasional', 'otro'
 
     final resultado = await showDialog<bool>(
       context: context,
@@ -74,7 +76,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     Text(
                       'Tipo de gasto',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
@@ -107,7 +109,9 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                           selected: tipoGasto == 'pago_ocasional',
                           onSelected: (selected) {
                             if (selected) {
-                              setDialogState(() => tipoGasto = 'pago_ocasional');
+                              setDialogState(
+                                () => tipoGasto = 'pago_ocasional',
+                              );
                             }
                           },
                         ),
@@ -128,7 +132,8 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                       decoration: const InputDecoration(
                         labelText: 'Descripción *',
                         border: OutlineInputBorder(),
-                        hintText: 'Ej: Pago a proveedor, Salario empleado, etc.',
+                        hintText:
+                            'Ej: Pago a proveedor, Salario empleado, etc.',
                       ),
                       maxLines: 2,
                     ),
@@ -149,7 +154,9 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                         border: OutlineInputBorder(),
                         prefixText: '\$ ',
                       ),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                   ],
                 ),
@@ -231,7 +238,6 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
     return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
   }
 
-
   String _getTipoLabel(String tipo) {
     switch (tipo) {
       case 'personal':
@@ -301,7 +307,8 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
     final gastosFiltrados = _getGastosFiltrados();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
+      backgroundColor:
+          isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
       body: SafeArea(
         child: Column(
           children: [
@@ -312,13 +319,16 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                 vertical: 16,
               ),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
+                color: (isDark
+                        ? const Color(0xFF221810)
+                        : const Color(0xFFF8F7F6))
                     .withOpacity(0.95),
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark
-                        ? const Color(0xFF44403C)
-                        : const Color(0xFFE7E5E4),
+                    color:
+                        isDark
+                            ? const Color(0xFF44403C)
+                            : const Color(0xFFE7E5E4),
                     width: 1,
                   ),
                 ),
@@ -339,7 +349,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     child: Text(
                       'Gastos de Hoy',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -358,9 +368,10 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                 color: isDark ? const Color(0xFF2D211A) : Colors.white,
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.1),
                   ),
                 ),
               ),
@@ -372,9 +383,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(isDark ? 0.2 : 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.red.withOpacity(0.3),
-                      ),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -382,15 +391,16 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                         Text(
                           'Total Gastos de Hoy',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 8,
                             fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF1B130D),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF1B130D),
                           ),
                         ),
                         Text(
                           _formatCurrency(_getTotalGastos()),
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 8,
                             fontWeight: FontWeight.bold,
                             color: Colors.red,
                           ),
@@ -423,7 +433,8 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                           isDark: isDark,
                           label: 'Pago Pedido',
                           isSelected: _filtroTipo == 'pago_pedido',
-                          onTap: () => setState(() => _filtroTipo = 'pago_pedido'),
+                          onTap:
+                              () => setState(() => _filtroTipo = 'pago_pedido'),
                           color: Colors.orange,
                         ),
                         const SizedBox(width: 8),
@@ -431,7 +442,10 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                           isDark: isDark,
                           label: 'Pago Ocasional',
                           isSelected: _filtroTipo == 'pago_ocasional',
-                          onTap: () => setState(() => _filtroTipo = 'pago_ocasional'),
+                          onTap:
+                              () => setState(
+                                () => _filtroTipo = 'pago_ocasional',
+                              ),
                           color: Colors.purple,
                         ),
                         const SizedBox(width: 8),
@@ -451,51 +465,56 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
 
             // Lista de gastos
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: gastosFiltrados.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.receipt_long_outlined,
-                                      size: 64,
-                                      color: isDark
-                                          ? const Color(0xFFA8A29E)
-                                          : const Color(0xFF78716C),
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child:
+                            gastosFiltrados.isEmpty
+                                ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(32.0),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.receipt_long_outlined,
+                                          size: 64,
+                                          color:
+                                              isDark
+                                                  ? const Color(0xFFA8A29E)
+                                                  : const Color(0xFF78716C),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No hay gastos de hoy',
+                                          style: TextStyle(
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
+                                            color:
+                                                isDark
+                                                    ? Colors.white
+                                                    : const Color(0xFF1B130D),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'No hay gastos de hoy',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark
-                                            ? Colors.white
-                                            : const Color(0xFF1B130D),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
+                                )
+                                : ListView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: gastosFiltrados.length,
+                                  itemBuilder: (context, index) {
+                                    final gasto = gastosFiltrados[index];
+                                    return _buildGastoCard(
+                                      isDark: isDark,
+                                      gasto: gasto,
+                                    );
+                                  },
                                 ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: gastosFiltrados.length,
-                              itemBuilder: (context, index) {
-                                final gasto = gastosFiltrados[index];
-                                return _buildGastoCard(
-                                  isDark: isDark,
-                                  gasto: gasto,
-                                );
-                              },
-                            ),
-                    ),
+                      ),
             ),
           ],
         ),
@@ -515,34 +534,38 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    final chipColor = color ?? (isDark ? Colors.white : const Color(0xFF1B130D));
+    final chipColor =
+        color ?? (isDark ? Colors.white : const Color(0xFF1B130D));
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? chipColor.withOpacity(isDark ? 0.2 : 0.1)
-              : Colors.transparent,
+          color:
+              isSelected
+                  ? chipColor.withOpacity(isDark ? 0.2 : 0.1)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? chipColor.withOpacity(isDark ? 0.3 : 0.2)
-                : (isDark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.1)),
+            color:
+                isSelected
+                    ? chipColor.withOpacity(isDark ? 0.3 : 0.2)
+                    : (isDark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.black.withOpacity(0.1)),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 8,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? chipColor
-                : (isDark
-                    ? const Color(0xFFA8A29E)
-                    : const Color(0xFF78716C)),
+            color:
+                isSelected
+                    ? chipColor
+                    : (isDark
+                        ? const Color(0xFFA8A29E)
+                        : const Color(0xFF78716C)),
           ),
         ),
       ),
@@ -569,9 +592,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
         color: isDark ? const Color(0xFF2C2018) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark
-              ? const Color(0xFF44403C)
-              : const Color(0xFFE7E5E4),
+          color: isDark ? const Color(0xFF44403C) : const Color(0xFFE7E5E4),
         ),
       ),
       child: Row(
@@ -596,9 +617,10 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                       child: Text(
                         descripcion,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                       ),
                     ),
@@ -614,7 +636,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                       child: Text(
                         tipoLabel,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                           color: tipoColor,
                         ),
@@ -627,8 +649,11 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                   Text(
                     categoria,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
+                      fontSize: 8,
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                   ),
                 ],
@@ -638,7 +663,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
           Text(
             _formatCurrency(monto),
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 8,
               fontWeight: FontWeight.bold,
               color: Colors.red,
             ),

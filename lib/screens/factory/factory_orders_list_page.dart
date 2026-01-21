@@ -153,7 +153,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
               child: Text(
                 'CANCELAR',
                 style: TextStyle(
-                  color: isDark ? Colors.grey.shade400 : const Color(0xFF78716C),
+                  color:
+                      isDark ? Colors.grey.shade400 : const Color(0xFF78716C),
                 ),
               ),
             ),
@@ -177,9 +178,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -198,7 +197,10 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text((resultado['mensaje'] as String?)?.toUpperCase() ?? 'PEDIDO DESPACHADO EXITOSAMENTE'),
+              content: Text(
+                (resultado['mensaje'] as String?)?.toUpperCase() ??
+                    'PEDIDO DESPACHADO EXITOSAMENTE',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -210,7 +212,10 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text((resultado['mensaje'] as String?)?.toUpperCase() ?? 'ERROR AL DESPACHAR EL PEDIDO'),
+              content: Text(
+                (resultado['mensaje'] as String?)?.toUpperCase() ??
+                    'ERROR AL DESPACHAR EL PEDIDO',
+              ),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 4),
             ),
@@ -220,7 +225,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     } catch (e) {
       // Cerrar loading si aún está abierto
       if (mounted) Navigator.pop(context);
-      
+
       // Mostrar error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -319,7 +324,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                         child: Icon(
                           Icons.arrow_back_ios_new,
                           size: 20,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                       ),
                     ),
@@ -329,7 +335,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                     child: Text(
                       'Pedidos Puntos',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 8,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -367,7 +373,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: (_isOnline ? Colors.green : primaryColor).withOpacity(0.5),
+                                color: (_isOnline ? Colors.green : primaryColor)
+                                    .withOpacity(0.5),
                                 blurRadius: 4,
                                 spreadRadius: 1,
                               ),
@@ -378,7 +385,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -480,7 +487,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                         Text(
                                           'No hay pedidos',
                                           style: TextStyle(
-                                            fontSize: 18,
+                                            fontSize: 8,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -492,7 +499,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                         Text(
                                           'No se encontraron pedidos con el filtro seleccionado',
                                           style: TextStyle(
-                                            fontSize: 14,
+                                            fontSize: 8,
                                             color:
                                                 isDark
                                                     ? const Color(0xFFA8A29E)
@@ -560,20 +567,21 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                           : Colors.black.withOpacity(0.12)),
               width: isSelected ? 1.5 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: chipColor.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
+            boxShadow:
+                isSelected
+                    ? [
+                      BoxShadow(
+                        color: chipColor.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                    : null,
           ),
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 8,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.2,
               color:
@@ -667,7 +675,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                 Text(
                                   pedido.numeroPedido ?? 'Pedido #${pedido.id}',
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -690,7 +698,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                     Text(
                                       pedido.sucursal?.nombre ?? 'Sucursal',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 8,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -734,7 +742,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                 Text(
                                   estadoBadge,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.w700,
                                     color: estadoColor,
                                     letterSpacing: 0.3,
@@ -760,7 +768,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                           Text(
                             '$timeAgo • $fechaHora',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 8,
                               color:
                                   isDark
                                       ? const Color(0xFFA8A29E)
@@ -780,7 +788,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                           Text(
                             '${pedido.totalItems} items',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 8,
                               color:
                                   isDark
                                       ? const Color(0xFFA8A29E)
@@ -859,7 +867,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                   Text(
                     'Productos:',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -887,7 +895,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                             child: Text(
                               '${detalle.cantidad} ${producto?.unidadMedida ?? 'unidad'} ${producto?.nombre ?? 'Producto #${detalle.productoId}'}',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 8,
                                 color:
                                     isDark
                                         ? Colors.white

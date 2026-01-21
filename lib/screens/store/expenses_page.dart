@@ -34,7 +34,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
         limit: 1000,
         soloHoy: true,
       );
-      
+
       // Cargar gastos varios del día actual (ya filtrado por el servicio)
       final gastos = await SupabaseService.getGastosVarios();
 
@@ -83,7 +83,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     Text(
                       'Tipo de gasto',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
@@ -152,7 +152,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       Text(
                         'Empleado',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
@@ -169,17 +169,19 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           hint: const Text('Selecciona un empleado'),
                           isExpanded: true,
                           underline: const SizedBox(),
-                          items: empleados.map((empleado) {
-                            return DropdownMenuItem<Empleado>(
-                              value: empleado,
-                              child: Text(empleado.nombre),
-                            );
-                          }).toList(),
+                          items:
+                              empleados.map((empleado) {
+                                return DropdownMenuItem<Empleado>(
+                                  value: empleado,
+                                  child: Text(empleado.nombre),
+                                );
+                              }).toList(),
                           onChanged: (value) {
                             setDialogState(() {
                               empleadoSeleccionado = value;
                               if (value != null) {
-                                descripcionController.text = 'Nómina - ${value.nombre}';
+                                descripcionController.text =
+                                    'Nómina - ${value.nombre}';
                               }
                             });
                           },
@@ -190,7 +192,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     TextField(
                       controller: descripcionController,
                       decoration: InputDecoration(
-                        labelText: tipoGasto == 'nomina' ? 'Descripción (automática)' : 'Descripción',
+                        labelText:
+                            tipoGasto == 'nomina'
+                                ? 'Descripción (automática)'
+                                : 'Descripción',
                         border: const OutlineInputBorder(),
                         enabled: tipoGasto != 'nomina',
                       ),
@@ -215,7 +220,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         border: OutlineInputBorder(),
                         prefixText: '\$ ',
                       ),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                   ],
                 ),
@@ -322,7 +329,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
     return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
   }
 
-
   double _getTotalPagos() {
     return _pedidosClientes.fold(0.0, (sum, pedido) => sum + pedido.total);
   }
@@ -342,7 +348,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
     final isSmallScreen = mediaQuery.size.width < 600;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
+      backgroundColor:
+          isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
       body: SafeArea(
         child: Column(
           children: [
@@ -353,7 +360,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 vertical: 16,
               ),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
+                color: (isDark
+                        ? const Color(0xFF221810)
+                        : const Color(0xFFF8F7F6))
                     .withOpacity(0.98),
                 boxShadow: [
                   BoxShadow(
@@ -364,9 +373,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 ],
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.08)
-                        : Colors.black.withOpacity(0.08),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
                     width: 1,
                   ),
                 ),
@@ -383,7 +393,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         child: Icon(
                           Icons.arrow_back_ios_new,
                           size: 20,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                       ),
                     ),
@@ -393,7 +404,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     child: Text(
                       'Gastos de Hoy',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 8,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -411,7 +422,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         child: Icon(
                           Icons.add_circle_outline,
                           size: 24,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                       ),
                     ),
@@ -426,9 +438,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 color: isDark ? const Color(0xFF2D211A) : Colors.white,
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.1),
                   ),
                 ),
               ),
@@ -458,14 +471,22 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
             // Content
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: _selectedTab == 0
-                          ? _buildPagosPedidosList(isDark: isDark, primaryColor: primaryColor)
-                          : _buildGastosVariosList(isDark: isDark, primaryColor: primaryColor),
-                    ),
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child:
+                            _selectedTab == 0
+                                ? _buildPagosPedidosList(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                )
+                                : _buildGastosVariosList(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                ),
+                      ),
             ),
           ],
         ),
@@ -490,14 +511,13 @@ class _ExpensesPageState extends State<ExpensesPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
-              : Colors.transparent,
+          color:
+              isSelected
+                  ? (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
+                  : Colors.transparent,
           border: Border(
             bottom: BorderSide(
-              color: isSelected
-                  ? const Color(0xFFEC6D13)
-                  : Colors.transparent,
+              color: isSelected ? const Color(0xFFEC6D13) : Colors.transparent,
               width: 2,
             ),
           ),
@@ -507,22 +527,28 @@ class _ExpensesPageState extends State<ExpensesPage> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 8,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? (isDark ? Colors.white : const Color(0xFF1B130D))
-                    : (isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C)),
+                color:
+                    isSelected
+                        ? (isDark ? Colors.white : const Color(0xFF1B130D))
+                        : (isDark
+                            ? const Color(0xFF9A6C4C)
+                            : const Color(0xFF9A6C4C)),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               _formatCurrency(total),
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 8,
                 fontWeight: FontWeight.bold,
-                color: isSelected
-                    ? const Color(0xFFEC6D13)
-                    : (isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C)),
+                color:
+                    isSelected
+                        ? const Color(0xFFEC6D13)
+                        : (isDark
+                            ? const Color(0xFF9A6C4C)
+                            : const Color(0xFF9A6C4C)),
               ),
             ),
           ],
@@ -545,13 +571,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Icon(
                 Icons.payment_outlined,
                 size: 64,
-                color: isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
+                color:
+                    isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
               ),
               const SizedBox(height: 16),
               Text(
                 'No hay pagos de hoy',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 8,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF1B130D),
                 ),
@@ -588,9 +615,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
         color: isDark ? const Color(0xFF2D211A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.08),
+          color:
+              isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.08),
           width: 1,
         ),
         boxShadow: [
@@ -615,7 +643,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     Text(
                       pedido.clienteNombre,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -624,10 +652,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     Text(
                       pedido.numeroPedido ?? 'Pedido #${pedido.id}',
                       style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? const Color(0xFF9A6C4C)
-                            : const Color(0xFF9A6C4C),
+                        fontSize: 8,
+                        color:
+                            isDark
+                                ? const Color(0xFF9A6C4C)
+                                : const Color(0xFF9A6C4C),
                       ),
                     ),
                   ],
@@ -636,7 +665,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Text(
                 _formatCurrency(pedido.total),
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 8,
                   fontWeight: FontWeight.bold,
                   color: primaryColor,
                 ),
@@ -649,14 +678,18 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Icon(
                 Icons.payment,
                 size: 14,
-                color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
+                color:
+                    isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
               ),
               const SizedBox(width: 4),
               Text(
                 pedido.metodoPago ?? 'efectivo',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
+                  fontSize: 8,
+                  color:
+                      isDark
+                          ? const Color(0xFF9A6C4C)
+                          : const Color(0xFF9A6C4C),
                 ),
               ),
             ],
@@ -680,13 +713,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Icon(
                 Icons.receipt_long_outlined,
                 size: 64,
-                color: isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
+                color:
+                    isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
               ),
               const SizedBox(height: 16),
               Text(
                 'No hay gastos varios de hoy',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 8,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF1B130D),
                 ),
@@ -744,9 +778,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
         color: isDark ? const Color(0xFF2D211A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.08),
+          color:
+              isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.08),
           width: 1,
         ),
         boxShadow: [
@@ -777,7 +812,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 Text(
                   descripcion,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 8,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
@@ -787,8 +822,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   Text(
                     categoria,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
+                      fontSize: 8,
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                   ),
                 ],
@@ -798,7 +836,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
           Text(
             _formatCurrency(monto),
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 8,
               fontWeight: FontWeight.bold,
               color: Colors.red,
             ),

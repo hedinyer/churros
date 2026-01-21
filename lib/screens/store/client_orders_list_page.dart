@@ -213,7 +213,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       } else {
         if (mounted) {
           final mensaje =
-              (resultado['mensaje'] as String?)?.toUpperCase() ?? 'ERROR AL DESPACHAR EL PEDIDO';
+              (resultado['mensaje'] as String?)?.toUpperCase() ??
+              'ERROR AL DESPACHAR EL PEDIDO';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(mensaje),
@@ -228,7 +229,10 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ERROR: ${e.toString().toUpperCase()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('ERROR: ${e.toString().toUpperCase()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -324,7 +328,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                         child: Icon(
                           Icons.arrow_back_ios_new,
                           size: 20,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                       ),
                     ),
@@ -334,7 +339,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                     child: Text(
                       'Pedidos Clientes',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 8,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -372,7 +377,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: (_isOnline ? Colors.green : primaryColor).withOpacity(0.5),
+                                color: (_isOnline ? Colors.green : primaryColor)
+                                    .withOpacity(0.5),
                                 blurRadius: 4,
                                 spreadRadius: 1,
                               ),
@@ -383,7 +389,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -479,7 +485,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                 Text(
                                   'No hay pedidos',
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -491,7 +497,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                 Text(
                                   'No se encontraron pedidos con el filtro seleccionado',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 8,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
@@ -558,20 +564,21 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                           : Colors.black.withOpacity(0.12)),
               width: isSelected ? 1.5 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: chipColor.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
+            boxShadow:
+                isSelected
+                    ? [
+                      BoxShadow(
+                        color: chipColor.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                    : null,
           ),
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 8,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.2,
               color:
@@ -670,7 +677,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                         pedido.numeroPedido ??
                                             'Pedido #${pedido.id}',
                                         style: TextStyle(
-                                          fontSize: 18,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               isDark
@@ -711,7 +718,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                             Text(
                                               'Recurrente',
                                               style: TextStyle(
-                                                fontSize: 10,
+                                                fontSize: 8,
                                                 fontWeight: FontWeight.bold,
                                                 color: Colors.teal,
                                               ),
@@ -736,7 +743,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     Text(
                                       pedido.clienteNombre,
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 8,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -761,7 +768,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                       child: Text(
                                         pedido.direccionEntrega,
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 8,
                                           color:
                                               isDark
                                                   ? const Color(0xFFA8A29E)
@@ -808,7 +815,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                 Text(
                                   estadoBadge,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.w700,
                                     color: estadoColor,
                                     letterSpacing: 0.3,
@@ -840,7 +847,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     child: Text(
                                       '$timeAgo • $fechaHora',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 8,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -866,7 +873,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     '${pedido.totalItems} items',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 8,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -886,7 +893,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     _formatCurrency(pedido.total),
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -896,7 +903,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   ),
                                 ],
                               ),
-                              if (pedido.domicilio != null && pedido.domicilio! > 0) ...[
+                              if (pedido.domicilio != null &&
+                                  pedido.domicilio! > 0) ...[
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
@@ -912,7 +920,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     Text(
                                       'Domicilio: ${_formatCurrency(pedido.domicilio!)}',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 8,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -934,7 +942,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     'Valor Total: ${_formatCurrency(pedido.total + (pedido.domicilio ?? 0))}',
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.w700,
                                       color: primaryColor,
                                     ),
@@ -962,7 +970,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     '$timeAgo • $fechaHora',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 8,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -986,7 +994,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     '${pedido.totalItems} items',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 8,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -1010,7 +1018,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     _formatCurrency(pedido.total),
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -1020,7 +1028,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   ),
                                 ],
                               ),
-                              if (pedido.domicilio != null && pedido.domicilio! > 0)
+                              if (pedido.domicilio != null &&
+                                  pedido.domicilio! > 0)
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -1036,7 +1045,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     Text(
                                       'Domicilio: ${_formatCurrency(pedido.domicilio!)}',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -1057,7 +1067,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     'Total: ${_formatCurrency(pedido.total + (pedido.domicilio ?? 0))}',
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.w700,
                                       color: primaryColor,
                                     ),
@@ -1136,7 +1146,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                   Text(
                     'Productos:',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -1166,7 +1176,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                             child: Text(
                               '${detalle.cantidad} ${producto?.unidadMedida ?? 'unidad'} ${producto?.nombre ?? 'Producto #${detalle.productoId}'} - ${_formatCurrency(detalle.precioTotal)}',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 8,
                                 color:
                                     isDark
                                         ? Colors.white

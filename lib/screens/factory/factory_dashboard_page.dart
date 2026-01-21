@@ -23,12 +23,13 @@ class FactoryDashboardPage extends StatefulWidget {
   State<FactoryDashboardPage> createState() => _FactoryDashboardPageState();
 }
 
-class _FactoryDashboardPageState extends State<FactoryDashboardPage> with WidgetsBindingObserver {
+class _FactoryDashboardPageState extends State<FactoryDashboardPage>
+    with WidgetsBindingObserver {
   bool _isLoading = true;
   int _newFactoryOrdersCount = 0;
   int _newClientOrdersCount = 0;
   int _newDeliveredOrdersCount = 0;
-  
+
   // Realtime subscriptions
   RealtimeChannel? _factoryOrdersChannel;
   RealtimeChannel? _clientOrdersChannel;
@@ -84,74 +85,83 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
   void _setupRealtimeListeners() {
     try {
       // Listener para pedidos de fábrica (pedidos_fabrica)
-      _factoryOrdersChannel = SupabaseService.client
-          .channel('factory_orders_channel')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.insert,
-            schema: 'public',
-            table: 'pedidos_fabrica',
-            callback: (payload) {
-              print('Nuevo pedido de fábrica recibido: ${payload.newRecord}');
-              _handleNewFactoryOrder(payload.newRecord);
-            },
-          )
-          .subscribe();
+      _factoryOrdersChannel =
+          SupabaseService.client
+              .channel('factory_orders_channel')
+              .onPostgresChanges(
+                event: PostgresChangeEvent.insert,
+                schema: 'public',
+                table: 'pedidos_fabrica',
+                callback: (payload) {
+                  print(
+                    'Nuevo pedido de fábrica recibido: ${payload.newRecord}',
+                  );
+                  _handleNewFactoryOrder(payload.newRecord);
+                },
+              )
+              .subscribe();
 
       // Listener para pedidos de clientes (pedidos_clientes)
-      _clientOrdersChannel = SupabaseService.client
-          .channel('client_orders_channel')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.insert,
-            schema: 'public',
-            table: 'pedidos_clientes',
-            callback: (payload) {
-              print('Nuevo pedido de cliente recibido: ${payload.newRecord}');
-              _handleNewClientOrder(payload.newRecord);
-            },
-          )
-          .subscribe();
+      _clientOrdersChannel =
+          SupabaseService.client
+              .channel('client_orders_channel')
+              .onPostgresChanges(
+                event: PostgresChangeEvent.insert,
+                schema: 'public',
+                table: 'pedidos_clientes',
+                callback: (payload) {
+                  print(
+                    'Nuevo pedido de cliente recibido: ${payload.newRecord}',
+                  );
+                  _handleNewClientOrder(payload.newRecord);
+                },
+              )
+              .subscribe();
 
       // Listener para pedidos entregados (cambios de estado a "entregado")
       // Escuchamos todos los updates y filtramos en el callback
-      _deliveredOrdersChannel = SupabaseService.client
-          .channel('delivered_orders_channel')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.update,
-            schema: 'public',
-            table: 'pedidos_fabrica',
-            callback: (payload) {
-              final newRecord = payload.newRecord;
-              final oldRecord = payload.oldRecord;
-              
-              // Verificar que el estado cambió a "entregado"
-              final estadoAnterior = oldRecord['estado'] as String?;
-              final estadoNuevo = newRecord['estado'] as String?;
-              
-              if (estadoNuevo == 'entregado' && estadoAnterior != 'entregado') {
-                print('Pedido de fábrica entregado: $newRecord');
-                _handleDeliveredOrder(newRecord, 'fabrica');
-              }
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.update,
-            schema: 'public',
-            table: 'pedidos_clientes',
-            callback: (payload) {
-              final newRecord = payload.newRecord;
-              final oldRecord = payload.oldRecord;
-              
-              // Verificar que el estado cambió a "entregado"
-              final estadoAnterior = oldRecord['estado'] as String?;
-              final estadoNuevo = newRecord['estado'] as String?;
-              
-              if (estadoNuevo == 'entregado' && estadoAnterior != 'entregado') {
-                print('Pedido de cliente entregado: $newRecord');
-                _handleDeliveredOrder(newRecord, 'cliente');
-              }
-            },
-          )
-          .subscribe();
+      _deliveredOrdersChannel =
+          SupabaseService.client
+              .channel('delivered_orders_channel')
+              .onPostgresChanges(
+                event: PostgresChangeEvent.update,
+                schema: 'public',
+                table: 'pedidos_fabrica',
+                callback: (payload) {
+                  final newRecord = payload.newRecord;
+                  final oldRecord = payload.oldRecord;
+
+                  // Verificar que el estado cambió a "entregado"
+                  final estadoAnterior = oldRecord['estado'] as String?;
+                  final estadoNuevo = newRecord['estado'] as String?;
+
+                  if (estadoNuevo == 'entregado' &&
+                      estadoAnterior != 'entregado') {
+                    print('Pedido de fábrica entregado: $newRecord');
+                    _handleDeliveredOrder(newRecord, 'fabrica');
+                  }
+                },
+              )
+              .onPostgresChanges(
+                event: PostgresChangeEvent.update,
+                schema: 'public',
+                table: 'pedidos_clientes',
+                callback: (payload) {
+                  final newRecord = payload.newRecord;
+                  final oldRecord = payload.oldRecord;
+
+                  // Verificar que el estado cambió a "entregado"
+                  final estadoAnterior = oldRecord['estado'] as String?;
+                  final estadoNuevo = newRecord['estado'] as String?;
+
+                  if (estadoNuevo == 'entregado' &&
+                      estadoAnterior != 'entregado') {
+                    print('Pedido de cliente entregado: $newRecord');
+                    _handleDeliveredOrder(newRecord, 'cliente');
+                  }
+                },
+              )
+              .subscribe();
 
       print('Listeners de Realtime configurados correctamente');
     } catch (e) {
@@ -168,7 +178,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
 
       // Obtener información de la sucursal si está disponible
       final sucursalNombre = newOrder['sucursal_nombre'] ?? 'Punto de Venta';
-      
+
       // Contar productos si está disponible
       final productos = newOrder['productos'];
       int? cantidadProductos;
@@ -195,10 +205,9 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
       });
 
       // Obtener información del cliente
-      final clienteNombre = newOrder['cliente_nombre'] ?? 
-                           newOrder['nombre_cliente'] ?? 
-                           'Cliente';
-      
+      final clienteNombre =
+          newOrder['cliente_nombre'] ?? newOrder['nombre_cliente'] ?? 'Cliente';
+
       // Contar productos si está disponible
       final productos = newOrder['productos'];
       int? cantidadProductos;
@@ -264,16 +273,23 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     final screenWidth = mediaQuery.size.width;
     final isSmallScreen = screenWidth < 600;
     final isVerySmallScreen = screenWidth < 400;
-    
-    // Tamaños responsive
-    final headerFontSize = isVerySmallScreen ? 16.0 : (isSmallScreen ? 18.0 : 20.0);
-    final sectionTitleFontSize = isVerySmallScreen ? 16.0 : (isSmallScreen ? 18.0 : 20.0);
-    final buttonTitleFontSize = isVerySmallScreen ? 13.0 : (isSmallScreen ? 14.0 : 16.0);
-    final buttonSubtitleFontSize = isVerySmallScreen ? 10.0 : (isSmallScreen ? 11.0 : 12.0);
-    final bottomButtonFontSize = isVerySmallScreen ? 14.0 : (isSmallScreen ? 16.0 : 18.0);
+
+    // Tamaños responsive (reducidos 20% para textos en mayúsculas)
+    final headerFontSize =
+        (isVerySmallScreen ? 16.0 : (isSmallScreen ? 18.0 : 20.0)) * 0.8;
+    final sectionTitleFontSize =
+        (isVerySmallScreen ? 16.0 : (isSmallScreen ? 18.0 : 20.0)) * 0.8;
+    final buttonTitleFontSize =
+        (isVerySmallScreen ? 13.0 : (isSmallScreen ? 14.0 : 16.0)) * 0.8;
+    final buttonSubtitleFontSize =
+        (isVerySmallScreen ? 10.0 : (isSmallScreen ? 11.0 : 12.0)) * 0.8;
+    final bottomButtonFontSize =
+        (isVerySmallScreen ? 14.0 : (isSmallScreen ? 16.0 : 18.0)) * 0.8;
     final iconSize = isVerySmallScreen ? 20.0 : (isSmallScreen ? 22.0 : 24.0);
-    final buttonPadding = isVerySmallScreen ? 12.0 : (isSmallScreen ? 16.0 : 20.0);
-    final gridSpacing = isVerySmallScreen ? 12.0 : (isSmallScreen ? 14.0 : 16.0);
+    final buttonPadding =
+        isVerySmallScreen ? 12.0 : (isSmallScreen ? 16.0 : 20.0);
+    final gridSpacing =
+        isVerySmallScreen ? 12.0 : (isSmallScreen ? 14.0 : 16.0);
 
     return Scaffold(
       backgroundColor:
@@ -305,7 +321,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 child: Text(
                   'FÁBRICA CENTRAL',
                   style: TextStyle(
-                    fontSize: headerFontSize,
+                    fontSize: 8,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
@@ -320,246 +336,259 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : RefreshIndicator(
-                          onRefresh: _loadData,
-                          child: SingleChildScrollView(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isSmallScreen ? 16 : 20,
-                              vertical: 24,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            // Accesos Directos Section
-                            Text(
-                              'ACCESOS DIRECTOS',
-                              style: TextStyle(
-                                fontSize: sectionTitleFontSize,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
+                        onRefresh: _loadData,
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: 24,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Accesos Directos Section
+                              Text(
+                                'ACCESOS DIRECTOS',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
                               ),
-                            ),
-                            SizedBox(height: isVerySmallScreen ? 12 : 16),
-                            GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: 2,
-                              crossAxisSpacing: gridSpacing,
-                              mainAxisSpacing: gridSpacing,
-                              childAspectRatio: isVerySmallScreen ? 1.0 : 1.1,
-                              children: [
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.storefront,
-                                  iconColor: Colors.blue,
-                                  title: 'PEDIDOS PUNTOS',
-                                  subtitle: 'APP INTERNA',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  notificationCount: _newFactoryOrdersCount > 0 ? _newFactoryOrdersCount : null,
-                                  onTap: () async {
-                                    // Resetear contador al entrar
-                                    setState(() {
-                                      _newFactoryOrdersCount = 0;
-                                    });
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) =>
-                                                const FactoryOrdersListPage(),
-                                      ),
-                                    );
-                                    // Actualizar resumen al volver
-                                    _loadData();
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.chat,
-                                  iconColor: Colors.green,
-                                  title: 'PEDIDOS CLIENTES',
-                                  subtitle: 'WHATSAPP',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  notificationCount: _newClientOrdersCount > 0 ? _newClientOrdersCount : null,
-                                  onTap: () async {
-                                    // Resetear contador al entrar
-                                    setState(() {
-                                      _newClientOrdersCount = 0;
-                                    });
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) =>
-                                                const ClientOrdersListPage(),
-                                      ),
-                                    );
-                                    // Actualizar resumen al volver
-                                    _loadData();
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.repeat,
-                                  iconColor: Colors.teal,
-                                  title: 'PEDIDO RECURRENTE',
-                                  subtitle: 'CLIENTES FIJOS',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const RecurrentOrdersPage(),
-                                      ),
-                                    );
-                                    // Actualizar resumen al volver
-                                    _loadData();
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.restaurant,
-                                  iconColor: primaryColor,
-                                  title: 'PRODUCCIÓN',
-                                  subtitle: 'GESTIÓN COCINA',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const FactoryInventoryProductionPage(),
-                                      ),
-                                    );
-                                    // Actualizar resumen al volver
-                                    _loadData();
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.local_shipping,
-                                  iconColor: Colors.grey,
-                                  title: 'DESPACHO',
-                                  subtitle: 'LOGÍSTICA',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  notificationCount: _newDeliveredOrdersCount > 0 ? _newDeliveredOrdersCount : null,
-                                  onTap: () {
-                                    // Resetear contador al entrar
-                                    setState(() {
-                                      _newDeliveredOrdersCount = 0;
-                                    });
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const DispatchPage(),
-                                      ),
-                                    ).then((_) {
+                              SizedBox(height: isVerySmallScreen ? 12 : 16),
+                              GridView.count(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                crossAxisCount: 2,
+                                crossAxisSpacing: gridSpacing,
+                                mainAxisSpacing: gridSpacing,
+                                childAspectRatio: isVerySmallScreen ? 1.0 : 1.1,
+                                children: [
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.storefront,
+                                    iconColor: Colors.blue,
+                                    title: 'PEDIDOS PUNTOS',
+                                    subtitle: 'APP INTERNA',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    notificationCount:
+                                        _newFactoryOrdersCount > 0
+                                            ? _newFactoryOrdersCount
+                                            : null,
+                                    onTap: () async {
+                                      // Resetear contador al entrar
+                                      setState(() {
+                                        _newFactoryOrdersCount = 0;
+                                      });
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const FactoryOrdersListPage(),
+                                        ),
+                                      );
                                       // Actualizar resumen al volver
                                       _loadData();
-                                    });
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.inventory_2,
-                                  iconColor: Colors.orange,
-                                  title: 'PRODUCTOS',
-                                  subtitle: 'GESTIÓN',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const ProductsManagementPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.people,
-                                  iconColor: Colors.purple,
-                                  title: 'EMPLEADOS',
-                                  subtitle: 'GESTIÓN',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const EmployeesManagementPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                _buildAccessButton(
-                                  isDark: isDark,
-                                  icon: Icons.receipt_long,
-                                  iconColor: Colors.red,
-                                  title: 'GASTOS',
-                                  subtitle: 'Pagos y Compras',
-                                  titleFontSize: buttonTitleFontSize,
-                                  subtitleFontSize: buttonSubtitleFontSize,
-                                  iconSize: iconSize,
-                                  padding: buttonPadding,
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const ExpensesPage(),
-                                      ),
-                                    );
-                                    // Actualizar resumen al volver
-                                    _loadData();
-                                  },
-                                ),
-                              ],
-                            ),
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.chat,
+                                    iconColor: Colors.green,
+                                    title: 'PEDIDOS CLIENTES',
+                                    subtitle: 'WHATSAPP',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    notificationCount:
+                                        _newClientOrdersCount > 0
+                                            ? _newClientOrdersCount
+                                            : null,
+                                    onTap: () async {
+                                      // Resetear contador al entrar
+                                      setState(() {
+                                        _newClientOrdersCount = 0;
+                                      });
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const ClientOrdersListPage(),
+                                        ),
+                                      );
+                                      // Actualizar resumen al volver
+                                      _loadData();
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.repeat,
+                                    iconColor: Colors.teal,
+                                    title: 'PEDIDO RECURRENTE',
+                                    subtitle: 'CLIENTES FIJOS',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const RecurrentOrdersPage(),
+                                        ),
+                                      );
+                                      // Actualizar resumen al volver
+                                      _loadData();
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.restaurant,
+                                    iconColor: primaryColor,
+                                    title: 'PRODUCCIÓN',
+                                    subtitle: 'GESTIÓN COCINA',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const FactoryInventoryProductionPage(),
+                                        ),
+                                      );
+                                      // Actualizar resumen al volver
+                                      _loadData();
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.local_shipping,
+                                    iconColor: Colors.grey,
+                                    title: 'DESPACHO',
+                                    subtitle: 'LOGÍSTICA',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    notificationCount:
+                                        _newDeliveredOrdersCount > 0
+                                            ? _newDeliveredOrdersCount
+                                            : null,
+                                    onTap: () {
+                                      // Resetear contador al entrar
+                                      setState(() {
+                                        _newDeliveredOrdersCount = 0;
+                                      });
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => const DispatchPage(),
+                                        ),
+                                      ).then((_) {
+                                        // Actualizar resumen al volver
+                                        _loadData();
+                                      });
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.inventory_2,
+                                    iconColor: Colors.orange,
+                                    title: 'PRODUCTOS',
+                                    subtitle: 'GESTIÓN',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const ProductsManagementPage(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.people,
+                                    iconColor: Colors.purple,
+                                    title: 'EMPLEADOS',
+                                    subtitle: 'GESTIÓN',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const EmployeesManagementPage(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  _buildAccessButton(
+                                    isDark: isDark,
+                                    icon: Icons.receipt_long,
+                                    iconColor: Colors.red,
+                                    title: 'GASTOS',
+                                    subtitle: 'Pagos y Compras',
+                                    titleFontSize: buttonTitleFontSize,
+                                    subtitleFontSize: buttonSubtitleFontSize,
+                                    iconSize: iconSize,
+                                    padding: buttonPadding,
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => const ExpensesPage(),
+                                        ),
+                                      );
+                                      // Actualizar resumen al volver
+                                      _loadData();
+                                    },
+                                  ),
+                                ],
+                              ),
 
-                            // Estadísticas Button (Full Width)
-                            SizedBox(height: isVerySmallScreen ? 12 : 16),
-                            _buildStatsButton(
-                              isDark: isDark,
-                              titleFontSize: buttonTitleFontSize,
-                              subtitleFontSize: buttonSubtitleFontSize,
-                              iconSize: iconSize,
-                              padding: buttonPadding,
-                            ),
+                              // Estadísticas Button (Full Width)
+                              SizedBox(height: isVerySmallScreen ? 12 : 16),
+                              _buildStatsButton(
+                                isDark: isDark,
+                                titleFontSize: buttonTitleFontSize,
+                                subtitleFontSize: buttonSubtitleFontSize,
+                                iconSize: iconSize,
+                                padding: buttonPadding,
+                              ),
 
-                            const SizedBox(
-                              height: 100,
-                            ), // Space for bottom button
-                              ],
-                            ),
+                              const SizedBox(
+                                height: 100,
+                              ), // Space for bottom button
+                            ],
                           ),
                         ),
+                      ),
             ),
           ],
         ),
@@ -607,15 +636,15 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.add_circle, size: isVerySmallScreen ? 20 : (isSmallScreen ? 22 : 24)),
+                Icon(
+                  Icons.add_circle,
+                  size: isVerySmallScreen ? 20 : (isSmallScreen ? 22 : 24),
+                ),
                 SizedBox(width: isVerySmallScreen ? 6 : 8),
                 Flexible(
                   child: Text(
                     'REGISTRAR PEDIDO MANUAL',
-                    style: TextStyle(
-                      fontSize: bottomButtonFontSize,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -646,7 +675,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     final effectiveSubtitleFontSize = subtitleFontSize ?? 12.0;
     final effectiveIconSize = iconSize ?? 24.0;
     final effectivePadding = padding ?? 20.0;
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -669,7 +698,11 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
               top: -8,
               child: Opacity(
                 opacity: 0.1,
-                child: Icon(icon, size: effectiveIconSize * 2.5, color: iconColor),
+                child: Icon(
+                  icon,
+                  size: effectiveIconSize * 2.5,
+                  color: iconColor,
+                ),
               ),
             ),
             Column(
@@ -684,7 +717,11 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                         color: iconColor.withOpacity(isDark ? 0.2 : 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(icon, color: iconColor, size: effectiveIconSize),
+                      child: Icon(
+                        icon,
+                        color: iconColor,
+                        size: effectiveIconSize,
+                      ),
                     ),
                     if (notificationCount != null && notificationCount > 0)
                       Positioned(
@@ -705,10 +742,12 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                           ),
                           child: Center(
                             child: Text(
-                              notificationCount > 99 ? '99+' : notificationCount.toString(),
+                              notificationCount > 99
+                                  ? '99+'
+                                  : notificationCount.toString(),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -721,7 +760,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: effectiveTitleFontSize,
+                    fontSize: 8,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
@@ -732,7 +771,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: effectiveSubtitleFontSize,
+                    fontSize: 8,
                     color:
                         isDark
                             ? const Color(0xFF9A6C4C)
@@ -760,7 +799,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
     final effectiveSubtitleFontSize = subtitleFontSize ?? 12.0;
     final effectiveIconSize = iconSize ?? 24.0;
     final effectivePadding = padding ?? 20.0;
-    
+
     return GestureDetector(
       onTap: () async {
         await Navigator.push(
@@ -793,7 +832,11 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 color: Colors.purple.withOpacity(isDark ? 0.2 : 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.analytics, color: Colors.purple, size: effectiveIconSize),
+              child: Icon(
+                Icons.analytics,
+                color: Colors.purple,
+                size: effectiveIconSize,
+              ),
             ),
             SizedBox(width: effectivePadding * 0.8),
             Expanded(
@@ -803,7 +846,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                   Text(
                     'ESTADÍSTICAS DE FÁBRICA',
                     style: TextStyle(
-                      fontSize: effectiveTitleFontSize,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
@@ -814,7 +857,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                   Text(
                     'REPORTES Y MÉTRICAS',
                     style: TextStyle(
-                      fontSize: effectiveSubtitleFontSize,
+                      fontSize: 8,
                       color:
                           isDark
                               ? const Color(0xFF9A6C4C)
@@ -828,7 +871,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
             ),
             Icon(
               Icons.chevron_right,
-              size: effectiveIconSize,
+              size: iconSize,
               color:
                   isDark
                       ? Colors.white.withOpacity(0.4)

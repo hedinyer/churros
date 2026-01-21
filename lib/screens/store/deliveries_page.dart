@@ -35,12 +35,16 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       final productos = await SupabaseService.getProductosActivos();
 
       // Cargar pedidos de fábrica en estado "enviado"
-      final todosPedidosFabrica = await SupabaseService.getPedidosFabricaParaDespacho(limit: 100);
-      final pedidosFabricaEnviados = todosPedidosFabrica.where((p) => p.estado == 'enviado').toList();
+      final todosPedidosFabrica =
+          await SupabaseService.getPedidosFabricaParaDespacho(limit: 100);
+      final pedidosFabricaEnviados =
+          todosPedidosFabrica.where((p) => p.estado == 'enviado').toList();
 
       // Cargar pedidos de clientes en estado "enviado"
-      final todosPedidosClientes = await SupabaseService.getPedidosClientesParaDespacho(limit: 100);
-      final pedidosClientesEnviados = todosPedidosClientes.where((p) => p.estado == 'enviado').toList();
+      final todosPedidosClientes =
+          await SupabaseService.getPedidosClientesParaDespacho(limit: 100);
+      final pedidosClientesEnviados =
+          todosPedidosClientes.where((p) => p.estado == 'enviado').toList();
 
       setState(() {
         _productos = productos;
@@ -62,7 +66,8 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     }
     final busquedaLower = _busqueda.toLowerCase();
     return _pedidosFabrica.where((pedido) {
-      final numero = (pedido.numeroPedido ?? 'Pedido #${pedido.id}').toLowerCase();
+      final numero =
+          (pedido.numeroPedido ?? 'Pedido #${pedido.id}').toLowerCase();
       final sucursal = (pedido.sucursal?.nombre ?? '').toLowerCase();
       return numero.contains(busquedaLower) || sucursal.contains(busquedaLower);
     }).toList();
@@ -74,7 +79,8 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     }
     final busquedaLower = _busqueda.toLowerCase();
     return _pedidosClientes.where((pedido) {
-      final numero = (pedido.numeroPedido ?? 'Pedido #${pedido.id}').toLowerCase();
+      final numero =
+          (pedido.numeroPedido ?? 'Pedido #${pedido.id}').toLowerCase();
       final cliente = pedido.clienteNombre.toLowerCase();
       return numero.contains(busquedaLower) || cliente.contains(busquedaLower);
     }).toList();
@@ -86,20 +92,21 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
   }) async {
     final confirmado = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar entrega'),
-        content: const Text('¿Confirmar que el pedido fue entregado?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmar entrega'),
+            content: const Text('¿Confirmar que el pedido fue entregado?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirmar'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
     );
 
     if (confirmado != true) return;
@@ -128,21 +135,17 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
         // Recargar datos
         await _loadData();
       } else if (mounted) {
-        final mensaje = resultado['mensaje'] as String? ?? 'Error al marcar el pedido como entregado';
+        final mensaje =
+            resultado['mensaje'] as String? ??
+            'Error al marcar el pedido como entregado';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(mensaje),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -184,10 +187,12 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
 
     final pedidosFabricaFiltrados = _getPedidosFabricaFiltrados();
     final pedidosClientesFiltrados = _getPedidosClientesFiltrados();
-    final totalPedidos = pedidosFabricaFiltrados.length + pedidosClientesFiltrados.length;
+    final totalPedidos =
+        pedidosFabricaFiltrados.length + pedidosClientesFiltrados.length;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
+      backgroundColor:
+          isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
       body: SafeArea(
         child: Column(
           children: [
@@ -198,13 +203,16 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                 vertical: 16,
               ),
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
+                color: (isDark
+                        ? const Color(0xFF221810)
+                        : const Color(0xFFF8F7F6))
                     .withOpacity(0.95),
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.black.withOpacity(0.05),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.05),
                   ),
                 ),
               ),
@@ -214,7 +222,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                     child: Text(
                       'Domicilios y Entregas',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -233,9 +241,10 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                   color: isDark ? const Color(0xFF2F2218) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
+                    color:
+                        isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.1),
                   ),
                 ),
                 child: TextField(
@@ -243,15 +252,17 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                   decoration: InputDecoration(
                     hintText: 'Buscar por # pedido, sucursal o cliente...',
                     hintStyle: TextStyle(
-                      color: isDark
-                          ? const Color(0xFF9A6C4C)
-                          : const Color(0xFF9A6C4C),
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                     prefixIcon: Icon(
                       Icons.search,
-                      color: isDark
-                          ? const Color(0xFF9A6C4C)
-                          : const Color(0xFF9A6C4C),
+                      color:
+                          isDark
+                              ? const Color(0xFF9A6C4C)
+                              : const Color(0xFF9A6C4C),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -278,16 +289,12 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.local_shipping,
-                      color: primaryColor,
-                      size: 20,
-                    ),
+                    Icon(Icons.local_shipping, color: primaryColor, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       '$totalPedidos pedido${totalPedidos != 1 ? 's' : ''} pendiente${totalPedidos != 1 ? 's' : ''} de entrega',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: primaryColor,
                       ),
@@ -298,101 +305,113 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
 
             // Main Content
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : totalPedidos == 0
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : totalPedidos == 0
                       ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  size: 64,
-                                  color: isDark
-                                      ? const Color(0xFFA8A29E)
-                                      : const Color(0xFF78716C),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No hay pedidos pendientes',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Todos los pedidos han sido entregados',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDark
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 64,
+                                color:
+                                    isDark
                                         ? const Color(0xFFA8A29E)
                                         : const Color(0xFF78716C),
-                                  ),
-                                  textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No hay pedidos pendientes',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
                                 ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : SingleChildScrollView(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 16 : 20,
-                            vertical: 16,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Pedidos de Fábrica
-                              if (pedidosFabricaFiltrados.isNotEmpty) ...[
-                                Text(
-                                  'Pedidos de Puntos de Venta',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : const Color(0xFF1B130D),
-                                  ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Todos los pedidos han sido entregados',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
                                 ),
-                                const SizedBox(height: 12),
-                                ...pedidosFabricaFiltrados.map((pedido) =>
-                                    _buildPedidoCard(
-                                      isDark: isDark,
-                                      primaryColor: primaryColor,
-                                      tipo: 'fabrica',
-                                      pedidoFabrica: pedido,
-                                      pedidoCliente: null,
-                                    )),
-                                const SizedBox(height: 24),
-                              ],
-
-                              // Pedidos de Clientes
-                              if (pedidosClientesFiltrados.isNotEmpty) ...[
-                                Text(
-                                  'Pedidos de Clientes',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : const Color(0xFF1B130D),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                ...pedidosClientesFiltrados.map((pedido) =>
-                                    _buildPedidoCard(
-                                      isDark: isDark,
-                                      primaryColor: primaryColor,
-                                      tipo: 'cliente',
-                                      pedidoFabrica: null,
-                                      pedidoCliente: pedido,
-                                    )),
-                              ],
+                                textAlign: TextAlign.center,
+                              ),
                             ],
                           ),
                         ),
+                      )
+                      : SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 16 : 20,
+                          vertical: 16,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Pedidos de Fábrica
+                            if (pedidosFabricaFiltrados.isNotEmpty) ...[
+                              Text(
+                                'Pedidos de Puntos de Venta',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ...pedidosFabricaFiltrados.map(
+                                (pedido) => _buildPedidoCard(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                  tipo: 'fabrica',
+                                  pedidoFabrica: pedido,
+                                  pedidoCliente: null,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+
+                            // Pedidos de Clientes
+                            if (pedidosClientesFiltrados.isNotEmpty) ...[
+                              Text(
+                                'Pedidos de Clientes',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ...pedidosClientesFiltrados.map(
+                                (pedido) => _buildPedidoCard(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                  tipo: 'cliente',
+                                  pedidoFabrica: null,
+                                  pedidoCliente: pedido,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
             ),
           ],
         ),
@@ -408,28 +427,27 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     PedidoCliente? pedidoCliente,
   }) {
     final isFabrica = tipo == 'fabrica';
-    final numeroPedido = isFabrica
-        ? (pedidoFabrica!.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
-        : (pedidoCliente!.numeroPedido ?? 'Pedido #${pedidoCliente.id}');
-    final timeAgo = isFabrica
-        ? _formatTimeAgo(pedidoFabrica!.createdAt)
-        : _formatTimeAgo(pedidoCliente!.createdAt);
-    final detalles = isFabrica
-        ? (pedidoFabrica!.detalles ?? [])
-        : (pedidoCliente!.detalles ?? []);
-    final totalItems = isFabrica
-        ? pedidoFabrica!.totalItems
-        : pedidoCliente!.totalItems;
+    final numeroPedido =
+        isFabrica
+            ? (pedidoFabrica!.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
+            : (pedidoCliente!.numeroPedido ?? 'Pedido #${pedidoCliente.id}');
+    final timeAgo =
+        isFabrica
+            ? _formatTimeAgo(pedidoFabrica!.createdAt)
+            : _formatTimeAgo(pedidoCliente!.createdAt);
+    final detalles =
+        isFabrica
+            ? (pedidoFabrica!.detalles ?? [])
+            : (pedidoCliente!.detalles ?? []);
+    final totalItems =
+        isFabrica ? pedidoFabrica!.totalItems : pedidoCliente!.totalItems;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2F2218) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: primaryColor.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: primaryColor.withOpacity(0.2), width: 1),
       ),
       child: Column(
         children: [
@@ -472,7 +490,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 child: Text(
                                   'ENVIADO',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.orange,
                                     letterSpacing: 1,
@@ -483,10 +501,11 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 timeAgo,
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? const Color(0xFF9A6C4C)
-                                      : const Color(0xFF9A6C4C),
+                                  fontSize: 8,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
                                 ),
                               ),
                             ],
@@ -495,9 +514,12 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                           Text(
                             numeroPedido,
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 8,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : const Color(0xFF1B130D),
+                              color:
+                                  isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1B130D),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -506,21 +528,24 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Icon(
                                 isFabrica ? Icons.storefront : Icons.person,
                                 size: 16,
-                                color: isDark
-                                    ? const Color(0xFF9A6C4C)
-                                    : const Color(0xFF9A6C4C),
+                                color:
+                                    isDark
+                                        ? const Color(0xFF9A6C4C)
+                                        : const Color(0xFF9A6C4C),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   isFabrica
-                                      ? (pedidoFabrica!.sucursal?.nombre ?? 'Sucursal')
+                                      ? (pedidoFabrica!.sucursal?.nombre ??
+                                          'Sucursal')
                                       : pedidoCliente!.clienteNombre,
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDark
-                                        ? const Color(0xFF9A6C4C)
-                                        : const Color(0xFF9A6C4C),
+                                    fontSize: 8,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFF9A6C4C)
+                                            : const Color(0xFF9A6C4C),
                                   ),
                                 ),
                               ),
@@ -533,19 +558,21 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 Icon(
                                   Icons.location_on,
                                   size: 14,
-                                  color: isDark
-                                      ? const Color(0xFF9A6C4C)
-                                      : const Color(0xFF9A6C4C),
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
                                 ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
                                     pedidoCliente!.direccionEntrega,
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? const Color(0xFF9A6C4C)
-                                          : const Color(0xFF9A6C4C),
+                                      fontSize: 8,
+                                      color:
+                                          isDark
+                                              ? const Color(0xFF9A6C4C)
+                                              : const Color(0xFF9A6C4C),
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -580,7 +607,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                   Text(
                     'Detalle de productos:',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
@@ -589,9 +616,10 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.black.withOpacity(0.2)
-                          : Colors.grey.withOpacity(0.05),
+                      color:
+                          isDark
+                              ? Colors.black.withOpacity(0.2)
+                              : Colors.grey.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -600,16 +628,24 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                           Producto? producto;
                           int cantidad;
                           String? precioTotal;
-                          
+
                           if (isFabrica) {
-                            final detalleFabrica = detalle as PedidoFabricaDetalle;
-                            producto = _getProductoById(detalleFabrica.productoId);
+                            final detalleFabrica =
+                                detalle as PedidoFabricaDetalle;
+                            producto = _getProductoById(
+                              detalleFabrica.productoId,
+                            );
                             cantidad = detalleFabrica.cantidad;
                           } else {
-                            final detalleCliente = detalle as PedidoClienteDetalle;
-                            producto = detalleCliente.producto ?? _getProductoById(detalleCliente.productoId);
+                            final detalleCliente =
+                                detalle as PedidoClienteDetalle;
+                            producto =
+                                detalleCliente.producto ??
+                                _getProductoById(detalleCliente.productoId);
                             cantidad = detalleCliente.cantidad;
-                            precioTotal = _formatCurrency(detalleCliente.precioTotal);
+                            precioTotal = _formatCurrency(
+                              detalleCliente.precioTotal,
+                            );
                           }
 
                           return Padding(
@@ -620,22 +656,27 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 Text(
                                   '• ',
                                   style: TextStyle(
-                                    fontSize: 16,
-                                    color: isDark
-                                        ? const Color(0xFF9A6C4C)
-                                        : const Color(0xFF78716C),
+                                    fontSize: 8,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFF9A6C4C)
+                                            : const Color(0xFF78716C),
                                   ),
                                 ),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         '${producto?.nombre ?? 'Producto #${isFabrica ? (detalle as PedidoFabricaDetalle).productoId : (detalle as PedidoClienteDetalle).productoId}'}',
                                         style: TextStyle(
-                                          fontSize: 14,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.w600,
-                                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                                          color:
+                                              isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1B130D),
                                         ),
                                       ),
                                       const SizedBox(height: 2),
@@ -644,10 +685,11 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                           Text(
                                             'Cantidad: $cantidad ${producto?.unidadMedida ?? 'unidad'}${cantidad != 1 ? 's' : ''}',
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark
-                                                  ? const Color(0xFF9A6C4C)
-                                                  : const Color(0xFF78716C),
+                                              fontSize: 8,
+                                              color:
+                                                  isDark
+                                                      ? const Color(0xFF9A6C4C)
+                                                      : const Color(0xFF78716C),
                                             ),
                                           ),
                                           if (precioTotal != null) ...[
@@ -655,11 +697,16 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                             Text(
                                               '• $precioTotal',
                                               style: TextStyle(
-                                                fontSize: 12,
+                                                fontSize: 8,
                                                 fontWeight: FontWeight.bold,
-                                                color: isDark
-                                                    ? const Color(0xFF9A6C4C)
-                                                    : const Color(0xFF78716C),
+                                                color:
+                                                    isDark
+                                                        ? const Color(
+                                                          0xFF9A6C4C,
+                                                        )
+                                                        : const Color(
+                                                          0xFF78716C,
+                                                        ),
                                               ),
                                             ),
                                           ],
@@ -682,19 +729,21 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 Text(
                                   'Total: ${detalles.length} producto${detalles.length != 1 ? 's' : ''}',
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDark
-                                        ? const Color(0xFF9A6C4C)
-                                        : const Color(0xFF9A6C4C),
+                                    fontSize: 8,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFF9A6C4C)
+                                            : const Color(0xFF9A6C4C),
                                   ),
                                 ),
                                 Text(
                                   '$totalItems items',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? const Color(0xFF9A6C4C)
-                                        : const Color(0xFF9A6C4C),
+                                    fontSize: 8,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFF9A6C4C)
+                                            : const Color(0xFF9A6C4C),
                                   ),
                                 ),
                               ],
@@ -706,16 +755,17 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                   Text(
                                     'Total del pedido:',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? const Color(0xFF9A6C4C)
-                                          : const Color(0xFF9A6C4C),
+                                      fontSize: 8,
+                                      color:
+                                          isDark
+                                              ? const Color(0xFF9A6C4C)
+                                              : const Color(0xFF9A6C4C),
                                     ),
                                   ),
                                   Text(
                                     _formatCurrency(pedidoCliente.total),
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       color: primaryColor,
                                     ),
@@ -726,9 +776,12 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 '$totalItems items',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 8,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : const Color(0xFF1B130D),
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
                                 ),
                               ),
                           ],
@@ -744,15 +797,17 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _marcarComoEntregado(
-                      tipo: tipo,
-                      pedidoId: isFabrica ? pedidoFabrica!.id : pedidoCliente!.id,
-                    ),
+                    onPressed:
+                        () => _marcarComoEntregado(
+                          tipo: tipo,
+                          pedidoId:
+                              isFabrica ? pedidoFabrica!.id : pedidoCliente!.id,
+                        ),
                     icon: const Icon(Icons.check_circle, size: 24),
                     label: const Text(
                       'Marcar como Entregado',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

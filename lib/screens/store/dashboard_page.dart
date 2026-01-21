@@ -65,7 +65,8 @@ class _DashboardPageState extends State<DashboardPage> {
   /// Configura la navegación cuando se toca una notificación
   void _setupNotificationNavigation() {
     NotificationService.onNotificationTapped = (String? payload) {
-      if (payload == 'factory_order_sent' || payload == 'factory_order_delivered') {
+      if (payload == 'factory_order_sent' ||
+          payload == 'factory_order_delivered') {
         // Navegar a la página de Pedido a Fábrica
         // Usar Future.microtask para asegurar que se ejecute en el siguiente ciclo del event loop
         Future.microtask(() {
@@ -73,10 +74,11 @@ class _DashboardPageState extends State<DashboardPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => FactoryOrderPage(
-                  sucursal: widget.sucursal,
-                  currentUser: widget.currentUser,
-                ),
+                builder:
+                    (context) => FactoryOrderPage(
+                      sucursal: widget.sucursal,
+                      currentUser: widget.currentUser,
+                    ),
               ),
             );
           }
@@ -88,9 +90,9 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _checkAndShowOnboarding() async {
     // Esperar a que el widget se construya completamente y los widgets estén renderizados
     await Future.delayed(const Duration(milliseconds: 800));
-    
+
     if (!mounted) return;
-    
+
     final isCompleted = await OnboardingOverlay.isCompleted();
     if (!isCompleted) {
       // Esperar un poco más para asegurar que los widgets están completamente renderizados
@@ -105,12 +107,13 @@ class _DashboardPageState extends State<DashboardPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => OnboardingOverlay(
-        storeOpeningKey: _storeOpeningKey,
-        quickSaleKey: _quickSaleKey,
-        inventoryKey: _inventoryKey,
-        closingKey: _closingKey,
-      ),
+      builder:
+          (context) => OnboardingOverlay(
+            storeOpeningKey: _storeOpeningKey,
+            quickSaleKey: _quickSaleKey,
+            inventoryKey: _inventoryKey,
+            closingKey: _closingKey,
+          ),
     );
   }
 
@@ -123,20 +126,22 @@ class _DashboardPageState extends State<DashboardPage> {
       final resumen = await SupabaseService.getResumenVentasHoy(
         widget.sucursal.id,
       );
-      
+
       // Cargar gastos del día actual
       final gastos = await SupabaseService.getGastosPuntoVenta(
         sucursalId: widget.sucursal.id,
       );
-      
+
       print('Dashboard - Gastos recibidos: ${gastos.length}');
-      
+
       // Calcular el total de gastos del día
       double totalGastos = 0.0;
       for (final gasto in gastos) {
         final monto = gasto['monto'];
-        print('Dashboard - Procesando gasto: monto=$monto, tipo=${monto.runtimeType}');
-        
+        print(
+          'Dashboard - Procesando gasto: monto=$monto, tipo=${monto.runtimeType}',
+        );
+
         double valor = 0.0;
         if (monto != null) {
           if (monto is num) {
@@ -155,13 +160,15 @@ class _DashboardPageState extends State<DashboardPage> {
             }
           }
         }
-        
+
         totalGastos += valor;
         print('Dashboard - Sumando: $valor, total acumulado: $totalGastos');
       }
-      
-      print('Dashboard - Total gastos del día calculado: $totalGastos (${gastos.length} registros)');
-      
+
+      print(
+        'Dashboard - Total gastos del día calculado: $totalGastos (${gastos.length} registros)',
+      );
+
       setState(() {
         _totalVentasHoy = resumen['total'] as double;
         _totalGastosHoy = totalGastos;
@@ -181,7 +188,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _initializeOrderStatusMonitoring() async {
     // Cargar estado inicial de los pedidos
     await _loadInitialOrderStates();
-    
+
     // Configurar timer para verificar cambios cada 30 segundos
     _orderStatusTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -196,10 +203,9 @@ class _DashboardPageState extends State<DashboardPage> {
         widget.sucursal.id,
         limit: 50,
       );
-      
+
       _previousOrderStates = {
-        for (var pedido in pedidos)
-          pedido.id: pedido.estado,
+        for (var pedido in pedidos) pedido.id: pedido.estado,
       };
     } catch (e) {
       print('Error cargando estado inicial de pedidos: $e');
@@ -297,7 +303,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: Text(
                         widget.sucursal.nombre,
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),
@@ -329,15 +335,13 @@ class _DashboardPageState extends State<DashboardPage> {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: isDark
-                                ? [
-                                    const Color(0xFF2C2018),
-                                    const Color(0xFF251C15),
-                                  ]
-                                : [
-                                    Colors.white,
-                                    const Color(0xFFFDFCFB),
-                                  ],
+                            colors:
+                                isDark
+                                    ? [
+                                      const Color(0xFF2C2018),
+                                      const Color(0xFF251C15),
+                                    ]
+                                    : [Colors.white, const Color(0xFFFDFCFB)],
                           ),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
@@ -349,13 +353,14 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withOpacity(0.3)
-                                  : Colors.black.withOpacity(0.04),
+                              color:
+                                  isDark
+                                      ? Colors.black.withOpacity(0.3)
+                                      : Colors.black.withOpacity(0.04),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                               spreadRadius: 0,
-                          ),
+                            ),
                           ],
                         ),
                         child: Column(
@@ -372,7 +377,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       Text(
                                         'VENTAS DE HOY',
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.w600,
                                           color:
                                               isDark
@@ -393,7 +398,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                               ? '\$0'
                                               : '\$${NumberFormat('#,###', 'es').format(_totalVentasHoy.round())}',
                                           style: TextStyle(
-                                            fontSize: 36,
+                                            fontSize: 8,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -438,7 +443,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       Text(
                                         'ONLINE',
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 8,
                                           fontWeight: FontWeight.bold,
                                           color: const Color(0xFF10B981),
                                         ),
@@ -470,7 +475,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     Text(
                                       '${_porcentajeVsAyer >= 0 ? '+' : ''}${_porcentajeVsAyer.toStringAsFixed(0)}% VS AYER',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 8,
                                         fontWeight: FontWeight.w500,
                                         color:
                                             _porcentajeVsAyer >= 0
@@ -492,7 +497,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     Text(
                                       'GASTOS: \$${NumberFormat('#,###', 'es').format(_totalGastosHoy.round())}',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 8,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.red,
                                       ),
@@ -533,7 +538,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             child: _buildModernCard(
                               key: _quickSaleKey,
                               isDark: isDark,
-                                  color: primaryColor,
+                              color: primaryColor,
                               icon: Icons.payments,
                               title: 'VENTA RÁPIDA',
                             ),
@@ -684,21 +689,13 @@ class _DashboardPageState extends State<DashboardPage> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  color.withOpacity(0.12),
-                  color.withOpacity(0.06),
-                ]
-              : [
-                  color.withOpacity(0.1),
-                  color.withOpacity(0.05),
-                ],
+          colors:
+              isDark
+                  ? [color.withOpacity(0.12), color.withOpacity(0.06)]
+                  : [color.withOpacity(0.1), color.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withOpacity(0.25),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.25), width: 1),
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(isDark ? 0.1 : 0.08),
@@ -720,19 +717,18 @@ class _DashboardPageState extends State<DashboardPage> {
                 color: color.withOpacity(isDark ? 0.2 : 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 28,
-              ),
+              child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 12),
             Text(
               title,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 8,
                 fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white.withOpacity(0.95) : const Color(0xFF1B130D),
+                color:
+                    isDark
+                        ? Colors.white.withOpacity(0.95)
+                        : const Color(0xFF1B130D),
                 height: 1.3,
                 letterSpacing: -0.2,
               ),
@@ -762,7 +758,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: _buildModernCard(
         key: key,
         isDark: isDark,
-            color: backgroundColor,
+        color: backgroundColor,
         icon: icon,
         title: title,
       ),

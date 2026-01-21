@@ -24,7 +24,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
   bool _isLoading = true;
   List<Producto> _productos = [];
   Map<int, Categoria> _categoriasMap = {};
-  int _selectedCategoriaFilter = -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
+  int _selectedCategoriaFilter =
+      -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
   Map<int, int> _inventarioInicial = {}; // productoId -> cantidad inicial
   Map<int, int> _ventasHoy = {}; // productoId -> cantidad vendida
   Map<int, int> _inventarioActual = {}; // productoId -> cantidad actual
@@ -67,11 +68,12 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
 
       setState(() {
         // Ordenar productos por inventario actual descendente (mayor a menor)
-        _productos = productos..sort((a, b) {
-          final inventarioA = inventarioActual[a.id] ?? 0;
-          final inventarioB = inventarioActual[b.id] ?? 0;
-          return inventarioB.compareTo(inventarioA);
-        });
+        _productos =
+            productos..sort((a, b) {
+              final inventarioA = inventarioActual[a.id] ?? 0;
+              final inventarioB = inventarioActual[b.id] ?? 0;
+              return inventarioB.compareTo(inventarioA);
+            });
         _categoriasMap = categoriasMap;
         _inventarioInicial = inventarioInicial;
         _ventasHoy = ventasHoy;
@@ -273,7 +275,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                             child: Text(
                               'INVENTARIO DEL DÍA',
                               style: TextStyle(
-                                fontSize: titleFontSize,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: -0.5,
                                 color:
@@ -329,7 +331,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                             child: Text(
                                               'Fecha',
                                               style: TextStyle(
-                                                fontSize: smallFontSize,
+                                                fontSize: 8,
                                                 fontWeight: FontWeight.w500,
                                                 color:
                                                     isDark
@@ -352,7 +354,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                             child: Text(
                                               _getFormattedDate(),
                                               style: TextStyle(
-                                                fontSize: largeFontSize,
+                                                fontSize: 8,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     isDark
@@ -384,7 +386,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                           style: TextStyle(
                                             color: primaryColor,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: bodyFontSize,
+                                            fontSize: 8,
                                             decoration:
                                                 TextDecoration.underline,
                                             decorationColor: primaryColor,
@@ -417,42 +419,65 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                       ChoiceChip(
                                         label: Text(
                                           'Todos',
-                                          style: TextStyle(fontSize: smallFontSize),
+                                          style: TextStyle(fontSize: 8),
                                         ),
-                                        selected: _selectedCategoriaFilter == -1,
-                                        selectedColor: primaryColor.withOpacity(0.15),
+                                        selected:
+                                            _selectedCategoriaFilter == -1,
+                                        selectedColor: primaryColor.withOpacity(
+                                          0.15,
+                                        ),
                                         backgroundColor:
-                                            isDark ? const Color(0xFF2C2018) : Colors.white,
+                                            isDark
+                                                ? const Color(0xFF2C2018)
+                                                : Colors.white,
                                         side: BorderSide(
-                                          color: _selectedCategoriaFilter == -1
-                                              ? primaryColor
-                                              : (isDark
-                                                  ? const Color(0xFF44403C)
-                                                  : const Color(0xFFE7E5E4)),
+                                          color:
+                                              _selectedCategoriaFilter == -1
+                                                  ? primaryColor
+                                                  : (isDark
+                                                      ? const Color(0xFF44403C)
+                                                      : const Color(
+                                                        0xFFE7E5E4,
+                                                      )),
                                         ),
                                         onSelected: (_) {
-                                          setState(() => _selectedCategoriaFilter = -1);
+                                          setState(
+                                            () => _selectedCategoriaFilter = -1,
+                                          );
                                         },
                                       ),
                                       SizedBox(width: spacingMedium),
-                                      ..._getProductosAgrupadosPorCategoria().keys.map((categoriaId) {
-                                        final isUncategorized = categoriaId == null;
-                                        final chipId = isUncategorized ? 0 : categoriaId;
-                                        
+                                      ..._getProductosAgrupadosPorCategoria().keys.map((
+                                        categoriaId,
+                                      ) {
+                                        final isUncategorized =
+                                            categoriaId == null;
+                                        final chipId =
+                                            isUncategorized ? 0 : categoriaId;
+
                                         // Obtener el nombre de la categoría
                                         String label;
                                         if (isUncategorized) {
                                           label = 'Sin categoría';
                                         } else {
                                           // Intentar obtener del mapa primero
-                                          final categoria = _categoriasMap[categoriaId];
+                                          final categoria =
+                                              _categoriasMap[categoriaId];
                                           if (categoria != null) {
                                             label = categoria.nombre;
                                           } else {
                                             // Si no está en el mapa, obtener del primer producto de esa categoría
-                                            final productosDeCategoria = _getProductosAgrupadosPorCategoria()[categoriaId];
-                                            if (productosDeCategoria != null && productosDeCategoria.isNotEmpty) {
-                                              label = productosDeCategoria.first.categoria?.nombre ?? 'Categoría';
+                                            final productosDeCategoria =
+                                                _getProductosAgrupadosPorCategoria()[categoriaId];
+                                            if (productosDeCategoria != null &&
+                                                productosDeCategoria
+                                                    .isNotEmpty) {
+                                              label =
+                                                  productosDeCategoria
+                                                      .first
+                                                      .categoria
+                                                      ?.nombre ??
+                                                  'Categoría';
                                             } else {
                                               label = 'Categoría';
                                             }
@@ -460,25 +485,42 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                         }
 
                                         return Padding(
-                                          padding: EdgeInsets.only(right: spacingSmall),
+                                          padding: EdgeInsets.only(
+                                            right: spacingSmall,
+                                          ),
                                           child: ChoiceChip(
                                             label: Text(
                                               label,
-                                              style: TextStyle(fontSize: smallFontSize),
+                                              style: TextStyle(fontSize: 8),
                                             ),
-                                            selected: _selectedCategoriaFilter == chipId,
-                                            selectedColor: primaryColor.withOpacity(0.15),
+                                            selected:
+                                                _selectedCategoriaFilter ==
+                                                chipId,
+                                            selectedColor: primaryColor
+                                                .withOpacity(0.15),
                                             backgroundColor:
-                                                isDark ? const Color(0xFF2C2018) : Colors.white,
+                                                isDark
+                                                    ? const Color(0xFF2C2018)
+                                                    : Colors.white,
                                             side: BorderSide(
-                                              color: _selectedCategoriaFilter == chipId
-                                                  ? primaryColor
-                                                  : (isDark
-                                                      ? const Color(0xFF44403C)
-                                                      : const Color(0xFFE7E5E4)),
+                                              color:
+                                                  _selectedCategoriaFilter ==
+                                                          chipId
+                                                      ? primaryColor
+                                                      : (isDark
+                                                          ? const Color(
+                                                            0xFF44403C,
+                                                          )
+                                                          : const Color(
+                                                            0xFFE7E5E4,
+                                                          )),
                                             ),
                                             onSelected: (_) {
-                                              setState(() => _selectedCategoriaFilter = chipId);
+                                              setState(
+                                                () =>
+                                                    _selectedCategoriaFilter =
+                                                        chipId,
+                                              );
                                             },
                                           ),
                                         );
@@ -489,7 +531,9 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                 SizedBox(height: spacingMedium),
 
                                 // Products List
-                                ..._getProductosFiltrados().map<Widget>((producto) {
+                                ..._getProductosFiltrados().map<Widget>((
+                                  producto,
+                                ) {
                                   final inicial = _getCantidadInicial(
                                     producto.id,
                                   );
@@ -614,8 +658,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                   producto
                                                                       .nombre,
                                                                   style: TextStyle(
-                                                                    fontSize:
-                                                                        titleFontSize,
+                                                                    fontSize: 8,
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .bold,
@@ -723,7 +766,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         estado,
                                                                         style: TextStyle(
                                                                           fontSize:
-                                                                              smallFontSize,
+                                                                              8,
                                                                           fontWeight:
                                                                               FontWeight.bold,
                                                                           color:
@@ -765,8 +808,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           child: Text(
                                                             'Unidad: ${producto.unidadMedida}',
                                                             style: TextStyle(
-                                                              fontSize:
-                                                                  smallFontSize,
+                                                              fontSize: 8,
                                                               color:
                                                                   isDark
                                                                       ? const Color(
@@ -827,7 +869,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           Text(
                                                             'Inicial',
                                                             style: TextStyle(
-                                                              fontSize: 12,
+                                                              fontSize: 8,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w500,
@@ -849,7 +891,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                               '#,###',
                                                             ).format(inicial),
                                                             style: TextStyle(
-                                                              fontSize: 18,
+                                                              fontSize: 8,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600,
@@ -892,7 +934,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             Text(
                                                               'Vendido',
                                                               style: TextStyle(
-                                                                fontSize: 12,
+                                                                fontSize: 8,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w500,
@@ -914,7 +956,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                 '#,###',
                                                               ).format(vendido),
                                                               style: TextStyle(
-                                                                fontSize: 18,
+                                                                fontSize: 8,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w600,
@@ -958,7 +1000,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             Text(
                                                               'Disponible',
                                                               style: TextStyle(
-                                                                fontSize: 12,
+                                                                fontSize: 8,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .bold,
@@ -982,7 +1024,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                 disponible,
                                                               ),
                                                               style: TextStyle(
-                                                                fontSize: 24,
+                                                                fontSize: 8,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .bold,
@@ -1154,8 +1196,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                               ? 'Recargar Stock'
                                                               : 'Recargar',
                                                           style: TextStyle(
-                                                            fontSize:
-                                                                bodyFontSize,
+                                                            fontSize: 8,
                                                             fontWeight:
                                                                 isCritical ||
                                                                         isLowStock ||
@@ -1335,8 +1376,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         'Confirmar Recarga',
                                                         style: TextStyle(
-                                                          fontSize:
-                                                              dialogTitleSize,
+                                                          fontSize: 8,
                                                           fontWeight:
                                                               FontWeight.bold,
                                                           color:
@@ -1375,8 +1415,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         '${_productosParaRecargar.length} producto(s) seleccionado(s)',
                                                         style: TextStyle(
-                                                          fontSize:
-                                                              dialogSmallSize,
+                                                          fontSize: 8,
                                                           color:
                                                               isDarkDialog
                                                                   ? const Color(
@@ -1474,7 +1513,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         fontWeight:
                                                                             FontWeight.bold,
                                                                         fontSize:
-                                                                            dialogSmallSize,
+                                                                            8,
+
                                                                         color:
                                                                             isDarkDialog
                                                                                 ? Colors.white
@@ -1542,8 +1582,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         'Stock: $disponible',
                                                                         style: TextStyle(
                                                                           fontSize:
-                                                                              dialogSmallSize *
-                                                                              0.85,
+                                                                              8,
                                                                           color:
                                                                               disponible ==
                                                                                       0
@@ -1577,7 +1616,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                     'Cantidad:',
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          dialogSmallSize,
+                                                                          8,
                                                                       color:
                                                                           isDarkDialog
                                                                               ? const Color(
@@ -1615,7 +1654,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                             .center,
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          dialogBodySize,
+                                                                          8,
                                                                       fontWeight:
                                                                           FontWeight
                                                                               .w600,
@@ -1722,7 +1761,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         .unidadMedida,
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          dialogSmallSize,
+                                                                          8,
                                                                       color:
                                                                           isDarkDialog
                                                                               ? const Color(
@@ -1745,7 +1784,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                     'Final: ${disponible + cantidadRecarga}',
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          dialogSmallSize,
+                                                                          8,
                                                                       color:
                                                                           isDarkDialog
                                                                               ? const Color(
@@ -1797,7 +1836,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           Text(
                                                             'Total unidades:',
                                                             style: TextStyle(
-                                                              fontSize: 14,
+                                                              fontSize: 8,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
@@ -1810,7 +1849,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           Text(
                                                             '${_cantidadesRecarga.values.fold(0, (sum, cantidad) => sum + cantidad)}',
                                                             style: TextStyle(
-                                                              fontSize: 18,
+                                                              fontSize: 8,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
@@ -1884,8 +1923,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         'Cancelar',
                                                         style: TextStyle(
-                                                          fontSize:
-                                                              dialogBodySize,
+                                                          fontSize: 8,
                                                           color:
                                                               isDarkDialog
                                                                   ? const Color(
@@ -1945,8 +1983,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         'Confirmar',
                                                         style: TextStyle(
-                                                          fontSize:
-                                                              dialogBodySize,
+                                                          fontSize: 8,
                                                           fontWeight:
                                                               FontWeight.bold,
                                                         ),
@@ -2131,8 +2168,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                             .toString(),
                                         style: TextStyle(
                                           color: primaryColor,
-                                          fontSize: (10 * textScaleFactor)
-                                              .clamp(8.0, 12.0),
+                                          fontSize: 8,
+
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),

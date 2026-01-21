@@ -97,11 +97,12 @@ class _DayClosingPageState extends State<DayClosingPage> {
 
       setState(() {
         // Ordenar productos por inventario actual descendente (mayor a menor)
-        _productos = productos..sort((a, b) {
-          final inventarioA = inventarioActual[a.id] ?? 0;
-          final inventarioB = inventarioActual[b.id] ?? 0;
-          return inventarioB.compareTo(inventarioA);
-        });
+        _productos =
+            productos..sort((a, b) {
+              final inventarioA = inventarioActual[a.id] ?? 0;
+              final inventarioB = inventarioActual[b.id] ?? 0;
+              return inventarioB.compareTo(inventarioA);
+            });
         _categoriasMap = categoriasMap;
         _inventarioInicial = inventarioInicial;
         _inventarioActual = inventarioActual;
@@ -234,7 +235,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
           Text(
             'Filtrar por categoría',
             style: TextStyle(
-              fontSize: smallFontSize,
+              fontSize: 8,
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.grey.shade300 : const Color(0xFF9A6C4C),
             ),
@@ -247,20 +248,18 @@ class _DayClosingPageState extends State<DayClosingPage> {
             child: Row(
               children: [
                 ChoiceChip(
-                  label: Text(
-                    'Todos',
-                    style: TextStyle(fontSize: smallFontSize),
-                  ),
+                  label: Text('Todos', style: TextStyle(fontSize: 8)),
                   selected: _selectedCategoriaFilter == -1,
                   selectedColor: primaryColor.withOpacity(0.15),
                   backgroundColor:
                       isDark ? const Color(0xFF2C2018) : Colors.white,
                   side: BorderSide(
-                    color: _selectedCategoriaFilter == -1
-                        ? primaryColor
-                        : (isDark
-                            ? const Color(0xFF44403C)
-                            : const Color(0xFFE7E5E4)),
+                    color:
+                        _selectedCategoriaFilter == -1
+                            ? primaryColor
+                            : (isDark
+                                ? const Color(0xFF44403C)
+                                : const Color(0xFFE7E5E4)),
                   ),
                   onSelected: (_) {
                     setState(() => _selectedCategoriaFilter = -1);
@@ -270,27 +269,27 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 ...categoriasDisponibles.map((categoriaId) {
                   final isUncategorized = categoriaId == null;
                   final chipId = isUncategorized ? 0 : categoriaId;
-                  final label = isUncategorized
-                      ? 'Sin categoría'
-                      : (_categoriasMap[categoriaId]?.nombre ?? 'Categoría');
+                  final label =
+                      isUncategorized
+                          ? 'Sin categoría'
+                          : (_categoriasMap[categoriaId]?.nombre ??
+                              'Categoría');
 
                   return Padding(
                     padding: EdgeInsets.only(right: spacingSmall),
                     child: ChoiceChip(
-                      label: Text(
-                        label,
-                        style: TextStyle(fontSize: smallFontSize),
-                      ),
+                      label: Text(label, style: TextStyle(fontSize: 8)),
                       selected: _selectedCategoriaFilter == chipId,
                       selectedColor: primaryColor.withOpacity(0.15),
                       backgroundColor:
                           isDark ? const Color(0xFF2C2018) : Colors.white,
                       side: BorderSide(
-                        color: _selectedCategoriaFilter == chipId
-                            ? primaryColor
-                            : (isDark
-                                ? const Color(0xFF44403C)
-                                : const Color(0xFFE7E5E4)),
+                        color:
+                            _selectedCategoriaFilter == chipId
+                                ? primaryColor
+                                : (isDark
+                                    ? const Color(0xFF44403C)
+                                    : const Color(0xFFE7E5E4)),
                       ),
                       onSelected: (_) {
                         setState(() => _selectedCategoriaFilter = chipId);
@@ -403,7 +402,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                             child: Text(
                               'Cierre del Día',
                               style: TextStyle(
-                                fontSize: titleFontSize,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: -0.5,
                                 color:
@@ -451,7 +450,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                 Text(
                                   'Guardado',
                                   style: TextStyle(
-                                    fontSize: smallFontSize,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.w600,
                                     color:
                                         isDark
@@ -486,7 +485,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                             child: Text(
                               _getFormattedDate(),
                               style: TextStyle(
-                                fontSize: smallFontSize,
+                                fontSize: 8,
                                 fontWeight: FontWeight.w500,
                                 color:
                                     isDark
@@ -565,7 +564,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                               child: Text(
                                                 'TOTAL',
                                                 style: TextStyle(
-                                                  fontSize: smallFontSize * 0.8,
+                                                  fontSize: 8,
                                                   fontWeight: FontWeight.bold,
                                                   letterSpacing: 1.2,
                                                   color:
@@ -592,9 +591,11 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                           NumberFormat.currency(
                                             symbol: '\$',
                                             decimalDigits: 0,
-                                          ).format(_totalVentasHoy - _totalGastosHoy),
+                                          ).format(
+                                            _totalVentasHoy - _totalGastosHoy,
+                                          ),
                                           style: TextStyle(
-                                            fontSize: largeFontSize,
+                                            fontSize: 8,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -644,7 +645,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                               child: Text(
                                                 'DESPERDICIO',
                                                 style: TextStyle(
-                                                  fontSize: smallFontSize * 0.8,
+                                                  fontSize: 8,
                                                   fontWeight: FontWeight.bold,
                                                   letterSpacing: 1.2,
                                                   color: Colors.red.shade600,
@@ -663,7 +664,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                         child: Text(
                                           '$_totalDesperdicio Unid.',
                                           style: TextStyle(
-                                            fontSize: largeFontSize,
+                                            fontSize: 8,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.red.shade700,
                                           ),
@@ -702,7 +703,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           // Aplicar filtro
                           if (_selectedCategoriaFilter != -1) {
                             final filtroId = _selectedCategoriaFilter;
-                            final entryId = categoriaId == null ? 0 : categoriaId;
+                            final entryId =
+                                categoriaId == null ? 0 : categoriaId;
                             if (entryId != filtroId) {
                               return const SizedBox.shrink();
                             }
@@ -744,7 +746,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                         child: Text(
                                           categoria?.nombre ?? 'Sin Categoría',
                                           style: TextStyle(
-                                            fontSize: titleFontSize,
+                                            fontSize: 8,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -825,7 +827,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                             child: Text(
                               'Verificaste todo?',
                               style: TextStyle(
-                                fontSize: bodyFontSize,
+                                fontSize: 8,
                                 fontWeight: FontWeight.w500,
                                 color:
                                     isDark
@@ -846,7 +848,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                             child: Text(
                               'Reportar problema',
                               style: TextStyle(
-                                fontSize: smallFontSize,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 color: primaryColor,
                               ),
@@ -919,7 +921,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                     ? 'SIN APERTURA'
                                     : 'CERRAR DÍA',
                                 style: TextStyle(
-                                  fontSize: bodyFontSize * 1.1,
+                                  fontSize: 8,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 1.2,
                                 ),
@@ -996,7 +998,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       child: Text(
                         producto.nombre,
                         style: TextStyle(
-                          fontSize: titleFontSize,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),
@@ -1012,7 +1014,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       child: Text(
                         'Stock Inicial: $inicial ${producto.unidadMedida}',
                         style: TextStyle(
-                          fontSize: smallFontSize,
+                          fontSize: 8,
                           color:
                               isDark
                                   ? const Color(0xFF9A6C4C)
@@ -1060,7 +1062,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                     child: Text(
                       'Existencia Final',
                       style: TextStyle(
-                        fontSize: bodyFontSize,
+                        fontSize: 8,
                         fontWeight: FontWeight.w600,
                         color:
                             isDark
@@ -1081,9 +1083,13 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       // y que la suma de existencia final + sobrantes + vencidos no exceda la existencia actual
                       final sobrantesActual = _sobrantes[producto.id] ?? 0;
                       final vencidoActual = _vencido[producto.id] ?? 0;
-                      final maxExistenciaFinal = existenciaActual - sobrantesActual - vencidoActual;
-                      
-                      final nuevaExistenciaFinal = newValue.clamp(0, maxExistenciaFinal);
+                      final maxExistenciaFinal =
+                          existenciaActual - sobrantesActual - vencidoActual;
+
+                      final nuevaExistenciaFinal = newValue.clamp(
+                        0,
+                        maxExistenciaFinal,
+                      );
                       _existenciaFinal[producto.id] = nuevaExistenciaFinal;
                     });
                   },
@@ -1125,7 +1131,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         child: Text(
                           'Sobrantes',
                           style: TextStyle(
-                            fontSize: smallFontSize,
+                            fontSize: 8,
                             fontWeight: FontWeight.w500,
                             color:
                                 isDark
@@ -1143,25 +1149,37 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           setState(() {
                             final oldSobrantes = _sobrantes[producto.id] ?? 0;
                             final diferencia = newValue - oldSobrantes;
-                            final existenciaFinalActual = _existenciaFinal[producto.id] ?? existenciaActual;
-                            
+                            final existenciaFinalActual =
+                                _existenciaFinal[producto.id] ??
+                                existenciaActual;
+
                             // Validar que la suma de sobrantes + vencidos no exceda la existencia actual
                             final vencidoActual = _vencido[producto.id] ?? 0;
-                            final totalSobrantesVencidos = newValue + vencidoActual;
-                            
+                            final totalSobrantesVencidos =
+                                newValue + vencidoActual;
+
                             if (totalSobrantesVencidos > existenciaActual) {
                               // Limitar sobrantes al máximo permitido
-                              final maxSobrantes = existenciaActual - vencidoActual;
-                              _sobrantes[producto.id] = maxSobrantes.clamp(0, existenciaActual);
+                              final maxSobrantes =
+                                  existenciaActual - vencidoActual;
+                              _sobrantes[producto.id] = maxSobrantes.clamp(
+                                0,
+                                existenciaActual,
+                              );
                               return;
                             }
-                            
+
                             // Actualizar sobrantes
                             _sobrantes[producto.id] = newValue;
-                            
+
                             // Ajustar existencia final: si aumentan sobrantes, disminuye existencia final
-                            final nuevaExistenciaFinal = (existenciaFinalActual - diferencia).clamp(0, existenciaActual);
-                            _existenciaFinal[producto.id] = nuevaExistenciaFinal;
+                            final nuevaExistenciaFinal =
+                                (existenciaFinalActual - diferencia).clamp(
+                                  0,
+                                  existenciaActual,
+                                );
+                            _existenciaFinal[producto.id] =
+                                nuevaExistenciaFinal;
                           });
                         },
                         isDark: isDark,
@@ -1195,7 +1213,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         child: Text(
                           'Vencido / Mal Estado',
                           style: TextStyle(
-                            fontSize: smallFontSize,
+                            fontSize: 8,
                             fontWeight: FontWeight.w500,
                             color: Colors.red.shade600,
                           ),
@@ -1210,27 +1228,40 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           setState(() {
                             final oldVencido = _vencido[producto.id] ?? 0;
                             final diferencia = newValue - oldVencido;
-                            final existenciaFinalActual = _existenciaFinal[producto.id] ?? existenciaActual;
-                            
+                            final existenciaFinalActual =
+                                _existenciaFinal[producto.id] ??
+                                existenciaActual;
+
                             // Validar que la suma de sobrantes + vencidos no exceda la existencia actual
-                            final sobrantesActual = _sobrantes[producto.id] ?? 0;
-                            final totalSobrantesVencidos = sobrantesActual + newValue;
-                            
+                            final sobrantesActual =
+                                _sobrantes[producto.id] ?? 0;
+                            final totalSobrantesVencidos =
+                                sobrantesActual + newValue;
+
                             if (totalSobrantesVencidos > existenciaActual) {
                               // Limitar vencidos al máximo permitido
-                              final maxVencido = existenciaActual - sobrantesActual;
-                              _vencido[producto.id] = maxVencido.clamp(0, existenciaActual);
+                              final maxVencido =
+                                  existenciaActual - sobrantesActual;
+                              _vencido[producto.id] = maxVencido.clamp(
+                                0,
+                                existenciaActual,
+                              );
                               _calcularDesperdicio();
                               return;
                             }
-                            
+
                             // Actualizar vencidos
                             _vencido[producto.id] = newValue;
                             _calcularDesperdicio();
-                            
+
                             // Ajustar existencia final: si aumentan vencidos, disminuye existencia final
-                            final nuevaExistenciaFinal = (existenciaFinalActual - diferencia).clamp(0, existenciaActual);
-                            _existenciaFinal[producto.id] = nuevaExistenciaFinal;
+                            final nuevaExistenciaFinal =
+                                (existenciaFinalActual - diferencia).clamp(
+                                  0,
+                                  existenciaActual,
+                                );
+                            _existenciaFinal[producto.id] =
+                                nuevaExistenciaFinal;
                           });
                         },
                         isDark: isDark,
@@ -1307,7 +1338,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
               child: Text(
                 value.toString(),
                 style: TextStyle(
-                  fontSize: bodyFontSize * 1.1,
+                  fontSize: 8,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF1B130D),
                 ),
@@ -1331,9 +1362,10 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 height: buttonSize,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: value >= maxAllowed 
-                      ? primaryColor.withOpacity(0.5)
-                      : primaryColor,
+                  color:
+                      value >= maxAllowed
+                          ? primaryColor.withOpacity(0.5)
+                          : primaryColor,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(8),
                     bottomRight: Radius.circular(8),
@@ -1408,7 +1440,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
               child: Text(
                 value.toString(),
                 style: TextStyle(
-                  fontSize: smallFontSize,
+                  fontSize: 8,
                   fontWeight: FontWeight.w600,
                   color: color.shade600,
                 ),
@@ -1433,9 +1465,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 alignment: Alignment.center,
                 child: Icon(
                   Icons.add,
-                  color: value >= maxAllowed 
-                      ? color.shade200 
-                      : color.shade400,
+                  color: value >= maxAllowed ? color.shade200 : color.shade400,
                   size: (16 * textScaleFactor).clamp(14.0, 20.0),
                 ),
               ),
@@ -1507,7 +1537,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                   child: Text(
                     '¿Confirmar Cierre?',
                     style: TextStyle(
-                      fontSize: titleFontSize,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
@@ -1522,7 +1552,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                     'Al confirmar, se generará el reporte final y se bloqueará la edición de este turno.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: bodyFontSize,
+                      fontSize: 8,
                       color:
                           isDark
                               ? Colors.grey.shade400
@@ -1539,7 +1569,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                   child: Text(
                     'Total Caja: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalVentasHoy - _totalGastosHoy)}',
                     style: TextStyle(
-                      fontSize: bodyFontSize * 1.1,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -1600,17 +1630,18 @@ class _DayClosingPageState extends State<DayClosingPage> {
                                 duration: Duration(seconds: 2),
                               ),
                             );
-                            
+
                             // Esperar un momento para que se vea el mensaje
                             await Future.delayed(const Duration(seconds: 1));
-                            
+
                             // Navegar al login y limpiar todo el stack
                             if (pageContext.mounted) {
                               Navigator.of(pageContext).pushAndRemoveUntil(
                                 MaterialPageRoute(
                                   builder: (context) => const LoginPage(),
                                 ),
-                                (route) => false, // Elimina todas las rutas anteriores
+                                (route) =>
+                                    false, // Elimina todas las rutas anteriores
                               );
                             }
                           }
@@ -1655,7 +1686,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       child: Text(
                         'Sí, Cerrar Turno',
                         style: TextStyle(
-                          fontSize: bodyFontSize,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                         ),
                         maxLines: 1,
@@ -1681,7 +1712,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       child: Text(
                         'Cancelar',
                         style: TextStyle(
-                          fontSize: bodyFontSize,
+                          fontSize: 8,
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,

@@ -23,7 +23,8 @@ class FactoryOrderPage extends StatefulWidget {
 class _FactoryOrderPageState extends State<FactoryOrderPage> {
   List<Producto> _productos = [];
   Map<int, int> _cantidades = {}; // productoId -> cantidad
-  Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
+  Map<int, TextEditingController> _cantidadControllers =
+      {}; // productoId -> controller
   // ignore: unused_field
   Map<int, int> _inventario =
       {}; // productoId -> stock actual (cargado para uso futuro)
@@ -75,34 +76,35 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       // Cargar todos los productos activos de la tabla productos
       final productos = await SupabaseService.getProductosActivos();
 
-      // Filtrar productos: 
+      // Filtrar productos:
       // - categoria_id = 1 o 4: nombre contiene "crudo" y unidad_medida = "bandeja"
       // - categoria_id = 5: sin restricciones adicionales
-      final productosFiltrados = productos.where((producto) {
-        final categoriaId = producto.categoria?.id;
-        
-        // Si es categoría 5, se puede pedir sin restricciones
-        if (categoriaId == 5) {
-          return true;
-        }
-        
-        // Para categorías 1 y 4, verificar condiciones adicionales
-        if (categoriaId == 1 || categoriaId == 4) {
-          final nombre = producto.nombre.toLowerCase();
-          final unidadMedida = producto.unidadMedida.toLowerCase();
-          
-          // Verificar que el nombre contenga "crudo"
-          final contieneCrudo = nombre.contains('crudo');
-          
-          // Verificar que la unidad de medida sea "bandeja"
-          final esBandeja = unidadMedida == 'bandeja';
-          
-          return contieneCrudo && esBandeja;
-        }
-        
-        // Otras categorías no se pueden pedir
-        return false;
-      }).toList();
+      final productosFiltrados =
+          productos.where((producto) {
+            final categoriaId = producto.categoria?.id;
+
+            // Si es categoría 5, se puede pedir sin restricciones
+            if (categoriaId == 5) {
+              return true;
+            }
+
+            // Para categorías 1 y 4, verificar condiciones adicionales
+            if (categoriaId == 1 || categoriaId == 4) {
+              final nombre = producto.nombre.toLowerCase();
+              final unidadMedida = producto.unidadMedida.toLowerCase();
+
+              // Verificar que el nombre contenga "crudo"
+              final contieneCrudo = nombre.contains('crudo');
+
+              // Verificar que la unidad de medida sea "bandeja"
+              final esBandeja = unidadMedida == 'bandeja';
+
+              return contieneCrudo && esBandeja;
+            }
+
+            // Otras categorías no se pueden pedir
+            return false;
+          }).toList();
 
       // Cargar inventario actual
       final inventario = await SupabaseService.getInventarioActual(
@@ -352,7 +354,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                     child: Text(
                       'Pedido a Fábrica',
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -415,7 +417,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: FontWeight.bold,
                             color: _isOnline ? Colors.green : primaryColor,
                           ),
@@ -447,7 +449,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                 Text(
                                   'Nuevo Pedido',
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -458,7 +460,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                 Text(
                                   'Stock Actual',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.w500,
                                     color:
                                         isDark
@@ -500,7 +502,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                           Text(
                                             producto.nombre,
                                             style: TextStyle(
-                                              fontSize: 16,
+                                              fontSize: 8,
                                               fontWeight: FontWeight.bold,
                                               color:
                                                   isDark
@@ -512,7 +514,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                           Text(
                                             'Unidad: ${producto.unidadMedida}',
                                             style: TextStyle(
-                                              fontSize: 14,
+                                              fontSize: 8,
                                               color:
                                                   isDark
                                                       ? const Color(0xFFA8A29E)
@@ -575,11 +577,15 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                           SizedBox(
                                             width: 60,
                                             child: TextField(
-                                              controller: _getOrCreateController(producto.id),
+                                              controller:
+                                                  _getOrCreateController(
+                                                    producto.id,
+                                                  ),
                                               textAlign: TextAlign.center,
-                                              keyboardType: TextInputType.number,
+                                              keyboardType:
+                                                  TextInputType.number,
                                               style: TextStyle(
-                                                fontSize: 20,
+                                                fontSize: 8,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     isDark
@@ -593,7 +599,11 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                 contentPadding: EdgeInsets.zero,
                                                 isDense: true,
                                               ),
-                                              onChanged: (value) => _onCantidadChanged(producto.id, value),
+                                              onChanged:
+                                                  (value) => _onCantidadChanged(
+                                                    producto.id,
+                                                    value,
+                                                  ),
                                             ),
                                           ),
                                           // Increment Button
@@ -636,7 +646,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                             Text(
                               'Pedidos Recientes',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 color:
                                     isDark
@@ -716,7 +726,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                           pedido.numeroPedido ??
                                                               'Pedido #${pedido.id}',
                                                           style: TextStyle(
-                                                            fontSize: 16,
+                                                            fontSize: 8,
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             color:
@@ -734,7 +744,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                         Text(
                                                           timeAgo,
                                                           style: TextStyle(
-                                                            fontSize: 12,
+                                                            fontSize: 8,
                                                             color:
                                                                 isDark
                                                                     ? const Color(
@@ -779,7 +789,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                         Text(
                                                           estadoBadge,
                                                           style: TextStyle(
-                                                            fontSize: 12,
+                                                            fontSize: 8,
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             color: estadoColor,
@@ -824,7 +834,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                         })
                                                         .join(', '),
                                                     style: TextStyle(
-                                                      fontSize: 14,
+                                                      fontSize: 8,
                                                       color:
                                                           isDark
                                                               ? const Color(
@@ -882,7 +892,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                       Text(
                         'Total items: ${_getTotalItems()}',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 8,
                           fontWeight: FontWeight.w600,
                           color:
                               isDark
@@ -894,7 +904,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                         Text(
                           'Modo Offline Activo',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: FontWeight.w500,
                             color: primaryColor,
                           ),
@@ -934,7 +944,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                   const Text(
                                     'Enviar Pedido',
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

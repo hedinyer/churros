@@ -321,7 +321,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay>
                     Text(
                       step.title,
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -330,7 +330,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay>
                     Text(
                       '${_currentStep + 1} de ${_steps.length}',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 8,
                         color: isDark
                             ? const Color(0xFFA8A29E)
                             : const Color(0xFF78716C),
@@ -346,7 +346,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay>
           Text(
             step.description,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 8,
               height: 1.5,
               color: isDark
                   ? const Color(0xFFD6D3D1)
@@ -425,7 +425,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay>
                 child: Text(
                   _currentStep < _steps.length - 1 ? 'Siguiente' : 'Finalizar',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 8,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

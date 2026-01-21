@@ -309,7 +309,6 @@ class _LoginPageState extends State<LoginPage> {
         isSmallScreen ? 24.0 : (isLargeScreen ? 48.0 : 32.0);
     final maxContentWidth = isLargeScreen ? 500.0 : double.infinity;
     final iconSize = isSmallScreen ? 80.0 : 100.0;
-    final titleFontSize = isSmallScreen ? 32.0 : 40.0;
     final spacing = isSmallScreen ? 24.0 : 32.0;
 
     return Scaffold(
@@ -367,7 +366,7 @@ class _LoginPageState extends State<LoginPage> {
                                   Text(
                                     'Churros POS',
                                     style: TextStyle(
-                                      fontSize: titleFontSize,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -380,7 +379,7 @@ class _LoginPageState extends State<LoginPage> {
                                   Text(
                                     'Bienvenido, inicia tu turno.',
                                     style: TextStyle(
-                                      fontSize: isSmallScreen ? 14 : 16,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.w500,
                                       color:
                                           isDark
@@ -411,7 +410,7 @@ class _LoginPageState extends State<LoginPage> {
                                           child: Text(
                                             'Correo o Usuario',
                                             style: TextStyle(
-                                              fontSize: 14,
+                                              fontSize: 8,
                                               fontWeight: FontWeight.w600,
                                               color:
                                                   isDark
@@ -432,7 +431,7 @@ class _LoginPageState extends State<LoginPage> {
                                             return null;
                                           },
                                           style: TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 8,
                                             color:
                                                 isDark
                                                     ? Colors.white
@@ -514,7 +513,7 @@ class _LoginPageState extends State<LoginPage> {
                                           child: Text(
                                             'PIN de Acceso',
                                             style: TextStyle(
-                                              fontSize: 14,
+                                              fontSize: 8,
                                               fontWeight: FontWeight.w600,
                                               color:
                                                   isDark
@@ -542,7 +541,7 @@ class _LoginPageState extends State<LoginPage> {
                                             return null;
                                           },
                                           style: TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 8,
                                             color:
                                                 isDark
                                                     ? Colors.white
@@ -680,10 +679,7 @@ class _LoginPageState extends State<LoginPage> {
                                                     Text(
                                                       'INGRESAR',
                                                       style: TextStyle(
-                                                        fontSize:
-                                                            isSmallScreen
-                                                                ? 15
-                                                                : 16,
+                                                        fontSize: 8,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         letterSpacing: 1,
@@ -714,7 +710,7 @@ class _LoginPageState extends State<LoginPage> {
                             child: Text(
                               'v2.1.0 • ID Dispositivo: #4029',
                               style: TextStyle(
-                                fontSize: isSmallScreen ? 11 : 12,
+                                fontSize: 8,
                                 fontWeight: FontWeight.w500,
                                 color:
                                     isDark
@@ -769,7 +765,7 @@ class _LoginPageState extends State<LoginPage> {
                     Text(
                       _isConnected ? 'Conectado' : 'Desconectado',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 8,
                         fontWeight: FontWeight.bold,
                         color:
                             isDark

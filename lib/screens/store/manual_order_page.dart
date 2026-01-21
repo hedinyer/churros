@@ -20,7 +20,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
   List<Producto> _productos = [];
   Map<int, int> _cantidades = {}; // productoId -> cantidad
-  Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
+  Map<int, TextEditingController> _cantidadControllers =
+      {}; // productoId -> controller
   String _metodoPago = 'efectivo';
   bool _isLoading = true;
   bool _isGuardando = false;
@@ -149,15 +150,16 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     for (final entry in _cantidades.entries) {
       final producto = _productos.firstWhere(
         (p) => p.id == entry.key,
-        orElse: () => Producto(
-          id: entry.key,
-          nombre: 'Producto',
-          precio: 0.0,
-          unidadMedida: 'unidad',
-          activo: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
+        orElse:
+            () => Producto(
+              id: entry.key,
+              nombre: 'Producto',
+              precio: 0.0,
+              unidadMedida: 'unidad',
+              activo: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
       );
       total += producto.precio * entry.value;
     }
@@ -200,17 +202,19 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
     try {
       final domicilio = double.tryParse(_domicilioController.text.trim());
-      
+
       final pedido = await SupabaseService.crearPedidoCliente(
         clienteNombre: _clienteNombreController.text.trim(),
-        clienteTelefono: _clienteTelefonoController.text.trim().isEmpty
-            ? null
-            : _clienteTelefonoController.text.trim(),
+        clienteTelefono:
+            _clienteTelefonoController.text.trim().isEmpty
+                ? null
+                : _clienteTelefonoController.text.trim(),
         direccionEntrega: _direccionController.text.trim(),
         productos: Map.fromEntries(productosConCantidad),
-        observaciones: _observacionesController.text.trim().isEmpty
-            ? null
-            : _observacionesController.text.trim(),
+        observaciones:
+            _observacionesController.text.trim().isEmpty
+                ? null
+                : _observacionesController.text.trim(),
         metodoPago: _metodoPago,
         domicilio: domicilio != null && domicilio > 0 ? domicilio : null,
       );
@@ -265,10 +269,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -327,7 +328,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                         child: Icon(
                           Icons.arrow_back_ios_new,
                           size: 20,
-                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
                       ),
                     ),
@@ -337,7 +339,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                     child: Text(
                       'Registrar Pedido Manual',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 8,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -375,7 +377,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: (_isOnline ? Colors.green : primaryColor).withOpacity(0.5),
+                                color: (_isOnline ? Colors.green : primaryColor)
+                                    .withOpacity(0.5),
                                 blurRadius: 4,
                                 spreadRadius: 1,
                               ),
@@ -386,7 +389,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 8,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -401,257 +404,468 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
             // Form Content
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Form(
-                      key: _formKey,
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 16 : 20,
-                          vertical: 24,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Información del Cliente
-                            Text(
-                              'Información del Cliente',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Nombre del Cliente
-                            TextFormField(
-                              controller: _clienteNombreController,
-                              decoration: InputDecoration(
-                                labelText: 'Nombre del Cliente *',
-                                hintText: 'Ingrese el nombre del cliente',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : Form(
+                        key: _formKey,
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: 24,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Información del Cliente
+                              Text(
+                                'Información del Cliente',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
                                 ),
-                                filled: true,
-                                fillColor:
-                                    isDark
-                                        ? const Color(0xFF2D211A)
-                                        : Colors.white,
                               ),
-                              style: TextStyle(
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'El nombre del cliente es requerido';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Teléfono del Cliente
-                            TextFormField(
-                              controller: _clienteTelefonoController,
-                              decoration: InputDecoration(
-                                labelText: 'Teléfono (Opcional)',
-                                hintText: 'Ingrese el teléfono del cliente',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                              // Nombre del Cliente
+                              TextFormField(
+                                controller: _clienteNombreController,
+                                decoration: InputDecoration(
+                                  labelText: 'Nombre del Cliente *',
+                                  hintText: 'Ingrese el nombre del cliente',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF2D211A)
+                                          : Colors.white,
                                 ),
-                                filled: true,
-                                fillColor:
-                                    isDark
-                                        ? const Color(0xFF2D211A)
-                                        : Colors.white,
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'El nombre del cliente es requerido';
+                                  }
+                                  return null;
+                                },
                               ),
-                              keyboardType: TextInputType.phone,
-                              style: TextStyle(
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Dirección de Entrega
-                            TextFormField(
-                              controller: _direccionController,
-                              decoration: InputDecoration(
-                                labelText: 'Dirección de Entrega *',
-                                hintText: 'Ingrese la dirección de entrega',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                              // Teléfono del Cliente
+                              TextFormField(
+                                controller: _clienteTelefonoController,
+                                decoration: InputDecoration(
+                                  labelText: 'Teléfono (Opcional)',
+                                  hintText: 'Ingrese el teléfono del cliente',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF2D211A)
+                                          : Colors.white,
                                 ),
-                                filled: true,
-                                fillColor:
-                                    isDark
-                                        ? const Color(0xFF2D211A)
-                                        : Colors.white,
+                                keyboardType: TextInputType.phone,
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
                               ),
-                              maxLines: 2,
-                              style: TextStyle(
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'La dirección de entrega es requerida';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Valor del Domicilio
-                            TextFormField(
-                              controller: _domicilioController,
-                              decoration: InputDecoration(
-                                labelText: 'Valor del Domicilio (Opcional)',
-                                hintText: 'Ingrese el valor del domicilio',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                              // Dirección de Entrega
+                              TextFormField(
+                                controller: _direccionController,
+                                decoration: InputDecoration(
+                                  labelText: 'Dirección de Entrega *',
+                                  hintText: 'Ingrese la dirección de entrega',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF2D211A)
+                                          : Colors.white,
                                 ),
-                                filled: true,
-                                fillColor:
-                                    isDark
-                                        ? const Color(0xFF2D211A)
-                                        : Colors.white,
-                                prefixText: '\$ ',
+                                maxLines: 2,
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'La dirección de entrega es requerida';
+                                  }
+                                  return null;
+                                },
                               ),
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              style: TextStyle(
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
-                              onChanged: (_) => setState(() {}), // Para actualizar el total
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Método de Pago
-                            Text(
-                              'Método de Pago',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
+                              // Valor del Domicilio
+                              TextFormField(
+                                controller: _domicilioController,
+                                decoration: InputDecoration(
+                                  labelText: 'Valor del Domicilio (Opcional)',
+                                  hintText: 'Ingrese el valor del domicilio',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF2D211A)
+                                          : Colors.white,
+                                  prefixText: '\$ ',
+                                ),
+                                keyboardType: TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                                onChanged:
+                                    (_) => setState(
+                                      () {},
+                                    ), // Para actualizar el total
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              children: [
-                                _buildPaymentMethodChip(
-                                  isDark: isDark,
-                                  label: 'Efectivo',
-                                  value: 'efectivo',
-                                  selectedValue: _metodoPago,
-                                  onSelected: (value) {
-                                    setState(() {
-                                      _metodoPago = value;
-                                    });
-                                  },
-                                ),
-                                _buildPaymentMethodChip(
-                                  isDark: isDark,
-                                  label: 'Tarjeta',
-                                  value: 'tarjeta',
-                                  selectedValue: _metodoPago,
-                                  onSelected: (value) {
-                                    setState(() {
-                                      _metodoPago = value;
-                                    });
-                                  },
-                                ),
-                                _buildPaymentMethodChip(
-                                  isDark: isDark,
-                                  label: 'Transferencia',
-                                  value: 'transferencia',
-                                  selectedValue: _metodoPago,
-                                  onSelected: (value) {
-                                    setState(() {
-                                      _metodoPago = value;
-                                    });
-                                  },
-                                ),
-                                _buildPaymentMethodChip(
-                                  isDark: isDark,
-                                  label: 'Mixto',
-                                  value: 'mixto',
-                                  selectedValue: _metodoPago,
-                                  onSelected: (value) {
-                                    setState(() {
-                                      _metodoPago = value;
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
+                              const SizedBox(height: 16),
 
-                            // Observaciones
-                            TextFormField(
-                              controller: _observacionesController,
-                              decoration: InputDecoration(
-                                labelText: 'Observaciones (Opcional)',
-                                hintText: 'Notas adicionales sobre el pedido',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                              // Método de Pago
+                              Text(
+                                'Método de Pago',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
                                 ),
-                                filled: true,
-                                fillColor:
-                                    isDark
-                                        ? const Color(0xFF2D211A)
-                                        : Colors.white,
                               ),
-                              maxLines: 3,
-                              style: TextStyle(
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'Efectivo',
+                                    value: 'efectivo',
+                                    selectedValue: _metodoPago,
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _metodoPago = value;
+                                      });
+                                    },
+                                  ),
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'Tarjeta',
+                                    value: 'tarjeta',
+                                    selectedValue: _metodoPago,
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _metodoPago = value;
+                                      });
+                                    },
+                                  ),
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'Transferencia',
+                                    value: 'transferencia',
+                                    selectedValue: _metodoPago,
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _metodoPago = value;
+                                      });
+                                    },
+                                  ),
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'Mixto',
+                                    value: 'mixto',
+                                    selectedValue: _metodoPago,
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _metodoPago = value;
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 32),
+                              const SizedBox(height: 24),
 
-                            // Productos
-                            Text(
-                              'Productos',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
+                              // Observaciones
+                              TextFormField(
+                                controller: _observacionesController,
+                                decoration: InputDecoration(
+                                  labelText: 'Observaciones (Opcional)',
+                                  hintText: 'Notas adicionales sobre el pedido',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF2D211A)
+                                          : Colors.white,
+                                ),
+                                maxLines: 3,
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 32),
 
-                            // Lista de Productos
-                            ..._productos.map((producto) {
-                              final cantidad = _cantidades[producto.id] ?? 0;
-                              final precio = producto.precio;
-                              final subtotal = precio * cantidad;
+                              // Productos
+                              Text(
+                                'Productos',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
 
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(18),
+                              // Lista de Productos
+                              ..._productos.map((producto) {
+                                final cantidad = _cantidades[producto.id] ?? 0;
+                                final precio = producto.precio;
+                                final subtotal = precio * cantidad;
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isDark
+                                            ? const Color(0xFF2D211A)
+                                            : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color:
+                                          isDark
+                                              ? Colors.white.withOpacity(0.08)
+                                              : Colors.black.withOpacity(0.08),
+                                      width: 1,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(
+                                          isDark ? 0.25 : 0.05,
+                                        ),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                        spreadRadius: 0,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  producto.nombre,
+                                                  style: TextStyle(
+                                                    fontSize: 8,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        isDark
+                                                            ? Colors.white
+                                                            : const Color(
+                                                              0xFF1B130D,
+                                                            ),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _formatCurrency(
+                                                    producto.precio,
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontSize: 8,
+                                                    color:
+                                                        isDark
+                                                            ? const Color(
+                                                              0xFF9A6C4C,
+                                                            )
+                                                            : const Color(
+                                                              0xFF9A6C4C,
+                                                            ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Controles de cantidad
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  isDark
+                                                      ? const Color(0xFF2F2218)
+                                                      : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color:
+                                                    isDark
+                                                        ? Colors.white
+                                                            .withOpacity(0.1)
+                                                        : Colors.black
+                                                            .withOpacity(0.1),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                IconButton(
+                                                  onPressed:
+                                                      () => _decrementProduct(
+                                                        producto.id,
+                                                      ),
+                                                  icon: Icon(
+                                                    Icons.remove,
+                                                    size: 18,
+                                                    color:
+                                                        isDark
+                                                            ? Colors.white
+                                                                .withOpacity(
+                                                                  0.6,
+                                                                )
+                                                            : Colors.black
+                                                                .withOpacity(
+                                                                  0.6,
+                                                                ),
+                                                  ),
+                                                  padding: const EdgeInsets.all(
+                                                    8,
+                                                  ),
+                                                  constraints:
+                                                      const BoxConstraints(),
+                                                ),
+                                                SizedBox(
+                                                  width: 60,
+                                                  child: TextField(
+                                                    controller:
+                                                        _getOrCreateController(
+                                                          producto.id,
+                                                        ),
+                                                    textAlign: TextAlign.center,
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    style: TextStyle(
+                                                      fontSize: 8,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                0xFF1B130D,
+                                                              ),
+                                                    ),
+                                                    decoration: InputDecoration(
+                                                      border: InputBorder.none,
+                                                      contentPadding:
+                                                          EdgeInsets.zero,
+                                                      isDense: true,
+                                                    ),
+                                                    onChanged:
+                                                        (value) =>
+                                                            _onCantidadChanged(
+                                                              producto.id,
+                                                              value,
+                                                            ),
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  onPressed:
+                                                      () => _incrementProduct(
+                                                        producto.id,
+                                                      ),
+                                                  icon: Icon(
+                                                    Icons.add,
+                                                    size: 18,
+                                                    color: primaryColor,
+                                                  ),
+                                                  padding: const EdgeInsets.all(
+                                                    8,
+                                                  ),
+                                                  constraints:
+                                                      const BoxConstraints(),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (cantidad > 0) ...[
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              'Subtotal: ${_formatCurrency(subtotal)}',
+                                              style: TextStyle(
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.w600,
+                                                color:
+                                                    isDark
+                                                        ? const Color(
+                                                          0xFF9A6C4C,
+                                                        )
+                                                        : const Color(
+                                                          0xFF9A6C4C,
+                                                        ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+
+                              const SizedBox(height: 24),
+
+                              // Resumen
+                              Container(
+                                padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
                                   color:
                                       isDark
@@ -667,7 +881,9 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                                      color: Colors.black.withOpacity(
+                                        isDark ? 0.25 : 0.05,
+                                      ),
                                       blurRadius: 10,
                                       offset: const Offset(0, 3),
                                       spreadRadius: 0,
@@ -681,127 +897,53 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                producto.nombre,
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color:
-                                                      isDark
-                                                          ? Colors.white
-                                                          : const Color(
-                                                              0xFF1B130D),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                _formatCurrency(producto.precio),
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color:
-                                                      isDark
-                                                          ? const Color(
-                                                              0xFF9A6C4C)
-                                                          : const Color(
-                                                              0xFF9A6C4C),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Controles de cantidad
-                                        Container(
-                                          decoration: BoxDecoration(
+                                        Text(
+                                          'Total Items: ${_calcularTotalItems()}',
+                                          style: TextStyle(
+                                            fontSize: 8,
                                             color:
                                                 isDark
-                                                    ? const Color(0xFF2F2218)
-                                                    : Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color:
-                                                  isDark
-                                                      ? Colors.white
-                                                          .withOpacity(0.1)
-                                                      : Colors.black
-                                                          .withOpacity(0.1),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              IconButton(
-                                                onPressed: () =>
-                                                    _decrementProduct(producto.id),
-                                                icon: Icon(
-                                                  Icons.remove,
-                                                  size: 18,
-                                                  color:
-                                                      isDark
-                                                          ? Colors.white
-                                                              .withOpacity(0.6)
-                                                          : Colors.black
-                                                              .withOpacity(0.6),
-                                                ),
-                                                padding: const EdgeInsets.all(8),
-                                                constraints:
-                                                    const BoxConstraints(),
-                                              ),
-                                              SizedBox(
-                                                width: 60,
-                                                child: TextField(
-                                                  controller: _getOrCreateController(producto.id),
-                                                  textAlign: TextAlign.center,
-                                                  keyboardType: TextInputType.number,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                    color:
-                                                        isDark
-                                                            ? Colors.white
-                                                            : const Color(
-                                                                0xFF1B130D),
-                                                  ),
-                                                  decoration: InputDecoration(
-                                                    border: InputBorder.none,
-                                                    contentPadding: EdgeInsets.zero,
-                                                    isDense: true,
-                                                  ),
-                                                  onChanged: (value) => _onCantidadChanged(producto.id, value),
-                                                ),
-                                              ),
-                                              IconButton(
-                                                onPressed: () =>
-                                                    _incrementProduct(producto.id),
-                                                icon: Icon(
-                                                  Icons.add,
-                                                  size: 18,
-                                                  color: primaryColor,
-                                                ),
-                                                padding: const EdgeInsets.all(8),
-                                                constraints:
-                                                    const BoxConstraints(),
-                                              ),
-                                            ],
+                                                    ? const Color(0xFF9A6C4C)
+                                                    : const Color(0xFF9A6C4C),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    if (cantidad > 0) ...[
-                                      const SizedBox(height: 8),
+                                    if (double.tryParse(
+                                              _domicilioController.text.trim(),
+                                            ) !=
+                                            null &&
+                                        (double.tryParse(
+                                                  _domicilioController.text
+                                                      .trim(),
+                                                ) ??
+                                                0) >
+                                            0) ...[
+                                      const SizedBox(height: 4),
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.end,
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            'Subtotal: ${_formatCurrency(subtotal)}',
+                                            'Domicilio:',
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: 8,
+                                              color:
+                                                  isDark
+                                                      ? const Color(0xFF9A6C4C)
+                                                      : const Color(0xFF9A6C4C),
+                                            ),
+                                          ),
+                                          Text(
+                                            _formatCurrency(
+                                              double.tryParse(
+                                                    _domicilioController.text
+                                                        .trim(),
+                                                  ) ??
+                                                  0,
+                                            ),
+                                            style: TextStyle(
+                                              fontSize: 8,
                                               color:
                                                   isDark
                                                       ? const Color(0xFF9A6C4C)
@@ -811,116 +953,40 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                         ],
                                       ),
                                     ],
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-
-                            const SizedBox(height: 24),
-
-                            // Resumen
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color:
-                                    isDark
-                                        ? const Color(0xFF2D211A)
-                                        : Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color:
-                                      isDark
-                                          ? Colors.white.withOpacity(0.08)
-                                          : Colors.black.withOpacity(0.08),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
-                                    spreadRadius: 0,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Total Items: ${_calcularTotalItems()}',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color:
-                                              isDark
-                                                  ? const Color(0xFF9A6C4C)
-                                                  : const Color(0xFF9A6C4C),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (double.tryParse(_domicilioController.text.trim()) != null && 
-                                      (double.tryParse(_domicilioController.text.trim()) ?? 0) > 0) ...[
                                     const SizedBox(height: 4),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          'Domicilio:',
+                                          'Total:',
                                           style: TextStyle(
-                                            fontSize: 14,
-                                            color:
-                                                isDark
-                                                    ? const Color(0xFF9A6C4C)
-                                                    : const Color(0xFF9A6C4C),
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
+                                            color: primaryColor,
                                           ),
                                         ),
                                         Text(
-                                          _formatCurrency(double.tryParse(_domicilioController.text.trim()) ?? 0),
+                                          _formatCurrency(_calcularTotal()),
                                           style: TextStyle(
-                                            fontSize: 14,
-                                            color:
-                                                isDark
-                                                    ? const Color(0xFF9A6C4C)
-                                                    : const Color(0xFF9A6C4C),
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
+                                            color: primaryColor,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ],
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Total:',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: primaryColor,
-                                        ),
-                                      ),
-                                      Text(
-                                        _formatCurrency(_calcularTotal()),
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: primaryColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
 
-                            const SizedBox(height: 100), // Space for bottom button
-                          ],
+                              const SizedBox(
+                                height: 100,
+                              ), // Space for bottom button
+                            ],
+                          ),
                         ),
                       ),
-                    ),
             ),
 
             // Bottom Button
@@ -959,23 +1025,25 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isGuardando
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                  child:
+                      _isGuardando
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : const Text(
+                            'Guardar Pedido',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          'Guardar Pedido',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                 ),
               ),
             ),
@@ -1004,15 +1072,12 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       },
       selectedColor: primaryColor.withOpacity(isDark ? 0.3 : 0.2),
       backgroundColor:
-          isDark
-              ? const Color(0xFF2D211A)
-              : Colors.grey.withOpacity(0.1),
+          isDark ? const Color(0xFF2D211A) : Colors.grey.withOpacity(0.1),
       labelStyle: TextStyle(
-        color: isSelected
-            ? primaryColor
-            : (isDark
-                ? Colors.white
-                : const Color(0xFF1B130D)),
+        color:
+            isSelected
+                ? primaryColor
+                : (isDark ? Colors.white : const Color(0xFF1B130D)),
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
