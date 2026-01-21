@@ -14,8 +14,8 @@ class Categoria {
   factory Categoria.fromJson(Map<String, dynamic> json) {
     return Categoria(
       id: json['id'] as int,
-      nombre: json['nombre'] as String,
-      descripcion: json['descripcion'] as String?,
+      nombre: (json['nombre'] as String).toUpperCase(),
+      descripcion: json['descripcion'] != null ? (json['descripcion'] as String).toUpperCase() : null,
       icono: json['icono'] as String?,
     );
   }

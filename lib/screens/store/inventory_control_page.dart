@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/sucursal.dart';
 import '../../models/user.dart';
 import '../../models/producto.dart';
+import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
 
 class InventoryControlPage extends StatefulWidget {
@@ -22,6 +23,8 @@ class InventoryControlPage extends StatefulWidget {
 class _InventoryControlPageState extends State<InventoryControlPage> {
   bool _isLoading = true;
   List<Producto> _productos = [];
+  Map<int, Categoria> _categoriasMap = {};
+  int _selectedCategoriaFilter = -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
   Map<int, int> _inventarioInicial = {}; // productoId -> cantidad inicial
   Map<int, int> _ventasHoy = {}; // productoId -> cantidad vendida
   Map<int, int> _inventarioActual = {}; // productoId -> cantidad actual
@@ -42,8 +45,10 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
     });
 
     try {
-      // Cargar productos
+      // Cargar productos y categorías
       final productos = await SupabaseService.getProductosActivos();
+      final categorias = await SupabaseService.getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
 
       // Cargar inventario inicial de la apertura del día
       final inventarioInicial = await SupabaseService.getInventarioInicialHoy(
@@ -67,6 +72,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
           final inventarioB = inventarioActual[b.id] ?? 0;
           return inventarioB.compareTo(inventarioA);
         });
+        _categoriasMap = categoriasMap;
         _inventarioInicial = inventarioInicial;
         _ventasHoy = ventasHoy;
         _inventarioActual = inventarioActual;
@@ -94,11 +100,11 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
 
   String _getEstadoStock(int disponible, int inicial) {
     if (disponible == 0) return 'CRÍTICO';
-    if (inicial == 0) return 'Normal';
+    if (inicial == 0) return 'NORMAL';
     final porcentaje = (disponible / inicial) * 100;
     if (porcentaje <= 10) return 'CRÍTICO';
-    if (porcentaje <= 30) return 'Poco Stock';
-    return 'Normal';
+    if (porcentaje <= 30) return 'POCO STOCK';
+    return 'NORMAL';
   }
 
   Color _getColorDisponible(String estado) {
@@ -140,6 +146,33 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
     final weekday = weekdays[now.weekday - 1];
     final month = months[now.month - 1];
     return 'Hoy, $weekday ${now.day} $month';
+  }
+
+  Map<int?, List<Producto>> _getProductosAgrupadosPorCategoria() {
+    final grupos = <int?, List<Producto>>{};
+    for (final producto in _productos) {
+      final categoriaId = producto.categoria?.id;
+      if (!grupos.containsKey(categoriaId)) {
+        grupos[categoriaId] = [];
+      }
+      grupos[categoriaId]!.add(producto);
+    }
+    return grupos;
+  }
+
+  List<Producto> _getProductosFiltrados() {
+    if (_selectedCategoriaFilter == -1) {
+      // Mostrar todos
+      return _productos;
+    } else if (_selectedCategoriaFilter == 0) {
+      // Mostrar solo sin categoría
+      return _productos.where((p) => p.categoria == null).toList();
+    } else {
+      // Mostrar solo la categoría seleccionada
+      return _productos
+          .where((p) => p.categoria?.id == _selectedCategoriaFilter)
+          .toList();
+    }
   }
 
   @override
@@ -238,7 +271,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              'Inventario del Día',
+                              'INVENTARIO DEL DÍA',
                               style: TextStyle(
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.bold,
@@ -376,8 +409,87 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                 ),
                                 SizedBox(height: spacingMedium),
 
+                                // Category Filter
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      ChoiceChip(
+                                        label: Text(
+                                          'Todos',
+                                          style: TextStyle(fontSize: smallFontSize),
+                                        ),
+                                        selected: _selectedCategoriaFilter == -1,
+                                        selectedColor: primaryColor.withOpacity(0.15),
+                                        backgroundColor:
+                                            isDark ? const Color(0xFF2C2018) : Colors.white,
+                                        side: BorderSide(
+                                          color: _selectedCategoriaFilter == -1
+                                              ? primaryColor
+                                              : (isDark
+                                                  ? const Color(0xFF44403C)
+                                                  : const Color(0xFFE7E5E4)),
+                                        ),
+                                        onSelected: (_) {
+                                          setState(() => _selectedCategoriaFilter = -1);
+                                        },
+                                      ),
+                                      SizedBox(width: spacingMedium),
+                                      ..._getProductosAgrupadosPorCategoria().keys.map((categoriaId) {
+                                        final isUncategorized = categoriaId == null;
+                                        final chipId = isUncategorized ? 0 : categoriaId;
+                                        
+                                        // Obtener el nombre de la categoría
+                                        String label;
+                                        if (isUncategorized) {
+                                          label = 'Sin categoría';
+                                        } else {
+                                          // Intentar obtener del mapa primero
+                                          final categoria = _categoriasMap[categoriaId];
+                                          if (categoria != null) {
+                                            label = categoria.nombre;
+                                          } else {
+                                            // Si no está en el mapa, obtener del primer producto de esa categoría
+                                            final productosDeCategoria = _getProductosAgrupadosPorCategoria()[categoriaId];
+                                            if (productosDeCategoria != null && productosDeCategoria.isNotEmpty) {
+                                              label = productosDeCategoria.first.categoria?.nombre ?? 'Categoría';
+                                            } else {
+                                              label = 'Categoría';
+                                            }
+                                          }
+                                        }
+
+                                        return Padding(
+                                          padding: EdgeInsets.only(right: spacingSmall),
+                                          child: ChoiceChip(
+                                            label: Text(
+                                              label,
+                                              style: TextStyle(fontSize: smallFontSize),
+                                            ),
+                                            selected: _selectedCategoriaFilter == chipId,
+                                            selectedColor: primaryColor.withOpacity(0.15),
+                                            backgroundColor:
+                                                isDark ? const Color(0xFF2C2018) : Colors.white,
+                                            side: BorderSide(
+                                              color: _selectedCategoriaFilter == chipId
+                                                  ? primaryColor
+                                                  : (isDark
+                                                      ? const Color(0xFF44403C)
+                                                      : const Color(0xFFE7E5E4)),
+                                            ),
+                                            onSelected: (_) {
+                                              setState(() => _selectedCategoriaFilter = chipId);
+                                            },
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: spacingMedium),
+
                                 // Products List
-                                ..._productos.map<Widget>((producto) {
+                                ..._getProductosFiltrados().map<Widget>((producto) {
                                   final inicial = _getCantidadInicial(
                                     producto.id,
                                   );

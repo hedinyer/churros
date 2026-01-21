@@ -51,12 +51,38 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadVentasHoy();
     _checkAndShowOnboarding();
     _initializeOrderStatusMonitoring();
+    _setupNotificationNavigation();
   }
 
   @override
   void dispose() {
     _orderStatusTimer?.cancel();
+    // Limpiar el callback de notificaciones
+    NotificationService.onNotificationTapped = null;
     super.dispose();
+  }
+
+  /// Configura la navegación cuando se toca una notificación
+  void _setupNotificationNavigation() {
+    NotificationService.onNotificationTapped = (String? payload) {
+      if (payload == 'factory_order_sent' || payload == 'factory_order_delivered') {
+        // Navegar a la página de Pedido a Fábrica
+        // Usar Future.microtask para asegurar que se ejecute en el siguiente ciclo del event loop
+        Future.microtask(() {
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FactoryOrderPage(
+                  sucursal: widget.sucursal,
+                  currentUser: widget.currentUser,
+                ),
+              ),
+            );
+          }
+        });
+      }
+    };
   }
 
   Future<void> _checkAndShowOnboarding() async {
@@ -98,14 +124,43 @@ class _DashboardPageState extends State<DashboardPage> {
         widget.sucursal.id,
       );
       
-      // Cargar gastos del día
+      // Cargar gastos del día actual
       final gastos = await SupabaseService.getGastosPuntoVenta(
         sucursalId: widget.sucursal.id,
       );
-      final totalGastos = gastos.fold<double>(
-        0.0,
-        (sum, gasto) => sum + ((gasto['monto'] as num?)?.toDouble() ?? 0.0),
-      );
+      
+      print('Dashboard - Gastos recibidos: ${gastos.length}');
+      
+      // Calcular el total de gastos del día
+      double totalGastos = 0.0;
+      for (final gasto in gastos) {
+        final monto = gasto['monto'];
+        print('Dashboard - Procesando gasto: monto=$monto, tipo=${monto.runtimeType}');
+        
+        double valor = 0.0;
+        if (monto != null) {
+          if (monto is num) {
+            valor = monto.toDouble();
+          } else if (monto is String) {
+            // Remover cualquier formato de moneda o espacios
+            final montoLimpio = monto.replaceAll(RegExp(r'[^\d.-]'), '');
+            valor = double.tryParse(montoLimpio) ?? 0.0;
+          } else {
+            // Intentar convertir a string y luego a double
+            try {
+              valor = double.tryParse(monto.toString()) ?? 0.0;
+            } catch (e) {
+              print('Dashboard - Error convirtiendo monto: $e');
+              valor = 0.0;
+            }
+          }
+        }
+        
+        totalGastos += valor;
+        print('Dashboard - Sumando: $valor, total acumulado: $totalGastos');
+      }
+      
+      print('Dashboard - Total gastos del día calculado: $totalGastos (${gastos.length} registros)');
       
       setState(() {
         _totalVentasHoy = resumen['total'] as double;
@@ -300,7 +355,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                               spreadRadius: 0,
-                            ),
+                          ),
                           ],
                         ),
                         child: Column(
@@ -381,7 +436,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'Online',
+                                        'ONLINE',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
@@ -413,7 +468,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      '${_porcentajeVsAyer >= 0 ? '+' : ''}${_porcentajeVsAyer.toStringAsFixed(0)}% vs ayer',
+                                      '${_porcentajeVsAyer >= 0 ? '+' : ''}${_porcentajeVsAyer.toStringAsFixed(0)}% VS AYER',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -435,7 +490,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Gastos: \$${NumberFormat('#,###', 'es').format(_totalGastosHoy.round())}',
+                                      'GASTOS: \$${NumberFormat('#,###', 'es').format(_totalGastosHoy.round())}',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -478,9 +533,9 @@ class _DashboardPageState extends State<DashboardPage> {
                             child: _buildModernCard(
                               key: _quickSaleKey,
                               isDark: isDark,
-                              color: primaryColor,
+                                  color: primaryColor,
                               icon: Icons.payments,
-                              title: 'Venta Rápida',
+                              title: 'VENTA RÁPIDA',
                             ),
                           ),
 
@@ -493,7 +548,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             iconColor: Colors.blue,
                             backgroundColor: Colors.blue,
                             backgroundIcon: Icons.storefront,
-                            title: 'Apertura\nde Punto',
+                            title: 'APERTURA\nDE PUNTO',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -517,7 +572,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             iconColor: Colors.orange,
                             backgroundColor: Colors.orange,
                             backgroundIcon: Icons.inventory_2,
-                            title: 'Control de\nInventario',
+                            title: 'CONTROL DE\nINVENTARIO',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -541,7 +596,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             iconColor: Colors.grey,
                             backgroundColor: Colors.grey,
                             backgroundIcon: Icons.lock_clock,
-                            title: 'Cierre\nde Día',
+                            title: 'CIERRE\nDE DÍA',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -565,7 +620,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             iconColor: Colors.purple,
                             backgroundColor: Colors.purple,
                             backgroundIcon: Icons.factory,
-                            title: 'Pedido a\nFábrica',
+                            title: 'PEDIDO A\nFÁBRICA',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -589,7 +644,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             iconColor: Colors.red,
                             backgroundColor: Colors.red,
                             backgroundIcon: Icons.receipt_long,
-                            title: 'Gastos',
+                            title: 'GASTOS',
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -707,7 +762,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: _buildModernCard(
         key: key,
         isDark: isDark,
-        color: backgroundColor,
+            color: backgroundColor,
         icon: icon,
         title: title,
       ),

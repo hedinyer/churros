@@ -303,7 +303,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
               ),
               child: Center(
                 child: Text(
-                  'Fábrica Central',
+                  'FÁBRICA CENTRAL',
                   style: TextStyle(
                     fontSize: headerFontSize,
                     fontWeight: FontWeight.bold,
@@ -331,7 +331,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                               children: [
                             // Accesos Directos Section
                             Text(
-                              'Accesos Directos',
+                              'ACCESOS DIRECTOS',
                               style: TextStyle(
                                 fontSize: sectionTitleFontSize,
                                 fontWeight: FontWeight.bold,
@@ -354,8 +354,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.storefront,
                                   iconColor: Colors.blue,
-                                  title: 'Pedidos Puntos',
-                                  subtitle: 'App Interna',
+                                  title: 'PEDIDOS PUNTOS',
+                                  subtitle: 'APP INTERNA',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -382,8 +382,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.chat,
                                   iconColor: Colors.green,
-                                  title: 'Pedidos Clientes',
-                                  subtitle: 'WhatsApp',
+                                  title: 'PEDIDOS CLIENTES',
+                                  subtitle: 'WHATSAPP',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -410,8 +410,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.repeat,
                                   iconColor: Colors.teal,
-                                  title: 'Pedido Recurrente',
-                                  subtitle: 'Clientes Fijos',
+                                  title: 'PEDIDO RECURRENTE',
+                                  subtitle: 'CLIENTES FIJOS',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -432,8 +432,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.restaurant,
                                   iconColor: primaryColor,
-                                  title: 'Producción',
-                                  subtitle: 'Gestión Cocina',
+                                  title: 'PRODUCCIÓN',
+                                  subtitle: 'GESTIÓN COCINA',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -454,8 +454,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.local_shipping,
                                   iconColor: Colors.grey,
-                                  title: 'Despacho',
-                                  subtitle: 'Logística',
+                                  title: 'DESPACHO',
+                                  subtitle: 'LOGÍSTICA',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -482,8 +482,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.inventory_2,
                                   iconColor: Colors.orange,
-                                  title: 'Productos',
-                                  subtitle: 'Gestión',
+                                  title: 'PRODUCTOS',
+                                  subtitle: 'GESTIÓN',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -502,8 +502,8 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.people,
                                   iconColor: Colors.purple,
-                                  title: 'Empleados',
-                                  subtitle: 'Gestión',
+                                  title: 'EMPLEADOS',
+                                  subtitle: 'GESTIÓN',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
                                   iconSize: iconSize,
@@ -522,7 +522,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                                   isDark: isDark,
                                   icon: Icons.receipt_long,
                                   iconColor: Colors.red,
-                                  title: 'Gastos',
+                                  title: 'GASTOS',
                                   subtitle: 'Pagos y Compras',
                                   titleFontSize: buttonTitleFontSize,
                                   subtitleFontSize: buttonSubtitleFontSize,
@@ -611,7 +611,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 SizedBox(width: isVerySmallScreen ? 6 : 8),
                 Flexible(
                   child: Text(
-                    'Registrar Pedido Manual',
+                    'REGISTRAR PEDIDO MANUAL',
                     style: TextStyle(
                       fontSize: bottomButtonFontSize,
                       fontWeight: FontWeight.bold,
@@ -801,7 +801,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Estadísticas de Fábrica',
+                    'ESTADÍSTICAS DE FÁBRICA',
                     style: TextStyle(
                       fontSize: effectiveTitleFontSize,
                       fontWeight: FontWeight.bold,
@@ -812,7 +812,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage> with Widget
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Reportes y métricas',
+                    'REPORTES Y MÉTRICAS',
                     style: TextStyle(
                       fontSize: effectiveSubtitleFontSize,
                       color:

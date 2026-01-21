@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/supabase_service.dart';
 import '../../models/producto.dart';
+import '../../models/categoria.dart';
 import '../../models/sucursal.dart';
 import '../../models/apertura_dia.dart';
 import '../../models/user.dart';
@@ -26,6 +27,8 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
   Sucursal? _sucursal;
   List<Producto> _productos = [];
   AperturaDia? _aperturaActual;
+  Map<int, Categoria> _categoriasMap = {};
+  int _selectedCategoriaFilter = -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
 
   // Inventario actual (productoId -> cantidad)
   final Map<int, int> _inventario = {};
@@ -68,6 +71,10 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
       if (_productos.isEmpty) {
         throw Exception('No se pudieron cargar los productos');
       }
+
+      // Cargar categorías (para nombres consistentes en el filtro)
+      final categorias = await SupabaseService.getCategorias();
+      _categoriasMap = {for (final c in categorias) c.id: c};
 
       // Cargar inventario actual de la sucursal
       final inventarioActual = await SupabaseService.getInventarioActual(
@@ -112,6 +119,124 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
     setState(() {
       _inventario[productoId] = (_inventario[productoId] ?? 0) + 1;
     });
+  }
+
+  Map<int?, List<Producto>> _getProductosAgrupadosPorCategoria() {
+    final grupos = <int?, List<Producto>>{};
+    for (final producto in _productos) {
+      final categoriaId = producto.categoria?.id;
+      (grupos[categoriaId] ??= []).add(producto);
+    }
+    return grupos;
+  }
+
+  List<Producto> _getProductosFiltrados() {
+    if (_selectedCategoriaFilter == -1) return _productos;
+    if (_selectedCategoriaFilter == 0) {
+      return _productos.where((p) => p.categoria == null).toList();
+    }
+    return _productos
+        .where((p) => p.categoria?.id == _selectedCategoriaFilter)
+        .toList();
+  }
+
+  List<int?> _getCategoriasDisponiblesEnProductos() {
+    final ids = <int?>{};
+    for (final p in _productos) {
+      ids.add(p.categoria?.id);
+    }
+    final list = ids.toList();
+    list.sort((a, b) {
+      if (a == null && b == null) return 0;
+      if (a == null) return -1;
+      if (b == null) return 1;
+      final nameA = _categoriasMap[a]?.nombre ?? (a.toString());
+      final nameB = _categoriasMap[b]?.nombre ?? (b.toString());
+      return nameA.compareTo(nameB);
+    });
+    return list;
+  }
+
+  Widget _buildCategoryFilter({
+    required bool isDark,
+    required Color primaryColor,
+    required double smallFontSize,
+    required double spacingSmall,
+    required double spacingMedium,
+  }) {
+    final categoriasDisponibles = _getCategoriasDisponiblesEnProductos();
+    if (categoriasDisponibles.length <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: spacingMedium),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            ChoiceChip(
+              label: Text(
+                'Todos',
+                style: TextStyle(fontSize: smallFontSize),
+              ),
+              selected: _selectedCategoriaFilter == -1,
+              selectedColor: primaryColor.withOpacity(0.15),
+              backgroundColor: isDark ? const Color(0xFF2C2018) : Colors.white,
+              side: BorderSide(
+                color: _selectedCategoriaFilter == -1
+                    ? primaryColor
+                    : (isDark
+                        ? const Color(0xFF44403C)
+                        : const Color(0xFFE7E5E4)),
+              ),
+              onSelected: (_) => setState(() => _selectedCategoriaFilter = -1),
+            ),
+            SizedBox(width: spacingMedium),
+            ...categoriasDisponibles.map((categoriaId) {
+              final isUncategorized = categoriaId == null;
+              final chipId = isUncategorized ? 0 : categoriaId;
+
+              String label;
+              if (isUncategorized) {
+                label = 'Sin categoría';
+              } else {
+                final cat = _categoriasMap[categoriaId];
+                if (cat != null) {
+                  label = cat.nombre;
+                } else {
+                  final productosDeCategoria =
+                      _getProductosAgrupadosPorCategoria()[categoriaId];
+                  label = productosDeCategoria?.first.categoria?.nombre ??
+                      'Categoría';
+                }
+              }
+
+              return Padding(
+                padding: EdgeInsets.only(right: spacingSmall),
+                child: ChoiceChip(
+                  label: Text(
+                    label,
+                    style: TextStyle(fontSize: smallFontSize),
+                  ),
+                  selected: _selectedCategoriaFilter == chipId,
+                  selectedColor: primaryColor.withOpacity(0.15),
+                  backgroundColor:
+                      isDark ? const Color(0xFF2C2018) : Colors.white,
+                  side: BorderSide(
+                    color: _selectedCategoriaFilter == chipId
+                        ? primaryColor
+                        : (isDark
+                            ? const Color(0xFF44403C)
+                            : const Color(0xFFE7E5E4)),
+                  ),
+                  onSelected: (_) =>
+                      setState(() => _selectedCategoriaFilter = chipId),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 
   void _decrementItem(int productoId) {
@@ -655,7 +780,17 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                               )
                             // Products
                             else
-                              ..._productos.map<Widget>((producto) {
+                              ...[
+                                _buildCategoryFilter(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                  smallFontSize: smallFontSize,
+                                  spacingSmall: spacingSmall,
+                                  spacingMedium: spacingMedium,
+                                ),
+                                ..._getProductosFiltrados().map<Widget>((
+                                  producto,
+                                ) {
                                 final quantity = _inventario[producto.id] ?? 0;
                                 final categoria = producto.categoria;
                                 final stockDisponible =
@@ -975,6 +1110,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                   ),
                                 );
                               }),
+                              ],
                           ],
                         ),
                       ),

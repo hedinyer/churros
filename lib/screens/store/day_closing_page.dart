@@ -34,6 +34,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
   double _totalGastosHoy = 0.0;
   int _totalDesperdicio = 0;
   int? _aperturaId;
+  // Filtro de categorías: -1 = Todas, 0 = Sin categoría, >0 = categoria_id
+  int _selectedCategoriaFilter = -1;
 
   @override
   void initState() {
@@ -185,6 +187,123 @@ class _DayClosingPageState extends State<DayClosingPage> {
       grupos[categoriaId]!.add(producto);
     }
     return grupos;
+  }
+
+  List<int?> _getCategoriasDisponiblesEnProductos() {
+    final ids = <int?>{};
+    for (final p in _productos) {
+      ids.add(p.categoria?.id);
+    }
+    final list = ids.toList();
+    // Ordenar: primero sin categoría (null), luego por nombre de categoría
+    list.sort((a, b) {
+      if (a == null && b == null) return 0;
+      if (a == null) return -1;
+      if (b == null) return 1;
+      final nameA = _categoriasMap[a]?.nombre ?? '';
+      final nameB = _categoriasMap[b]?.nombre ?? '';
+      return nameA.compareTo(nameB);
+    });
+    return list;
+  }
+
+  Widget _buildCategoryFilter({
+    required bool isDark,
+    required Color primaryColor,
+    required double textScaleFactor,
+    required double smallFontSize,
+    required double spacingSmall,
+    required double spacingMedium,
+    required double paddingHorizontal,
+  }) {
+    final categoriasDisponibles = _getCategoriasDisponiblesEnProductos();
+
+    // Si solo hay una "categoría" (o ninguna), no mostramos filtro
+    if (categoriasDisponibles.length <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        paddingHorizontal,
+        spacingSmall,
+        paddingHorizontal,
+        spacingSmall,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Filtrar por categoría',
+            style: TextStyle(
+              fontSize: smallFontSize,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey.shade300 : const Color(0xFF9A6C4C),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: spacingSmall),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: Text(
+                    'Todos',
+                    style: TextStyle(fontSize: smallFontSize),
+                  ),
+                  selected: _selectedCategoriaFilter == -1,
+                  selectedColor: primaryColor.withOpacity(0.15),
+                  backgroundColor:
+                      isDark ? const Color(0xFF2C2018) : Colors.white,
+                  side: BorderSide(
+                    color: _selectedCategoriaFilter == -1
+                        ? primaryColor
+                        : (isDark
+                            ? const Color(0xFF44403C)
+                            : const Color(0xFFE7E5E4)),
+                  ),
+                  onSelected: (_) {
+                    setState(() => _selectedCategoriaFilter = -1);
+                  },
+                ),
+                SizedBox(width: spacingMedium),
+                ...categoriasDisponibles.map((categoriaId) {
+                  final isUncategorized = categoriaId == null;
+                  final chipId = isUncategorized ? 0 : categoriaId;
+                  final label = isUncategorized
+                      ? 'Sin categoría'
+                      : (_categoriasMap[categoriaId]?.nombre ?? 'Categoría');
+
+                  return Padding(
+                    padding: EdgeInsets.only(right: spacingSmall),
+                    child: ChoiceChip(
+                      label: Text(
+                        label,
+                        style: TextStyle(fontSize: smallFontSize),
+                      ),
+                      selected: _selectedCategoriaFilter == chipId,
+                      selectedColor: primaryColor.withOpacity(0.15),
+                      backgroundColor:
+                          isDark ? const Color(0xFF2C2018) : Colors.white,
+                      side: BorderSide(
+                        color: _selectedCategoriaFilter == chipId
+                            ? primaryColor
+                            : (isDark
+                                ? const Color(0xFF44403C)
+                                : const Color(0xFFE7E5E4)),
+                      ),
+                      onSelected: (_) {
+                        setState(() => _selectedCategoriaFilter = chipId);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -561,6 +680,15 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         ),
 
                         // Products by Category
+                        _buildCategoryFilter(
+                          isDark: isDark,
+                          primaryColor: primaryColor,
+                          textScaleFactor: textScaleFactor,
+                          smallFontSize: smallFontSize,
+                          spacingSmall: spacingSmall,
+                          spacingMedium: spacingMedium,
+                          paddingHorizontal: paddingHorizontal,
+                        ),
                         ..._getProductosAgrupadosPorCategoria().entries.map<
                           Widget
                         >((entry) {
@@ -570,6 +698,15 @@ class _DayClosingPageState extends State<DayClosingPage> {
                               categoriaId != null
                                   ? _categoriasMap[categoriaId]
                                   : null;
+
+                          // Aplicar filtro
+                          if (_selectedCategoriaFilter != -1) {
+                            final filtroId = _selectedCategoriaFilter;
+                            final entryId = categoriaId == null ? 0 : categoriaId;
+                            if (entryId != filtroId) {
+                              return const SizedBox.shrink();
+                            }
+                          }
 
                           // Skip productos que no requieren conteo (como bebidas)
                           final productosConConteo = productos;
@@ -820,6 +957,7 @@ class _DayClosingPageState extends State<DayClosingPage> {
     required double paddingHorizontal,
   }) {
     final inicial = _inventarioInicial[producto.id] ?? 0;
+    final existenciaActual = _inventarioActual[producto.id] ?? 0;
     final existenciaFinal = _existenciaFinal[producto.id] ?? 0;
     final sobrantes = _sobrantes[producto.id] ?? 0;
     final vencido = _vencido[producto.id] ?? 0;
@@ -939,13 +1077,21 @@ class _DayClosingPageState extends State<DayClosingPage> {
                   value: existenciaFinal,
                   onChanged: (newValue) {
                     setState(() {
-                      _existenciaFinal[producto.id] = newValue;
+                      // Validar que la existencia final no sea menor a 0
+                      // y que la suma de existencia final + sobrantes + vencidos no exceda la existencia actual
+                      final sobrantesActual = _sobrantes[producto.id] ?? 0;
+                      final vencidoActual = _vencido[producto.id] ?? 0;
+                      final maxExistenciaFinal = existenciaActual - sobrantesActual - vencidoActual;
+                      
+                      final nuevaExistenciaFinal = newValue.clamp(0, maxExistenciaFinal);
+                      _existenciaFinal[producto.id] = nuevaExistenciaFinal;
                     });
                   },
                   isDark: isDark,
                   primaryColor: primaryColor,
                   textScaleFactor: textScaleFactor,
                   bodyFontSize: bodyFontSize,
+                  maxValue: existenciaActual - sobrantes - vencido,
                 ),
               ],
             ),
@@ -995,13 +1141,34 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         value: sobrantes,
                         onChanged: (newValue) {
                           setState(() {
+                            final oldSobrantes = _sobrantes[producto.id] ?? 0;
+                            final diferencia = newValue - oldSobrantes;
+                            final existenciaFinalActual = _existenciaFinal[producto.id] ?? existenciaActual;
+                            
+                            // Validar que la suma de sobrantes + vencidos no exceda la existencia actual
+                            final vencidoActual = _vencido[producto.id] ?? 0;
+                            final totalSobrantesVencidos = newValue + vencidoActual;
+                            
+                            if (totalSobrantesVencidos > existenciaActual) {
+                              // Limitar sobrantes al máximo permitido
+                              final maxSobrantes = existenciaActual - vencidoActual;
+                              _sobrantes[producto.id] = maxSobrantes.clamp(0, existenciaActual);
+                              return;
+                            }
+                            
+                            // Actualizar sobrantes
                             _sobrantes[producto.id] = newValue;
+                            
+                            // Ajustar existencia final: si aumentan sobrantes, disminuye existencia final
+                            final nuevaExistenciaFinal = (existenciaFinalActual - diferencia).clamp(0, existenciaActual);
+                            _existenciaFinal[producto.id] = nuevaExistenciaFinal;
                           });
                         },
                         isDark: isDark,
                         color: Colors.grey,
                         textScaleFactor: textScaleFactor,
                         smallFontSize: smallFontSize,
+                        maxValue: existenciaActual - vencido,
                       ),
                     ],
                   ),
@@ -1041,14 +1208,36 @@ class _DayClosingPageState extends State<DayClosingPage> {
                         value: vencido,
                         onChanged: (newValue) {
                           setState(() {
+                            final oldVencido = _vencido[producto.id] ?? 0;
+                            final diferencia = newValue - oldVencido;
+                            final existenciaFinalActual = _existenciaFinal[producto.id] ?? existenciaActual;
+                            
+                            // Validar que la suma de sobrantes + vencidos no exceda la existencia actual
+                            final sobrantesActual = _sobrantes[producto.id] ?? 0;
+                            final totalSobrantesVencidos = sobrantesActual + newValue;
+                            
+                            if (totalSobrantesVencidos > existenciaActual) {
+                              // Limitar vencidos al máximo permitido
+                              final maxVencido = existenciaActual - sobrantesActual;
+                              _vencido[producto.id] = maxVencido.clamp(0, existenciaActual);
+                              _calcularDesperdicio();
+                              return;
+                            }
+                            
+                            // Actualizar vencidos
                             _vencido[producto.id] = newValue;
                             _calcularDesperdicio();
+                            
+                            // Ajustar existencia final: si aumentan vencidos, disminuye existencia final
+                            final nuevaExistenciaFinal = (existenciaFinalActual - diferencia).clamp(0, existenciaActual);
+                            _existenciaFinal[producto.id] = nuevaExistenciaFinal;
                           });
                         },
                         isDark: isDark,
                         color: Colors.red,
                         textScaleFactor: textScaleFactor,
                         smallFontSize: smallFontSize,
+                        maxValue: existenciaActual - sobrantes,
                       ),
                     ],
                   ),
@@ -1068,9 +1257,11 @@ class _DayClosingPageState extends State<DayClosingPage> {
     required Color primaryColor,
     required double textScaleFactor,
     required double bodyFontSize,
+    int? maxValue,
   }) {
     final buttonSize = (40.0 * textScaleFactor).clamp(36.0, 48.0);
     final textWidth = (48.0 * textScaleFactor).clamp(40.0, 56.0);
+    final maxAllowed = maxValue ?? double.infinity.toInt();
 
     return Container(
       decoration: BoxDecoration(
@@ -1127,7 +1318,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                onChanged(value + 1);
+                if (value < maxAllowed) {
+                  onChanged(value + 1);
+                }
               },
               borderRadius: const BorderRadius.only(
                 topRight: Radius.circular(8),
@@ -1138,7 +1331,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 height: buttonSize,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: primaryColor,
+                  color: value >= maxAllowed 
+                      ? primaryColor.withOpacity(0.5)
+                      : primaryColor,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(8),
                     bottomRight: Radius.circular(8),
@@ -1164,10 +1359,12 @@ class _DayClosingPageState extends State<DayClosingPage> {
     required MaterialColor color,
     required double textScaleFactor,
     required double smallFontSize,
+    int? maxValue,
   }) {
     final height = (32.0 * textScaleFactor).clamp(28.0, 40.0);
     final buttonWidth = (24.0 * textScaleFactor).clamp(20.0, 32.0);
     final textWidth = (32.0 * textScaleFactor).clamp(28.0, 40.0);
+    final maxAllowed = maxValue ?? double.infinity.toInt();
 
     return Container(
       height: height,
@@ -1222,7 +1419,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                onChanged(value + 1);
+                if (value < maxAllowed) {
+                  onChanged(value + 1);
+                }
               },
               borderRadius: const BorderRadius.only(
                 topRight: Radius.circular(6),
@@ -1234,7 +1433,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 alignment: Alignment.center,
                 child: Icon(
                   Icons.add,
-                  color: color.shade400,
+                  color: value >= maxAllowed 
+                      ? color.shade200 
+                      : color.shade400,
                   size: (16 * textScaleFactor).clamp(14.0, 20.0),
                 ),
               ),

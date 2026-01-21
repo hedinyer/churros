@@ -20,8 +20,8 @@ class Sucursal {
   factory Sucursal.fromJson(Map<String, dynamic> json) {
     return Sucursal(
       id: json['id'] as int,
-      nombre: json['nombre'] as String,
-      direccion: json['direccion'] as String?,
+      nombre: (json['nombre'] as String).toUpperCase(),
+      direccion: json['direccion'] != null ? (json['direccion'] as String).toUpperCase() : null,
       telefono: json['telefono'] as String?,
       activa: json['activa'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),

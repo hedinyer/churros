@@ -108,44 +108,74 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
             Container(
               padding: EdgeInsets.symmetric(
                 horizontal: isSmallScreen ? 16 : 20,
-                vertical: 12,
+                vertical: 16,
               ),
               decoration: BoxDecoration(
                 color: (isDark
                         ? const Color(0xFF221810)
                         : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
+                    .withOpacity(0.98),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.black.withOpacity(0.1),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Gestión de Empleados',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () => _mostrarDialogoEmpleado(),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => _mostrarDialogoEmpleado(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.add_circle_outline,
+                          size: 24,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -222,13 +252,16 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       color: isDark ? const Color(0xFF2D211A) : Colors.white,
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color:
               isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.08),
+          width: 1,
         ),
       ),
       child: ListTile(

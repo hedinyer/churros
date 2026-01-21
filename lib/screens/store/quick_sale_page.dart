@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/sucursal.dart';
 import '../../models/user.dart';
 import '../../models/producto.dart';
+import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
 import 'dashboard_page.dart';
 
@@ -21,6 +22,8 @@ class QuickSalePage extends StatefulWidget {
 
 class _QuickSalePageState extends State<QuickSalePage> {
   List<Producto> _productos = [];
+  Map<int, Categoria> _categoriasMap = {};
+  int _selectedCategoriaFilter = -1; // -1 = Todos, 0 = Sin categoría, >0 = categoriaId
   final Map<int, int> _cart = {}; // productoId -> cantidad
   Map<int, TextEditingController> _cantidadControllers = {}; // productoId -> controller
   Map<int, int> _inventario = {}; // productoId -> cantidad disponible
@@ -49,8 +52,10 @@ class _QuickSalePageState extends State<QuickSalePage> {
     });
 
     try {
-      // Cargar productos
+      // Cargar productos y categorías
       final productos = await SupabaseService.getProductosActivos();
+      final categorias = await SupabaseService.getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
 
       // Cargar inventario actual
       final inventario = await SupabaseService.getInventarioActual(
@@ -64,6 +69,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
           final inventarioB = inventario[b.id] ?? 0;
           return inventarioB.compareTo(inventarioA);
         });
+        _categoriasMap = categoriasMap;
         _inventario = inventario;
         _isLoading = false;
       });
@@ -147,6 +153,33 @@ class _QuickSalePageState extends State<QuickSalePage> {
       );
     }
     return _cantidadControllers[productoId]!;
+  }
+
+  Map<int?, List<Producto>> _getProductosAgrupadosPorCategoria() {
+    final grupos = <int?, List<Producto>>{};
+    for (final producto in _productos) {
+      final categoriaId = producto.categoria?.id;
+      if (!grupos.containsKey(categoriaId)) {
+        grupos[categoriaId] = [];
+      }
+      grupos[categoriaId]!.add(producto);
+    }
+    return grupos;
+  }
+
+  List<Producto> _getProductosFiltrados() {
+    if (_selectedCategoriaFilter == -1) {
+      // Mostrar todos
+      return _productos;
+    } else if (_selectedCategoriaFilter == 0) {
+      // Mostrar solo sin categoría
+      return _productos.where((p) => p.categoria == null).toList();
+    } else {
+      // Mostrar solo la categoría seleccionada
+      return _productos
+          .where((p) => p.categoria?.id == _selectedCategoriaFilter)
+          .toList();
+    }
   }
 
   double get _totalAmount {
@@ -239,7 +272,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(
-                                    'Confirmar Venta',
+                                    'CONFIRMAR VENTA',
                                     style: TextStyle(
                                       fontSize: dialogTitleSize,
                                       fontWeight: FontWeight.bold,
@@ -259,7 +292,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(
-                                    'Revisa los detalles antes de continuar',
+                                    'REVISA LOS DETALLES ANTES DE CONTINUAR',
                                     style: TextStyle(
                                       fontSize: dialogSmallSize,
                                       color:
@@ -297,7 +330,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                'Total a Cobrar',
+                                'TOTAL A COBRAR',
                                 style: TextStyle(
                                   fontSize: dialogSmallSize,
                                   fontWeight: FontWeight.w600,
@@ -337,7 +370,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Método de Pago',
+                          'MÉTODO DE PAGO',
                           style: TextStyle(
                             fontSize: dialogBodySize,
                             fontWeight: FontWeight.w600,
@@ -1072,6 +1105,86 @@ class _QuickSalePageState extends State<QuickSalePage> {
                           ),
                         ),
                         SizedBox(height: spacingMedium),
+                        
+                        // Category Filter
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              ChoiceChip(
+                                label: Text(
+                                  'Todos',
+                                  style: TextStyle(fontSize: smallFontSize),
+                                ),
+                                selected: _selectedCategoriaFilter == -1,
+                                selectedColor: primaryColor.withOpacity(0.15),
+                                backgroundColor:
+                                    isDark ? const Color(0xFF2C2018) : Colors.white,
+                                side: BorderSide(
+                                  color: _selectedCategoriaFilter == -1
+                                      ? primaryColor
+                                      : (isDark
+                                          ? const Color(0xFF44403C)
+                                          : const Color(0xFFE7E5E4)),
+                                ),
+                                onSelected: (_) {
+                                  setState(() => _selectedCategoriaFilter = -1);
+                                },
+                              ),
+                              SizedBox(width: spacingMedium),
+                              ..._getProductosAgrupadosPorCategoria().keys.map((categoriaId) {
+                                final isUncategorized = categoriaId == null;
+                                final chipId = isUncategorized ? 0 : categoriaId;
+                                
+                                // Obtener el nombre de la categoría
+                                String label;
+                                if (isUncategorized) {
+                                  label = 'Sin categoría';
+                                } else {
+                                  // Intentar obtener del mapa primero
+                                  final categoria = _categoriasMap[categoriaId];
+                                  if (categoria != null) {
+                                    label = categoria.nombre;
+                                  } else {
+                                    // Si no está en el mapa, obtener del primer producto de esa categoría
+                                    final productosDeCategoria = _getProductosAgrupadosPorCategoria()[categoriaId];
+                                    if (productosDeCategoria != null && productosDeCategoria.isNotEmpty) {
+                                      label = productosDeCategoria.first.categoria?.nombre ?? 'Categoría';
+                                    } else {
+                                      label = 'Categoría';
+                                    }
+                                  }
+                                }
+
+                                return Padding(
+                                  padding: EdgeInsets.only(right: spacingSmall),
+                                  child: ChoiceChip(
+                                    label: Text(
+                                      label,
+                                      style: TextStyle(fontSize: smallFontSize),
+                                    ),
+                                    selected: _selectedCategoriaFilter == chipId,
+                                    selectedColor: primaryColor.withOpacity(0.15),
+                                    backgroundColor:
+                                        isDark ? const Color(0xFF2C2018) : Colors.white,
+                                    side: BorderSide(
+                                      color: _selectedCategoriaFilter == chipId
+                                          ? primaryColor
+                                          : (isDark
+                                              ? const Color(0xFF44403C)
+                                              : const Color(0xFFE7E5E4)),
+                                    ),
+                                    onSelected: (_) {
+                                      setState(() => _selectedCategoriaFilter = chipId);
+                                    },
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: spacingMedium),
+                        
                         if (_productos.isEmpty && _isLoading)
                           SizedBox(
                             height: 200,
@@ -1084,7 +1197,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                             ),
                           )
                         else
-                          ..._productos.map<Widget>((producto) {
+                          ..._getProductosFiltrados().map<Widget>((producto) {
                             final quantity = _cart[producto.id] ?? 0;
                             final categoria = producto.categoria;
                             final stockDisponible =

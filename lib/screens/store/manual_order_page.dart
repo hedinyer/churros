@@ -297,29 +297,49 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                 color: (isDark
                         ? const Color(0xFF221810)
                         : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
+                    .withOpacity(0.98),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Registrar Pedido Manual',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
                     ),
@@ -328,30 +348,38 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 6,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color:
                           _isOnline
-                              ? Colors.green.withOpacity(isDark ? 0.2 : 0.1)
-                              : primaryColor.withOpacity(isDark ? 0.2 : 0.1),
-                      borderRadius: BorderRadius.circular(999),
+                              ? Colors.green.withOpacity(isDark ? 0.25 : 0.12)
+                              : primaryColor.withOpacity(isDark ? 0.25 : 0.12),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color:
                             _isOnline
-                                ? Colors.green.withOpacity(isDark ? 0.3 : 0.2)
-                                : primaryColor.withOpacity(isDark ? 0.3 : 0.2),
+                                ? Colors.green.withOpacity(isDark ? 0.4 : 0.25)
+                                : primaryColor.withOpacity(isDark ? 0.4 : 0.25),
+                        width: 1.5,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             color: _isOnline ? Colors.green : primaryColor,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (_isOnline ? Colors.green : primaryColor).withOpacity(0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -359,8 +387,9 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
@@ -622,19 +651,28 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(18),
                                 decoration: BoxDecoration(
                                   color:
                                       isDark
                                           ? const Color(0xFF2D211A)
                                           : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color:
                                         isDark
-                                            ? Colors.white.withOpacity(0.05)
-                                            : Colors.black.withOpacity(0.05),
+                                            ? Colors.white.withOpacity(0.08)
+                                            : Colors.black.withOpacity(0.08),
+                                    width: 1,
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,19 +820,28 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
                             // Resumen
                             Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 color:
                                     isDark
                                         ? const Color(0xFF2D211A)
                                         : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color:
                                       isDark
-                                          ? Colors.white.withOpacity(0.05)
-                                          : Colors.black.withOpacity(0.05),
+                                          ? Colors.white.withOpacity(0.08)
+                                          : Colors.black.withOpacity(0.08),
+                                  width: 1,
                                 ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                    spreadRadius: 0,
+                                  ),
+                                ],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -906,10 +953,11 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 8,
+                    shadowColor: primaryColor.withOpacity(0.4),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 8,
                   ),
                   child: _isGuardando
                       ? const SizedBox(

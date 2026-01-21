@@ -16,6 +16,7 @@ class PedidoCliente {
   final bool sincronizado;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final double? domicilio;
   final List<PedidoClienteDetalle>? detalles;
 
   PedidoCliente({
@@ -34,6 +35,7 @@ class PedidoCliente {
     required this.sincronizado,
     required this.createdAt,
     required this.updatedAt,
+    this.domicilio,
     this.detalles,
   });
 
@@ -42,20 +44,21 @@ class PedidoCliente {
   }) {
     return PedidoCliente(
       id: json['id'] as int,
-      clienteNombre: json['cliente_nombre'] as String,
+      clienteNombre: (json['cliente_nombre'] as String).toUpperCase(),
       clienteTelefono: json['cliente_telefono'] as String?,
-      direccionEntrega: json['direccion_entrega'] as String,
+      direccionEntrega: (json['direccion_entrega'] as String).toUpperCase(),
       fechaPedido: DateTime.parse(json['fecha_pedido'] as String),
       horaPedido: _parseTime(json['hora_pedido'] as String),
       totalItems: json['total_items'] as int,
       total: (json['total'] as num).toDouble(),
-      estado: json['estado'] as String,
+      estado: (json['estado'] as String).toUpperCase(),
       numeroPedido: json['numero_pedido'] as String?,
-      observaciones: json['observaciones'] as String?,
-      metodoPago: json['metodo_pago'] as String?,
+      observaciones: json['observaciones'] != null ? (json['observaciones'] as String).toUpperCase() : null,
+      metodoPago: json['metodo_pago'] != null ? (json['metodo_pago'] as String).toUpperCase() : null,
       sincronizado: json['sincronizado'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      domicilio: json['domicilio'] != null ? (json['domicilio'] as num).toDouble() : null,
       detalles: detalles,
     );
   }
@@ -77,6 +80,7 @@ class PedidoCliente {
       'sincronizado': sincronizado,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'domicilio': domicilio,
     };
   }
 

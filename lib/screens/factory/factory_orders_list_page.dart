@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../models/pedido_fabrica.dart';
 import '../../models/producto.dart';
 import '../../services/supabase_service.dart';
-import '../store/dispatch_page.dart';
 
 class FactoryOrdersListPage extends StatefulWidget {
   const FactoryOrdersListPage({super.key});
@@ -16,7 +15,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
   List<PedidoFabrica> _pedidos = [];
   List<Producto> _productos = [];
   String _filtroEstado =
-      'todos'; // 'todos', 'pendiente', 'en_preparacion', 'enviado', 'entregado'
+      'todos'; // 'todos', 'pendiente', 'enviado', 'entregado'
   bool _isLoading = true;
   bool _isOnline = true;
 
@@ -83,8 +82,6 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return 'Pendiente';
-      case 'en_preparacion':
-        return 'En Preparación';
       case 'enviado':
         return 'Enviado';
       case 'entregado':
@@ -100,8 +97,6 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return const Color(0xFFEC6D13); // primary orange
-      case 'en_preparacion':
-        return Colors.orange;
       case 'enviado':
         return Colors.blue;
       case 'entregado':
@@ -117,8 +112,6 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return Icons.sync_problem;
-      case 'en_preparacion':
-        return Icons.restaurant;
       case 'enviado':
         return Icons.send;
       case 'entregado':
@@ -131,20 +124,113 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
   }
 
   bool _puedeDespachar(String estadoActual) {
-    return estadoActual.toLowerCase() == 'pendiente' ||
-        estadoActual.toLowerCase() == 'en_preparacion';
+    return estadoActual.toLowerCase() == 'pendiente';
   }
 
   Future<void> _despacharPedido(PedidoFabrica pedido) async {
-    // Navegar a la página de despacho
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const DispatchPage(),
-      ),
+    // Mostrar diálogo de confirmación
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF2D211A) : Colors.white,
+          title: Text(
+            'CONFIRMAR DESPACHO',
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF1B130D),
+            ),
+          ),
+          content: Text(
+            '¿ESTÁS SEGURO DE QUE DESEAS DESPACHAR EL PEDIDO ${pedido.numeroPedido ?? '#${pedido.id}'}?',
+            style: TextStyle(
+              color: isDark ? Colors.grey.shade300 : const Color(0xFF78716C),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'CANCELAR',
+                style: TextStyle(
+                  color: isDark ? Colors.grey.shade400 : const Color(0xFF78716C),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('DESPACHAR'),
+            ),
+          ],
+        );
+      },
     );
-    // Recargar datos al volver
-    await _loadData();
+
+    if (confirmar != true) return;
+
+    // Mostrar loading
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    try {
+      // Actualizar estado del pedido a "enviado"
+      final resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
+        pedidoId: pedido.id,
+        nuevoEstado: 'enviado',
+      );
+
+      // Cerrar loading
+      if (mounted) Navigator.pop(context);
+
+      if (resultado['exito'] == true) {
+        // Mostrar mensaje de éxito
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text((resultado['mensaje'] as String?)?.toUpperCase() ?? 'PEDIDO DESPACHADO EXITOSAMENTE'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        // Recargar datos
+        await _loadData();
+      } else {
+        // Mostrar mensaje de error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text((resultado['mensaje'] as String?)?.toUpperCase() ?? 'ERROR AL DESPACHAR EL PEDIDO'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Cerrar loading si aún está abierto
+      if (mounted) Navigator.pop(context);
+      
+      // Mostrar error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ERROR: ${e.toString().toUpperCase()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   String _formatTimeAgo(DateTime dateTime) {
@@ -203,29 +289,49 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                 color: (isDark
                         ? const Color(0xFF221810)
                         : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
+                    .withOpacity(0.98),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Pedidos Puntos',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
                     ),
@@ -234,30 +340,38 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 6,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color:
                           _isOnline
-                              ? Colors.green.withOpacity(isDark ? 0.2 : 0.1)
-                              : primaryColor.withOpacity(isDark ? 0.2 : 0.1),
-                      borderRadius: BorderRadius.circular(999),
+                              ? Colors.green.withOpacity(isDark ? 0.25 : 0.12)
+                              : primaryColor.withOpacity(isDark ? 0.25 : 0.12),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color:
                             _isOnline
-                                ? Colors.green.withOpacity(isDark ? 0.3 : 0.2)
-                                : primaryColor.withOpacity(isDark ? 0.3 : 0.2),
+                                ? Colors.green.withOpacity(isDark ? 0.4 : 0.25)
+                                : primaryColor.withOpacity(isDark ? 0.4 : 0.25),
+                        width: 1.5,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             color: _isOnline ? Colors.green : primaryColor,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (_isOnline ? Colors.green : primaryColor).withOpacity(0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -265,8 +379,9 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
@@ -278,15 +393,23 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
 
             // Filtros
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF2D211A) : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
@@ -307,16 +430,6 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                       isSelected: _filtroEstado == 'pendiente',
                       color: const Color(0xFFEC6D13),
                       onTap: () => setState(() => _filtroEstado = 'pendiente'),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      isDark: isDark,
-                      label: 'En Preparación',
-                      isSelected: _filtroEstado == 'en_preparacion',
-                      color: Colors.orange,
-                      onTap:
-                          () =>
-                              setState(() => _filtroEstado = 'en_preparacion'),
                     ),
                     const SizedBox(width: 8),
                     _buildFilterChip(
@@ -423,36 +536,53 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
   }) {
     final chipColor =
         color ?? (isDark ? Colors.white : const Color(0xFF1B130D));
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? chipColor.withOpacity(isDark ? 0.2 : 0.1)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
             color:
                 isSelected
-                    ? chipColor.withOpacity(isDark ? 0.3 : 0.2)
-                    : (isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1)),
+                    ? chipColor.withOpacity(isDark ? 0.25 : 0.12)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color:
+                  isSelected
+                      ? chipColor.withOpacity(isDark ? 0.4 : 0.25)
+                      : (isDark
+                          ? Colors.white.withOpacity(0.12)
+                          : Colors.black.withOpacity(0.12)),
+              width: isSelected ? 1.5 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: chipColor.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color:
-                isSelected
-                    ? chipColor
-                    : (isDark
-                        ? const Color(0xFFA8A29E)
-                        : const Color(0xFF78716C)),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 0.2,
+              color:
+                  isSelected
+                      ? chipColor
+                      : (isDark
+                          ? const Color(0xFFA8A29E)
+                          : const Color(0xFF78716C)),
+            ),
           ),
         ),
       ),
@@ -475,13 +605,22 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2D211A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
               isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -500,15 +639,14 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
             ),
             child: Row(
               children: [
-                // Borde izquierdo de color para pedidos pendientes o en preparación
-                if (estado == 'pendiente' || estado == 'en_preparacion')
+                // Borde izquierdo de color para pedidos pendientes
+                if (estado == 'pendiente')
                   Container(
                     width: 4,
                     height: 60,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      color:
-                          estado == 'pendiente' ? primaryColor : Colors.orange,
+                      color: primaryColor,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
@@ -566,26 +704,40 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                              horizontal: 12,
+                              vertical: 8,
                             ),
                             decoration: BoxDecoration(
                               color: estadoColor.withOpacity(
-                                isDark ? 0.2 : 0.1,
+                                isDark ? 0.25 : 0.12,
                               ),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: estadoColor.withOpacity(
+                                  isDark ? 0.4 : 0.25,
+                                ),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: estadoColor.withOpacity(0.2),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(estadoIcon, size: 14, color: estadoColor),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 6),
                                 Text(
                                   estadoBadge,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w700,
                                     color: estadoColor,
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
                               ],
@@ -665,14 +817,22 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () => _despacharPedido(pedido),
-                  icon: const Icon(Icons.local_shipping, size: 18),
-                  label: const Text('Despachar'),
+                  icon: const Icon(Icons.local_shipping, size: 20),
+                  label: const Text(
+                    'Despachar',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 4,
+                    shadowColor: Colors.blue.withOpacity(0.4),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),

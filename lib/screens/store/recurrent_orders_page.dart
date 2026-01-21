@@ -502,29 +502,49 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                 color: (isDark
                         ? const Color(0xFF221810)
                         : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
+                    .withOpacity(0.98),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Pedidos Recurrentes',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
                     ),
@@ -751,19 +771,28 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
                                     color:
                                         isDark
                                             ? const Color(0xFF2D211A)
                                             : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color:
                                           isDark
-                                              ? Colors.white.withOpacity(0.05)
-                                              : Colors.black.withOpacity(0.05),
+                                              ? Colors.white.withOpacity(0.08)
+                                              : Colors.black.withOpacity(0.08),
+                                      width: 1,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                        spreadRadius: 0,
+                                      ),
+                                    ],
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
@@ -1034,19 +1063,28 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
 
                               // Resumen
                               Container(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
                                   color:
                                       isDark
                                           ? const Color(0xFF2D211A)
                                           : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color:
                                         isDark
-                                            ? Colors.white.withOpacity(0.05)
-                                            : Colors.black.withOpacity(0.05),
+                                            ? Colors.white.withOpacity(0.08)
+                                            : Colors.black.withOpacity(0.08),
+                                    width: 1,
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
                                 ),
                                 child: Row(
                                   mainAxisAlignment:
@@ -1120,10 +1158,11 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 8,
+                    shadowColor: primaryColor.withOpacity(0.4),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 8,
                   ),
                   child:
                       _isGuardando

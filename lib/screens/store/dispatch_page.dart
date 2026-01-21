@@ -276,29 +276,49 @@ class _DispatchPageState extends State<DispatchPage> {
                 color: (isDark
                         ? const Color(0xFF221810)
                         : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
+                    .withOpacity(0.98),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Despacho',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
                     ),
@@ -307,30 +327,38 @@ class _DispatchPageState extends State<DispatchPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 6,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color:
                           _isOnline
-                              ? Colors.green.withOpacity(isDark ? 0.2 : 0.1)
-                              : primaryColor.withOpacity(isDark ? 0.2 : 0.1),
-                      borderRadius: BorderRadius.circular(999),
+                              ? Colors.green.withOpacity(isDark ? 0.25 : 0.12)
+                              : primaryColor.withOpacity(isDark ? 0.25 : 0.12),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color:
                             _isOnline
-                                ? Colors.green.withOpacity(isDark ? 0.3 : 0.2)
-                                : primaryColor.withOpacity(isDark ? 0.3 : 0.2),
+                                ? Colors.green.withOpacity(isDark ? 0.4 : 0.25)
+                                : primaryColor.withOpacity(isDark ? 0.4 : 0.25),
+                        width: 1.5,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             color: _isOnline ? Colors.green : primaryColor,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (_isOnline ? Colors.green : primaryColor).withOpacity(0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -338,8 +366,9 @@ class _DispatchPageState extends State<DispatchPage> {
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
@@ -351,15 +380,23 @@ class _DispatchPageState extends State<DispatchPage> {
 
             // Filtros
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF2D211A) : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color:
                         isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.black.withOpacity(0.08),
+                    width: 1,
                   ),
                 ),
               ),
@@ -470,36 +507,53 @@ class _DispatchPageState extends State<DispatchPage> {
   }) {
     final chipColor =
         color ?? (isDark ? Colors.white : const Color(0xFF1B130D));
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? chipColor.withOpacity(isDark ? 0.2 : 0.1)
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
             color:
                 isSelected
-                    ? chipColor.withOpacity(isDark ? 0.3 : 0.2)
-                    : (isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1)),
+                    ? chipColor.withOpacity(isDark ? 0.25 : 0.12)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color:
+                  isSelected
+                      ? chipColor.withOpacity(isDark ? 0.4 : 0.25)
+                      : (isDark
+                          ? Colors.white.withOpacity(0.12)
+                          : Colors.black.withOpacity(0.12)),
+              width: isSelected ? 1.5 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: chipColor.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color:
-                isSelected
-                    ? chipColor
-                    : (isDark
-                        ? const Color(0xFFA8A29E)
-                        : const Color(0xFF78716C)),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 0.2,
+              color:
+                  isSelected
+                      ? chipColor
+                      : (isDark
+                          ? const Color(0xFFA8A29E)
+                          : const Color(0xFF78716C)),
+            ),
           ),
         ),
       ),
@@ -552,13 +606,22 @@ class _DispatchPageState extends State<DispatchPage> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2D211A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
               isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -849,9 +912,11 @@ class _DispatchPageState extends State<DispatchPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 4,
+                    shadowColor: Colors.green.withOpacity(0.4),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
@@ -944,13 +1009,22 @@ class _DispatchPageState extends State<DispatchPage> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2D211A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
               isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -1296,9 +1370,11 @@ class _DispatchPageState extends State<DispatchPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 4,
+                    shadowColor: Colors.green.withOpacity(0.4),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),

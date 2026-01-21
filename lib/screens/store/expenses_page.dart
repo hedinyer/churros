@@ -354,49 +354,66 @@ class _ExpensesPageState extends State<ExpensesPage> {
               ),
               decoration: BoxDecoration(
                 color: (isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6))
-                    .withOpacity(0.95),
+                    .withOpacity(0.98),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
                 border: Border(
                   bottom: BorderSide(
                     color: isDark
-                        ? const Color(0xFF44403C)
-                        : const Color(0xFFE7E5E4),
+                        ? Colors.white.withOpacity(0.08)
+                        : Colors.black.withOpacity(0.08),
                     width: 1,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(4),
-                      shape: const CircleBorder(),
-                      minimumSize: const Size(48, 48),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 20,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Gastos de Hoy',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle),
-                    onPressed: _selectedTab == 1 ? _agregarGastoVario : null,
-                    color: _selectedTab == 1
-                        ? (isDark ? Colors.white : const Color(0xFF1B130D))
-                        : Colors.grey,
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(4),
-                      shape: const CircleBorder(),
-                      minimumSize: const Size(48, 48),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: _agregarGastoVario,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.add_circle_outline,
+                          size: 24,
+                          color: isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -453,13 +470,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
           ],
         ),
       ),
-      floatingActionButton: _selectedTab == 1
-          ? FloatingActionButton(
-              onPressed: _agregarGastoVario,
-              backgroundColor: primaryColor,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _agregarGastoVario,
+        backgroundColor: primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 
@@ -568,15 +583,24 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2018) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF2D211A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
-              ? const Color(0xFF44403C)
-              : const Color(0xFFE7E5E4),
+              ? Colors.white.withOpacity(0.08)
+              : Colors.black.withOpacity(0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,15 +739,24 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2018) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF2D211A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
-              ? const Color(0xFF44403C)
-              : const Color(0xFFE7E5E4),
+              ? Colors.white.withOpacity(0.08)
+              : Colors.black.withOpacity(0.08),
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Row(
         children: [

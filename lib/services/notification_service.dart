@@ -13,6 +13,10 @@ class NotificationService {
   static bool _initialized = false;
 
   static const String _androidIcon = 'ic_notification_delivery';
+  static const String _androidFactoryIcon = 'ic_notification_factory';
+  
+  // Callback para manejar la navegación cuando se toca una notificación
+  static Function(String? payload)? onNotificationTapped;
 
   // Android 8+ channels (sound is fixed per channel once created)
   static const String _channelDefaultId = 'pedidos_channel';
@@ -91,7 +95,10 @@ class NotificationService {
 
   /// Maneja cuando se toca una notificación
   static void _onNotificationTapped(NotificationResponse response) {
-    // Aquí puedes manejar la navegación cuando se toca la notificación
+    // Ejecutar el callback si está configurado
+    if (onNotificationTapped != null) {
+      onNotificationTapped!(response.payload);
+    }
     print('Notificación tocada: ${response.payload}');
   }
 
@@ -107,25 +114,28 @@ class NotificationService {
       await initialize();
     }
 
-    final (androidChannelId, androidChannelName, androidSound, iosSound) =
+    final (androidChannelId, androidChannelName, androidSound, iosSound, androidIcon) =
         switch (sound) {
           NotificationSound.factoryOrderSent => (
               _channelFactorySentId,
               'Pedido enviado',
               const RawResourceAndroidNotificationSound('pedido_enviado'),
               'pedido_enviado.aiff',
+              _androidFactoryIcon,
             ),
           NotificationSound.factoryOrderDelivered => (
               _channelFactoryDeliveredId,
               'Pedido entregado',
               const RawResourceAndroidNotificationSound('pedido_entregado'),
               'pedido_entregado.aiff',
+              _androidFactoryIcon,
             ),
           NotificationSound.defaultSound => (
               _channelDefaultId,
               'Notificaciones de Pedidos',
               null,
               null,
+              _androidIcon,
             ),
         };
 
@@ -138,7 +148,7 @@ class NotificationService {
       showWhen: true,
       enableVibration: true,
       playSound: true,
-      icon: _androidIcon,
+      icon: androidIcon,
       sound: androidSound,
     );
 

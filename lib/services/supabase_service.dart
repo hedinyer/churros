@@ -2466,7 +2466,7 @@ required int productoId,
     }
   }
 
-  /// Obtiene todos los gastos de punto de venta
+  /// Obtiene todos los gastos de punto de venta del día actual
   static Future<List<Map<String, dynamic>>> getGastosPuntoVenta({
     required int sucursalId,
   }) async {
@@ -2477,7 +2477,23 @@ required int productoId,
         return [];
       }
 
+      // Usar el mismo formato que se usa al crear gastos para mantener consistencia
       final today = DateTime.now().toIso8601String().split('T')[0];
+      
+      print('Buscando gastos para sucursal $sucursalId en fecha: $today');
+      
+      // Primero verificar si hay gastos sin filtrar por fecha para debugging
+      final allGastos = await client
+          .from('gastos_puntoventa')
+          .select()
+          .eq('sucursal_id', sucursalId)
+          .limit(10);
+      
+      print('Total gastos de la sucursal (últimos 10): ${allGastos.length}');
+      if (allGastos.isNotEmpty) {
+        print('Ejemplo de gasto sin filtrar: fecha=${allGastos.first['fecha']}, monto=${allGastos.first['monto']}');
+      }
+      
       final response = await client
           .from('gastos_puntoventa')
           .select()
@@ -2486,9 +2502,24 @@ required int productoId,
           .order('fecha', ascending: false)
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
+      final gastos = List<Map<String, dynamic>>.from(response);
+      print('Gastos encontrados para hoy: ${gastos.length}');
+      
+      // Log detallado para debugging
+      if (gastos.isNotEmpty) {
+        print('Primer gasto de hoy: ${gastos.first}');
+        for (var gasto in gastos) {
+          final monto = gasto['monto'];
+          print('Gasto - id: ${gasto['id']}, monto: $monto, tipo: ${monto.runtimeType}, fecha: ${gasto['fecha']}');
+        }
+      } else {
+        print('No se encontraron gastos para la fecha $today');
+      }
+      
+      return gastos;
+    } catch (e, stackTrace) {
       print('Error obteniendo gastos de punto de venta: $e');
+      print('Stack trace: $stackTrace');
       return [];
     }
   }
