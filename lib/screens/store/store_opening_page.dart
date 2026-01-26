@@ -175,7 +175,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
         child: Row(
           children: [
             ChoiceChip(
-              label: Text('Todos', style: TextStyle(fontSize: 8)),
+              label: Text('Todos', style: TextStyle(fontSize: smallFontSize)),
               selected: _selectedCategoriaFilter == -1,
               selectedColor: primaryColor.withOpacity(0.15),
               backgroundColor: isDark ? const Color(0xFF2C2018) : Colors.white,
@@ -213,7 +213,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
               return Padding(
                 padding: EdgeInsets.only(right: spacingSmall),
                 child: ChoiceChip(
-                  label: Text(label, style: TextStyle(fontSize: 8)),
+                  label: Text(label, style: TextStyle(fontSize: smallFontSize)),
                   selected: _selectedCategoriaFilter == chipId,
                   selectedColor: primaryColor.withOpacity(0.15),
                   backgroundColor:
@@ -349,7 +349,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                   child: Text(
                     '¿Confirmar apertura?',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: dialogTitleSize,
                       fontWeight: FontWeight.bold,
                       color:
                           isDarkDialog ? Colors.white : const Color(0xFF1C1917),
@@ -367,7 +367,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
             child: Text(
               'Estás a punto de iniciar el día con $_totalItems artículos en total. Esta acción no se puede deshacer.',
               style: TextStyle(
-                fontSize: 8,
+                fontSize: dialogBodySize,
                 color:
                     isDarkDialog
                         ? const Color(0xFFA8A29E)
@@ -392,7 +392,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   'Cancelar',
-                  style: TextStyle(fontSize: 8),
+                  style: TextStyle(fontSize: dialogBodySize),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -415,7 +415,10 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   'Confirmar',
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: dialogBodySize,
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -618,7 +621,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                             child: Text(
                               _sucursal?.nombre ?? 'Sucursal',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: titleFontSize,
                                 fontWeight: FontWeight.bold,
                                 color:
                                     isDark
@@ -678,7 +681,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                       'Apertura del Día',
                                       style: TextStyle(
                                         color: primaryColor,
-                                        fontSize: 8,
+                                        fontSize: smallFontSize,
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1.2,
                                       ),
@@ -693,7 +696,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                     child: Text(
                                       _getFormattedDate(),
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: extraLargeFontSize,
                                         fontWeight: FontWeight.bold,
                                         color:
                                             isDark
@@ -711,7 +714,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                     child: Text(
                                       'Ingresa el inventario inicial para comenzar.',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: bodyFontSize,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -741,7 +744,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                       Text(
                                         'Error al cargar los datos',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: 18,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               isDark
@@ -831,7 +834,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                   child: Text(
                                                     producto.nombre,
                                                     style: TextStyle(
-                                                      fontSize: 8,
+                                                      fontSize: titleFontSize,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                       color:
@@ -861,7 +864,8 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                           categoria?.nombre ??
                                                               'Sin categoría',
                                                           style: TextStyle(
-                                                            fontSize: 8,
+                                                            fontSize:
+                                                                smallFontSize,
                                                             color:
                                                                 isDark
                                                                     ? const Color(
@@ -912,7 +916,9 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                         child: Text(
                                                           'Stock: $stockDisponible',
                                                           style: TextStyle(
-                                                            fontSize: 8,
+                                                            fontSize:
+                                                                smallFontSize *
+                                                                0.9,
                                                             fontWeight:
                                                                 FontWeight.w600,
                                                             color:
@@ -1035,7 +1041,8 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                                       .digitsOnly,
                                                 ],
                                                 style: TextStyle(
-                                                  fontSize: 8,
+                                                  fontSize:
+                                                      extraLargeFontSize * 0.8,
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       isDark
@@ -1181,7 +1188,7 @@ class _StoreOpeningPageState extends State<StoreOpeningPage> {
                                   Text(
                                     'Abrir Punto de Venta',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: bodyFontSize * 1.1,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
                                     ),

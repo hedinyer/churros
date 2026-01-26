@@ -110,6 +110,17 @@ class _QuickSalePageState extends State<QuickSalePage> {
     });
   }
 
+  void _removeProductFromCart(int productoId) {
+    setState(() {
+      _cart.remove(productoId);
+      // Limpiar el controller si existe
+      final controller = _cantidadControllers[productoId];
+      if (controller != null) {
+        controller.text = '0';
+      }
+    });
+  }
+
   void _updateController(int productoId) {
     final controller = _cantidadControllers[productoId];
     if (controller != null) {
@@ -279,7 +290,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   child: Text(
                                     'CONFIRMAR VENTA',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: dialogTitleSize,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -299,7 +310,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   child: Text(
                                     'REVISA LOS DETALLES ANTES DE CONTINUAR',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: dialogSmallSize,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -337,7 +348,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               child: Text(
                                 'TOTAL A COBRAR',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: dialogSmallSize,
                                   fontWeight: FontWeight.w600,
                                   color:
                                       isDark
@@ -356,7 +367,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               child: Text(
                                 '\$${_totalAmount.toStringAsFixed(0)}',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: dialogLargeSize,
                                   fontWeight: FontWeight.bold,
                                   color: primaryColor,
                                   letterSpacing: -1,
@@ -377,7 +388,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                         child: Text(
                           'MÉTODO DE PAGO',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: dialogBodySize,
                             fontWeight: FontWeight.w600,
                             color:
                                 isDark ? Colors.white : const Color(0xFF1B130D),
@@ -454,7 +465,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                       child: Text(
                                         'Efectivo',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: dialogBodySize,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               metodoPagoSeleccionado ==
@@ -544,7 +555,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                       child: Text(
                                         'Transferencia',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: dialogBodySize,
                                           fontWeight: FontWeight.bold,
                                           color:
                                               metodoPagoSeleccionado ==
@@ -591,7 +602,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               child: Text(
                                 'Resumen',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: dialogSmallSize,
                                   fontWeight: FontWeight.w600,
                                   color:
                                       isDark
@@ -628,7 +639,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                         child: Text(
                                           '${producto.nombre} x${entry.value}',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: dialogSmallSize,
                                             color:
                                                 isDark
                                                     ? Colors.white
@@ -651,7 +662,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                       child: Text(
                                         '\$${(producto.precio * entry.value).toStringAsFixed(0)}',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: dialogSmallSize,
                                           fontWeight: FontWeight.w600,
                                           color:
                                               isDark
@@ -693,7 +704,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 child: Text(
                                   'Cancelar',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: dialogBodySize,
                                     fontWeight: FontWeight.w600,
                                     color:
                                         isDark
@@ -754,7 +765,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                     Text(
                                       'Confirmar',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: dialogBodySize,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       maxLines: 1,
@@ -977,7 +988,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 child: Text(
                                   widget.sucursal.nombre,
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: titleFontSize,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -995,7 +1006,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 child: Text(
                                   'Cajero: ${widget.currentUser.userId}',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: smallFontSize,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
@@ -1060,7 +1071,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                 Text(
                                   _isOnline ? 'Online' : 'Offline',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: smallFontSize,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         _isOnline
@@ -1098,7 +1109,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                           child: Text(
                             'Productos',
                             style: TextStyle(
-                              fontSize: 8,
+                              fontSize: titleFontSize,
                               fontWeight: FontWeight.bold,
                               color:
                                   isDark
@@ -1119,7 +1130,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               ChoiceChip(
                                 label: Text(
                                   'Todos',
-                                  style: TextStyle(fontSize: 8),
+                                  style: TextStyle(fontSize: smallFontSize),
                                 ),
                                 selected: _selectedCategoriaFilter == -1,
                                 selectedColor: primaryColor.withOpacity(0.15),
@@ -1179,7 +1190,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                   child: ChoiceChip(
                                     label: Text(
                                       label,
-                                      style: TextStyle(fontSize: 8),
+                                      style: TextStyle(fontSize: smallFontSize),
                                     ),
                                     selected:
                                         _selectedCategoriaFilter == chipId,
@@ -1271,7 +1282,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                               child: Text(
                                                 producto.nombre,
                                                 style: TextStyle(
-                                                  fontSize: 8,
+                                                  fontSize: titleFontSize,
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       isDark
@@ -1296,7 +1307,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                                       categoria?.nombre ??
                                                           'Sin categoría',
                                                       style: TextStyle(
-                                                        fontSize: 8,
+                                                        fontSize: smallFontSize,
                                                         color:
                                                             isDark
                                                                 ? const Color(
@@ -1344,7 +1355,8 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                                     child: Text(
                                                       'Stock: $stockDisponible',
                                                       style: TextStyle(
-                                                        fontSize: 8,
+                                                        fontSize:
+                                                            smallFontSize * 0.9,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
@@ -1367,7 +1379,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                               child: Text(
                                                 '\$${producto.precio.toStringAsFixed(0)}',
                                                 style: TextStyle(
-                                                  fontSize: 8,
+                                                  fontSize: largeFontSize,
                                                   fontWeight: FontWeight.bold,
                                                   color: primaryColor,
                                                 ),
@@ -1492,7 +1504,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                                               keyboardType:
                                                   TextInputType.number,
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: bodyFontSize * 1.1,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     quantity > 0
@@ -1631,7 +1643,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                       child: Text(
                         'Total a cobrar',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
                           color:
                               isDark
@@ -1650,7 +1662,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                     child: Text(
                       '\$${_totalAmount.toStringAsFixed(0)}',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: extraLargeFontSize,
                         fontWeight: FontWeight.w800,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                         letterSpacing: -1,
@@ -1661,6 +1673,192 @@ class _QuickSalePageState extends State<QuickSalePage> {
                   ),
                 ],
               ),
+              // Resumen de productos seleccionados
+              if (_cart.isNotEmpty) ...[
+                SizedBox(height: spacingMedium),
+                Container(
+                  padding: EdgeInsets.all(
+                    (12 * textScaleFactor).clamp(10.0, 14.0),
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        isDark
+                            ? const Color(0xFF1C1917)
+                            : const Color(0xFFF8F7F6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color:
+                          isDark
+                              ? const Color(0xFF44403C)
+                              : const Color(0xFFE7E5E4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Productos seleccionados',
+                          style: TextStyle(
+                            fontSize: smallFontSize,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                isDark
+                                    ? const Color(0xFFA8A29E)
+                                    : const Color(0xFF78716C),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(height: (8 * textScaleFactor).clamp(6.0, 10.0)),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: (120 * textScaleFactor).clamp(
+                            100.0,
+                            140.0,
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
+                            children:
+                                _cart.entries.map((entry) {
+                                  final producto = _productos.firstWhere(
+                                    (p) => p.id == entry.key,
+                                  );
+                                  return Container(
+                                    margin: EdgeInsets.only(
+                                      bottom: spacingSmall,
+                                    ),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: (10 * textScaleFactor).clamp(
+                                        8.0,
+                                        12.0,
+                                      ),
+                                      vertical: (8 * textScaleFactor).clamp(
+                                        6.0,
+                                        10.0,
+                                      ),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: primaryColor.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              '${producto.nombre}',
+                                              style: TextStyle(
+                                                fontSize: smallFontSize,
+                                                fontWeight: FontWeight.w600,
+                                                color:
+                                                    isDark
+                                                        ? Colors.white
+                                                        : const Color(
+                                                          0xFF1B130D,
+                                                        ),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: (8 * textScaleFactor).clamp(
+                                            6.0,
+                                            10.0,
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: (8 * textScaleFactor)
+                                                .clamp(6.0, 10.0),
+                                            vertical: (4 * textScaleFactor)
+                                                .clamp(3.0, 5.0),
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: primaryColor,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              'x${entry.value}',
+                                              style: TextStyle(
+                                                fontSize: smallFontSize * 0.9,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                              maxLines: 1,
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: (8 * textScaleFactor).clamp(
+                                            6.0,
+                                            10.0,
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap:
+                                              () => _removeProductFromCart(
+                                                entry.key,
+                                              ),
+                                          child: Container(
+                                            padding: EdgeInsets.all(
+                                              (4 * textScaleFactor).clamp(
+                                                3.0,
+                                                5.0,
+                                              ),
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.withOpacity(
+                                                0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Colors.red.withOpacity(
+                                                  0.3,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Icons.close,
+                                              size: (16 * textScaleFactor)
+                                                  .clamp(14.0, 18.0),
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               SizedBox(height: spacingMedium),
               SizedBox(
                 width: double.infinity,
@@ -1690,7 +1888,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
                         Text(
                           'REGISTRAR VENTA',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: bodyFontSize * 1.1,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),

@@ -275,7 +275,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                             child: Text(
                               'INVENTARIO DEL DÍA',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: titleFontSize,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: -0.5,
                                 color:
@@ -331,7 +331,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                             child: Text(
                                               'Fecha',
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: smallFontSize,
                                                 fontWeight: FontWeight.w500,
                                                 color:
                                                     isDark
@@ -354,7 +354,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                             child: Text(
                                               _getFormattedDate(),
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: largeFontSize,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     isDark
@@ -386,7 +386,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                           style: TextStyle(
                                             color: primaryColor,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 8,
+                                            fontSize: bodyFontSize,
                                             decoration:
                                                 TextDecoration.underline,
                                             decorationColor: primaryColor,
@@ -419,7 +419,9 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                       ChoiceChip(
                                         label: Text(
                                           'Todos',
-                                          style: TextStyle(fontSize: 8),
+                                          style: TextStyle(
+                                            fontSize: smallFontSize,
+                                          ),
                                         ),
                                         selected:
                                             _selectedCategoriaFilter == -1,
@@ -491,7 +493,9 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                           child: ChoiceChip(
                                             label: Text(
                                               label,
-                                              style: TextStyle(fontSize: 8),
+                                              style: TextStyle(
+                                                fontSize: smallFontSize,
+                                              ),
                                             ),
                                             selected:
                                                 _selectedCategoriaFilter ==
@@ -658,7 +662,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                   producto
                                                                       .nombre,
                                                                   style: TextStyle(
-                                                                    fontSize: 8,
+                                                                    fontSize:
+                                                                        titleFontSize,
                                                                     fontWeight:
                                                                         FontWeight
                                                                             .bold,
@@ -766,7 +771,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         estado,
                                                                         style: TextStyle(
                                                                           fontSize:
-                                                                              8,
+                                                                              smallFontSize,
                                                                           fontWeight:
                                                                               FontWeight.bold,
                                                                           color:
@@ -808,7 +813,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           child: Text(
                                                             'Unidad: ${producto.unidadMedida}',
                                                             style: TextStyle(
-                                                              fontSize: 8,
+                                                              fontSize:
+                                                                  smallFontSize,
                                                               color:
                                                                   isDark
                                                                       ? const Color(
@@ -869,7 +875,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           Text(
                                                             'Inicial',
                                                             style: TextStyle(
-                                                              fontSize: 8,
+                                                              fontSize: 12,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w500,
@@ -891,7 +897,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                               '#,###',
                                                             ).format(inicial),
                                                             style: TextStyle(
-                                                              fontSize: 8,
+                                                              fontSize: 18,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600,
@@ -934,7 +940,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             Text(
                                                               'Vendido',
                                                               style: TextStyle(
-                                                                fontSize: 8,
+                                                                fontSize: 12,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w500,
@@ -956,7 +962,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                 '#,###',
                                                               ).format(vendido),
                                                               style: TextStyle(
-                                                                fontSize: 8,
+                                                                fontSize: 18,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w600,
@@ -1000,7 +1006,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             Text(
                                                               'Disponible',
                                                               style: TextStyle(
-                                                                fontSize: 8,
+                                                                fontSize: 12,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .bold,
@@ -1024,7 +1030,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                 disponible,
                                                               ),
                                                               style: TextStyle(
-                                                                fontSize: 8,
+                                                                fontSize: 24,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .bold,
@@ -1196,7 +1202,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                               ? 'Recargar Stock'
                                                               : 'Recargar',
                                                           style: TextStyle(
-                                                            fontSize: 8,
+                                                            fontSize:
+                                                                bodyFontSize,
                                                             fontWeight:
                                                                 isCritical ||
                                                                         isLowStock ||
@@ -1376,7 +1383,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         'Confirmar Recarga',
                                                         style: TextStyle(
-                                                          fontSize: 8,
+                                                          fontSize:
+                                                              dialogTitleSize,
                                                           fontWeight:
                                                               FontWeight.bold,
                                                           color:
@@ -1415,7 +1423,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         '${_productosParaRecargar.length} producto(s) seleccionado(s)',
                                                         style: TextStyle(
-                                                          fontSize: 8,
+                                                          fontSize:
+                                                              dialogSmallSize,
                                                           color:
                                                               isDarkDialog
                                                                   ? const Color(
@@ -1513,8 +1522,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         fontWeight:
                                                                             FontWeight.bold,
                                                                         fontSize:
-                                                                            8,
-
+                                                                            dialogSmallSize,
                                                                         color:
                                                                             isDarkDialog
                                                                                 ? Colors.white
@@ -1582,7 +1590,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         'Stock: $disponible',
                                                                         style: TextStyle(
                                                                           fontSize:
-                                                                              8,
+                                                                              dialogSmallSize *
+                                                                              0.85,
                                                                           color:
                                                                               disponible ==
                                                                                       0
@@ -1616,7 +1625,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                     'Cantidad:',
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          8,
+                                                                          dialogSmallSize,
                                                                       color:
                                                                           isDarkDialog
                                                                               ? const Color(
@@ -1654,7 +1663,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                             .center,
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          8,
+                                                                          dialogBodySize,
                                                                       fontWeight:
                                                                           FontWeight
                                                                               .w600,
@@ -1761,7 +1770,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                         .unidadMedida,
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          8,
+                                                                          dialogSmallSize,
                                                                       color:
                                                                           isDarkDialog
                                                                               ? const Color(
@@ -1784,7 +1793,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                     'Final: ${disponible + cantidadRecarga}',
                                                                     style: TextStyle(
                                                                       fontSize:
-                                                                          8,
+                                                                          dialogSmallSize,
                                                                       color:
                                                                           isDarkDialog
                                                                               ? const Color(
@@ -1836,7 +1845,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           Text(
                                                             'Total unidades:',
                                                             style: TextStyle(
-                                                              fontSize: 8,
+                                                              fontSize: 14,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
@@ -1849,7 +1858,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           Text(
                                                             '${_cantidadesRecarga.values.fold(0, (sum, cantidad) => sum + cantidad)}',
                                                             style: TextStyle(
-                                                              fontSize: 8,
+                                                              fontSize: 18,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
@@ -1923,7 +1932,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         'Cancelar',
                                                         style: TextStyle(
-                                                          fontSize: 8,
+                                                          fontSize:
+                                                              dialogBodySize,
                                                           color:
                                                               isDarkDialog
                                                                   ? const Color(
@@ -1983,7 +1993,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       child: Text(
                                                         'Confirmar',
                                                         style: TextStyle(
-                                                          fontSize: 8,
+                                                          fontSize:
+                                                              dialogBodySize,
                                                           fontWeight:
                                                               FontWeight.bold,
                                                         ),
@@ -2168,8 +2179,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                             .toString(),
                                         style: TextStyle(
                                           color: primaryColor,
-                                          fontSize: 8,
-
+                                          fontSize: (10 * textScaleFactor)
+                                              .clamp(8.0, 12.0),
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),

@@ -4,8 +4,9 @@ import 'package:path/path.dart';
 class LocalDatabaseService {
   static Database? _database;
   static const String _databaseName = 'churros_local.db';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
   static const String _tableName = 'users';
+  static const String _sucursalesTableName = 'sucursales';
 
   /// Obtiene la instancia de la base de datos
   static Future<Database> get database async {
@@ -39,6 +40,19 @@ class LocalDatabaseService {
         UNIQUE(user_id)
       )
     ''');
+    
+    await db.execute('''
+      CREATE TABLE $_sucursalesTableName (
+        id INTEGER PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        direccion TEXT,
+        telefono TEXT,
+        activa INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(id)
+      )
+    ''');
   }
 
   /// Maneja las migraciones de la base de datos
@@ -50,6 +64,21 @@ class LocalDatabaseService {
     if (oldVersion < 3) {
       // Agregar columna type a la tabla users
       await db.execute('ALTER TABLE $_tableName ADD COLUMN type INTEGER');
+    }
+    if (oldVersion < 4) {
+      // Crear tabla de sucursales para soporte offline
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $_sucursalesTableName (
+          id INTEGER PRIMARY KEY,
+          nombre TEXT NOT NULL,
+          direccion TEXT,
+          telefono TEXT,
+          activa INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE(id)
+        )
+      ''');
     }
   }
 
@@ -173,6 +202,119 @@ class LocalDatabaseService {
       });
     } catch (e) {
       print('Error sincronizando usuarios desde Supabase: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtiene una sucursal por ID de la base de datos local
+  static Future<Map<String, dynamic>?> getSucursalById(int sucursalId) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        _sucursalesTableName,
+        where: 'id = ?',
+        whereArgs: [sucursalId],
+        limit: 1,
+      );
+
+      if (results.isNotEmpty) {
+        final sucursal = results.first;
+        return {
+          'id': sucursal['id'],
+          'nombre': sucursal['nombre'],
+          'direccion': sucursal['direccion'],
+          'telefono': sucursal['telefono'],
+          'activa': (sucursal['activa'] as int) == 1,
+          'created_at': sucursal['created_at'],
+          'updated_at': sucursal['updated_at'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error obteniendo sucursal de base de datos local: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene la sucursal principal (primera activa) de la base de datos local
+  static Future<Map<String, dynamic>?> getSucursalPrincipal() async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        _sucursalesTableName,
+        where: 'activa = ?',
+        whereArgs: [1],
+        limit: 1,
+      );
+
+      if (results.isNotEmpty) {
+        final sucursal = results.first;
+        return {
+          'id': sucursal['id'],
+          'nombre': sucursal['nombre'],
+          'direccion': sucursal['direccion'],
+          'telefono': sucursal['telefono'],
+          'activa': (sucursal['activa'] as int) == 1,
+          'created_at': sucursal['created_at'],
+          'updated_at': sucursal['updated_at'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error obteniendo sucursal principal de base de datos local: $e');
+      return null;
+    }
+  }
+
+  /// Inserta o actualiza una sucursal en la base de datos local
+  static Future<void> upsertSucursal(Map<String, dynamic> sucursalJson) async {
+    try {
+      final db = await database;
+      await db.insert(
+        _sucursalesTableName,
+        {
+          'id': sucursalJson['id'] as int,
+          'nombre': sucursalJson['nombre'] as String,
+          'direccion': sucursalJson['direccion'] as String?,
+          'telefono': sucursalJson['telefono'] as String?,
+          'activa': (sucursalJson['activa'] as bool? ?? true) ? 1 : 0,
+          'created_at': sucursalJson['created_at'] as String,
+          'updated_at': sucursalJson['updated_at'] as String,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print('Error insertando/actualizando sucursal en base de datos local: $e');
+      rethrow;
+    }
+  }
+
+  /// Sincroniza sucursales desde Supabase a la base de datos local
+  static Future<void> syncSucursalesFromSupabase(
+    List<Map<String, dynamic>> supabaseSucursales,
+  ) async {
+    try {
+      final db = await database;
+      await db.transaction((txn) async {
+        for (final sucursal in supabaseSucursales) {
+          await txn.insert(
+            _sucursalesTableName,
+            {
+              'id': sucursal['id'] as int,
+              'nombre': sucursal['nombre'] as String,
+              'direccion': sucursal['direccion'] as String?,
+              'telefono': sucursal['telefono'] as String?,
+              'activa': (sucursal['activa'] as bool? ?? true) ? 1 : 0,
+              'created_at': sucursal['created_at'] as String,
+              'updated_at': sucursal['updated_at'] as String,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      });
+      print('✅ Sucursales sincronizadas: ${supabaseSucursales.length}');
+    } catch (e) {
+      print('Error sincronizando sucursales desde Supabase: $e');
       rethrow;
     }
   }

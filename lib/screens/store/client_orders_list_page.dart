@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/pedido_cliente.dart';
 import '../../models/producto.dart';
+import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
 
 class ClientOrdersListPage extends StatefulWidget {
@@ -15,6 +16,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
   List<PedidoCliente> _pedidos = [];
   Map<int, bool> _esRecurrente = {}; // pedidoId -> esRecurrente
   List<Producto> _productos = [];
+  Map<int, Categoria> _categoriasMap = {};
   String _filtroEstado =
       'todos'; // 'todos', 'pendiente', 'enviado', 'entregado'
   bool _isLoading = true;
@@ -53,6 +55,10 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       // Cargar productos para mostrar nombres
       final productos = await SupabaseService.getProductosActivos();
 
+      // Cargar categorías
+      final categorias = await SupabaseService.getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
+
       // Cargar pedidos de clientes y pedidos recurrentes
       final pedidos = await SupabaseService.getPedidosClientesRecientes(
         limit: 100,
@@ -67,11 +73,17 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
       }
 
       // Combinar ambos tipos de pedidos y ordenar por fecha
-      final todosLosPedidos = [...pedidos, ...pedidosRecurrentes];
-      todosLosPedidos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final hoy = DateTime.now();
+      final todosLosPedidos =
+          [
+              ...pedidos,
+              ...pedidosRecurrentes,
+            ].where((p) => _isSameDay(p.createdAt, hoy)).toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() {
         _productos = productos;
+        _categoriasMap = categoriasMap;
         _pedidos = todosLosPedidos;
         _esRecurrente = esRecurrenteMap;
         _isLoading = false;
@@ -84,17 +96,185 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
     }
   }
 
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   List<PedidoCliente> _getPedidosFiltrados() {
     if (_filtroEstado == 'todos') {
       return _pedidos;
     }
-    return _pedidos.where((p) => p.estado == _filtroEstado).toList();
+    return _pedidos
+        .where((p) => p.estado.toLowerCase() == _filtroEstado.toLowerCase())
+        .toList();
+  }
+
+  // Agrupar pedidos por categoría
+  Map<int?, List<PedidoCliente>> _getPedidosAgrupadosPorCategoria() {
+    final pedidosFiltrados = _getPedidosFiltrados();
+    final grupos = <int?, List<PedidoCliente>>{};
+
+    for (final pedido in pedidosFiltrados) {
+      // Determinar la categoría principal del pedido (primera categoría encontrada)
+      int? categoriaId;
+      if (pedido.detalles != null && pedido.detalles!.isNotEmpty) {
+        final primerDetalle = pedido.detalles!.first;
+        final producto =
+            primerDetalle.producto ??
+            _getProductoById(primerDetalle.productoId);
+        categoriaId = producto?.categoria?.id;
+      }
+
+      (grupos[categoriaId] ??= []).add(pedido);
+    }
+
+    return grupos;
+  }
+
+  Widget _buildPedidosAgrupados({
+    required bool isDark,
+    required Color primaryColor,
+    required bool isSmallScreen,
+  }) {
+    final grupos = _getPedidosAgrupadosPorCategoria();
+
+    if (grupos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 64,
+              color: isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No hay pedidos',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF1B130D),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No se encontraron pedidos con el filtro seleccionado',
+              style: TextStyle(
+                fontSize: 14,
+                color:
+                    isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Ordenar las categorías
+    final categoriasOrdenadas =
+        grupos.keys.toList()..sort((a, b) {
+          if (a == null) return 1;
+          if (b == null) return -1;
+          final nameA = _categoriasMap[a]?.nombre ?? '';
+          final nameB = _categoriasMap[b]?.nombre ?? '';
+          return nameA.compareTo(nameB);
+        });
+
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 16 : 20,
+        vertical: 16,
+      ),
+      itemCount: categoriasOrdenadas.length,
+      itemBuilder: (context, index) {
+        final categoriaId = categoriasOrdenadas[index];
+        final pedidos = grupos[categoriaId]!;
+        final categoria =
+            categoriaId != null ? _categoriasMap[categoriaId] : null;
+        final categoriaNombre = categoria?.nombre ?? 'Sin categoría';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header de categoría
+            Padding(
+              padding: EdgeInsets.only(bottom: 12, top: index > 0 ? 8 : 0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(isDark ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(isDark ? 0.4 : 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.category, size: 16, color: primaryColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          categoriaNombre,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: primaryColor,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${pedidos.length}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Pedidos de la categoría
+            ...pedidos.map(
+              (pedido) => _buildOrderCard(
+                isDark: isDark,
+                pedido: pedido,
+                primaryColor: primaryColor,
+                isSmallScreen: isSmallScreen,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _getEstadoBadge(String estado) {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return 'Pendiente';
+      case 'en_preparacion':
+        return 'En Preparación';
       case 'enviado':
         return 'Enviado';
       case 'entregado':
@@ -110,6 +290,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return const Color(0xFFEC6D13);
+      case 'en_preparacion':
+        return Colors.orange;
       case 'enviado':
         return Colors.blue;
       case 'entregado':
@@ -125,6 +307,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return Icons.pending;
+      case 'en_preparacion':
+        return Icons.restaurant;
       case 'enviado':
         return Icons.local_shipping;
       case 'entregado':
@@ -137,7 +321,8 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
   }
 
   bool _puedeDespachar(String estado) {
-    return estado == 'pendiente';
+    final estadoLower = estado.toLowerCase();
+    return estadoLower == 'pendiente' || estadoLower == 'en_preparacion';
   }
 
   Future<void> _despacharPedido(PedidoCliente pedido) async {
@@ -339,7 +524,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                     child: Text(
                       'Pedidos Clientes',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -389,7 +574,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -402,7 +587,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
               ),
             ),
 
-            // Filtros
+            // Filtros de Estado
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
@@ -485,7 +670,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                 Text(
                                   'No hay pedidos',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -497,7 +682,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                 Text(
                                   'No se encontraron pedidos con el filtro seleccionado',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 14,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
@@ -508,21 +693,10 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                               ],
                             ),
                           )
-                          : ListView.builder(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isSmallScreen ? 16 : 20,
-                              vertical: 16,
-                            ),
-                            itemCount: pedidosFiltrados.length,
-                            itemBuilder: (context, index) {
-                              final pedido = pedidosFiltrados[index];
-                              return _buildOrderCard(
-                                isDark: isDark,
-                                pedido: pedido,
-                                primaryColor: primaryColor,
-                                isSmallScreen: isSmallScreen,
-                              );
-                            },
+                          : _buildPedidosAgrupados(
+                            isDark: isDark,
+                            primaryColor: primaryColor,
+                            isSmallScreen: isSmallScreen,
                           )),
             ),
           ],
@@ -578,7 +752,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 14,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.2,
               color:
@@ -645,14 +819,15 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
             ),
             child: Row(
               children: [
-                // Borde izquierdo de color para pedidos pendientes
-                if (estado == 'pendiente')
+                // Borde izquierdo de color para pedidos pendientes o en preparación
+                if (estado == 'pendiente' || estado == 'en_preparacion')
                   Container(
                     width: 4,
                     height: 80,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      color: primaryColor,
+                      color:
+                          estado == 'pendiente' ? primaryColor : Colors.orange,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
@@ -663,126 +838,66 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Primera fila: Nombre del pedido + Badge recurrente
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        pedido.numeroPedido ??
-                                            'Pedido #${pedido.id}',
-                                        style: TextStyle(
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              isDark
-                                                  ? Colors.white
-                                                  : const Color(0xFF1B130D),
-                                        ),
-                                      ),
-                                    ),
-                                    if (_esRecurrente[pedido.id] == true)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 8),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.teal.withOpacity(
-                                            isDark ? 0.2 : 0.1,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.teal.withOpacity(
-                                              isDark ? 0.3 : 0.2,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.repeat,
-                                              size: 12,
-                                              color: Colors.teal,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Recurrente',
-                                              style: TextStyle(
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.teal,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.person,
-                                      size: 14,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      pedido.clienteNombre,
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on,
-                                      size: 14,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        pedido.direccionEntrega,
-                                        style: TextStyle(
-                                          fontSize: 8,
-                                          color:
-                                              isDark
-                                                  ? const Color(0xFFA8A29E)
-                                                  : const Color(0xFF78716C),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            child: Text(
+                              pedido.numeroPedido ?? 'Pedido #${pedido.id}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1B130D),
+                              ),
                             ),
                           ),
+                          if (_esRecurrente[pedido.id] == true)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withOpacity(
+                                  isDark ? 0.2 : 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.teal.withOpacity(
+                                    isDark ? 0.3 : 0.2,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.repeat,
+                                    size: 12,
+                                    color: Colors.teal,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Recurrente',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Segunda fila: Estatus
+                      Row(
+                        children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -815,13 +930,69 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                 Text(
                                   estadoBadge,
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     color: estadoColor,
                                     letterSpacing: 0.3,
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Tercera fila: Cliente
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person,
+                            size: 14,
+                            color:
+                                isDark
+                                    ? const Color(0xFFA8A29E)
+                                    : const Color(0xFF78716C),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              pedido.clienteNombre,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color:
+                                    isDark
+                                        ? const Color(0xFFA8A29E)
+                                        : const Color(0xFF78716C),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Cuarta fila: Dirección
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color:
+                                isDark
+                                    ? const Color(0xFFA8A29E)
+                                    : const Color(0xFF78716C),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              pedido.direccionEntrega,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isDark
+                                        ? const Color(0xFFA8A29E)
+                                        : const Color(0xFF78716C),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -847,7 +1018,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     child: Text(
                                       '$timeAgo • $fechaHora',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 12,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -873,7 +1044,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     '${pedido.totalItems} items',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -893,7 +1064,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     _formatCurrency(pedido.total),
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -920,7 +1091,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     Text(
                                       'Domicilio: ${_formatCurrency(pedido.domicilio!)}',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 12,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -942,7 +1113,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     'Valor Total: ${_formatCurrency(pedido.total + (pedido.domicilio ?? 0))}',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w700,
                                       color: primaryColor,
                                     ),
@@ -970,7 +1141,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     '$timeAgo • $fechaHora',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -994,7 +1165,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     '${pedido.totalItems} items',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
@@ -1018,7 +1189,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     _formatCurrency(pedido.total),
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -1045,8 +1216,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                     Text(
                                       'Domicilio: ${_formatCurrency(pedido.domicilio!)}',
                                       style: TextStyle(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -1067,7 +1237,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                                   Text(
                                     'Total: ${_formatCurrency(pedido.total + (pedido.domicilio ?? 0))}',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w700,
                                       color: primaryColor,
                                     ),
@@ -1146,7 +1316,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                   Text(
                     'Productos:',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -1176,7 +1346,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                             child: Text(
                               '${detalle.cantidad} ${producto?.unidadMedida ?? 'unidad'} ${producto?.nombre ?? 'Producto #${detalle.productoId}'} - ${_formatCurrency(detalle.precioTotal)}',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 14,
                                 color:
                                     isDark
                                         ? Colors.white

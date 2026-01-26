@@ -543,7 +543,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                     child: Text(
                       'Pedidos Recurrentes',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -573,7 +573,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                               Text(
                                 'Cliente Recurrente',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -653,7 +653,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                               Text(
                                 'Dirección de Entrega',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -690,7 +690,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                               Text(
                                 'Método de Pago',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color:
                                       isDark
@@ -754,7 +754,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                               Text(
                                 'Productos (Churros Congelados y Fritos)',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -813,7 +813,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                                 Text(
                                                   producto.nombre,
                                                   style: TextStyle(
-                                                    fontSize: 8,
+                                                    fontSize: 16,
                                                     fontWeight: FontWeight.bold,
                                                     color:
                                                         isDark
@@ -827,7 +827,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                                 Text(
                                                   'Precio base: ${_formatCurrency(producto.precio)}',
                                                   style: TextStyle(
-                                                    fontSize: 8,
+                                                    fontSize: 12,
                                                     color:
                                                         isDark
                                                             ? const Color(
@@ -851,7 +851,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                             child: Text(
                                               'Precio Especial:',
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 12,
                                                 color:
                                                     isDark
                                                         ? Colors.white70
@@ -871,7 +871,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                                     decimal: true,
                                                   ),
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 14,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     isDark
@@ -923,7 +923,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                           Text(
                                             'Cantidad:',
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                               color:
                                                   isDark
@@ -986,7 +986,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                                     keyboardType:
                                                         TextInputType.number,
                                                     style: TextStyle(
-                                                      fontSize: 8,
+                                                      fontSize: 14,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                       color:
@@ -1042,7 +1042,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                             Text(
                                               'Subtotal: ${_formatCurrency(subtotal)}',
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.w600,
                                                 color:
                                                     isDark
@@ -1102,7 +1102,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                         Text(
                                           'Total Items: ${_calcularTotalItems()}',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 14,
                                             color:
                                                 isDark
                                                     ? const Color(0xFF9A6C4C)
@@ -1113,7 +1113,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                         Text(
                                           'Total: ${_formatCurrency(_calcularTotal())}',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.bold,
                                             color: primaryColor,
                                           ),
@@ -1184,7 +1184,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                           : const Text(
                             'Guardar Pedido Recurrente',
                             style: TextStyle(
-                              fontSize: 8,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/empleado.dart';
+import '../../services/factory_section_tracker.dart';
 import '../../services/supabase_service.dart';
 
 class EmployeesManagementPage extends StatefulWidget {
@@ -18,7 +19,14 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
   @override
   void initState() {
     super.initState();
+    FactorySectionTracker.enter();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    FactorySectionTracker.exit();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -162,7 +170,7 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
                     child: Text(
                       'Gestión de Empleados',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -291,7 +299,7 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
         title: Text(
           empleado.nombre,
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1B130D),
           ),
@@ -309,7 +317,7 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
                     Text(
                       empleado.telefono!,
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 12,
                         color:
                             isDark
                                 ? const Color(0xFF9A6C4C)
@@ -330,7 +338,7 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
                       child: Text(
                         empleado.email!,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 12,
                           color:
                               isDark
                                   ? const Color(0xFF9A6C4C)
@@ -355,7 +363,7 @@ class _EmployeesManagementPageState extends State<EmployeesManagementPage> {
               child: Text(
                 empleado.activo ? 'Activo' : 'Inactivo',
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 10,
                   color: empleado.activo ? Colors.green : Colors.red,
                 ),
               ),

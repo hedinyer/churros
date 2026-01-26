@@ -5,6 +5,7 @@ import '../../models/user.dart';
 import '../../models/producto.dart';
 import '../../models/pedido_fabrica.dart';
 import '../../services/supabase_service.dart';
+import '../../services/factory_section_tracker.dart';
 
 class FactoryOrderPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -36,12 +37,14 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
   @override
   void initState() {
     super.initState();
+    FactorySectionTracker.enter();
     _loadData();
     _checkConnection();
   }
 
   @override
   void dispose() {
+    FactorySectionTracker.exit();
     // Dispose de todos los controllers
     for (var controller in _cantidadControllers.values) {
       controller.dispose();
@@ -354,7 +357,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                     child: Text(
                       'Pedido a Fábrica',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -417,7 +420,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: _isOnline ? Colors.green : primaryColor,
                           ),
@@ -449,7 +452,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                 Text(
                                   'Nuevo Pedido',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -460,7 +463,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                 Text(
                                   'Stock Actual',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                     color:
                                         isDark
@@ -502,7 +505,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                           Text(
                                             producto.nombre,
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 16,
                                               fontWeight: FontWeight.bold,
                                               color:
                                                   isDark
@@ -514,7 +517,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                           Text(
                                             'Unidad: ${producto.unidadMedida}',
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 14,
                                               color:
                                                   isDark
                                                       ? const Color(0xFFA8A29E)
@@ -585,7 +588,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                               keyboardType:
                                                   TextInputType.number,
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 20,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     isDark
@@ -646,7 +649,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                             Text(
                               'Pedidos Recientes',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color:
                                     isDark
@@ -726,7 +729,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                           pedido.numeroPedido ??
                                                               'Pedido #${pedido.id}',
                                                           style: TextStyle(
-                                                            fontSize: 8,
+                                                            fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             color:
@@ -744,7 +747,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                         Text(
                                                           timeAgo,
                                                           style: TextStyle(
-                                                            fontSize: 8,
+                                                            fontSize: 12,
                                                             color:
                                                                 isDark
                                                                     ? const Color(
@@ -789,7 +792,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                         Text(
                                                           estadoBadge,
                                                           style: TextStyle(
-                                                            fontSize: 8,
+                                                            fontSize: 12,
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             color: estadoColor,
@@ -834,7 +837,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                                         })
                                                         .join(', '),
                                                     style: TextStyle(
-                                                      fontSize: 8,
+                                                      fontSize: 14,
                                                       color:
                                                           isDark
                                                               ? const Color(
@@ -892,7 +895,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                       Text(
                         'Total items: ${_getTotalItems()}',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color:
                               isDark
@@ -904,7 +907,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                         Text(
                           'Modo Offline Activo',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                             color: primaryColor,
                           ),
@@ -944,7 +947,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                                   const Text(
                                     'Enviar Pedido',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

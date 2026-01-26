@@ -303,7 +303,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: Text(
                         widget.sucursal.nombre,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),
@@ -377,7 +377,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       Text(
                                         'VENTAS DE HOY',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                           color:
                                               isDark
@@ -398,7 +398,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                               ? '\$0'
                                               : '\$${NumberFormat('#,###', 'es').format(_totalVentasHoy.round())}',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 36,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -443,7 +443,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       Text(
                                         'ONLINE',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.bold,
                                           color: const Color(0xFF10B981),
                                         ),
@@ -475,7 +475,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     Text(
                                       '${_porcentajeVsAyer >= 0 ? '+' : ''}${_porcentajeVsAyer.toStringAsFixed(0)}% VS AYER',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color:
                                             _porcentajeVsAyer >= 0
@@ -497,7 +497,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     Text(
                                       'GASTOS: \$${NumberFormat('#,###', 'es').format(_totalGastosHoy.round())}',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.red,
                                       ),
@@ -723,7 +723,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Text(
               title,
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color:
                     isDark

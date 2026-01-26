@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 enum NotificationSound {
   defaultSound,
+  newOrder,
   factoryOrderSent,
   factoryOrderDelivered,
 }
@@ -20,6 +21,7 @@ class NotificationService {
 
   // Android 8+ channels (sound is fixed per channel once created)
   static const String _channelDefaultId = 'pedidos_channel';
+  static const String _channelNewOrderId = 'new_order_channel_v1';
   static const String _channelFactorySentId = 'factory_order_sent_channel_v1';
   static const String _channelFactoryDeliveredId =
       'factory_order_delivered_channel_v1';
@@ -57,6 +59,16 @@ class NotificationService {
           'Notificaciones de Pedidos',
           description: 'Notificaciones cuando llegan nuevos pedidos',
           importance: Importance.high,
+        ),
+      );
+
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelNewOrderId,
+          'Nuevo pedido',
+          description: 'Notificación cuando llega un nuevo pedido',
+          importance: Importance.max,
+          sound: RawResourceAndroidNotificationSound('pedido_enviado'),
         ),
       );
 
@@ -116,18 +128,25 @@ class NotificationService {
 
     final (androidChannelId, androidChannelName, androidSound, iosSound, androidIcon) =
         switch (sound) {
+          NotificationSound.newOrder => (
+              _channelNewOrderId,
+              'Nuevo pedido',
+              const RawResourceAndroidNotificationSound('pedido_enviado'),
+              null,
+              _androidFactoryIcon,
+            ),
           NotificationSound.factoryOrderSent => (
               _channelFactorySentId,
               'Pedido enviado',
               const RawResourceAndroidNotificationSound('pedido_enviado'),
-              'pedido_enviado.aiff',
+              null,
               _androidFactoryIcon,
             ),
           NotificationSound.factoryOrderDelivered => (
               _channelFactoryDeliveredId,
               'Pedido entregado',
               const RawResourceAndroidNotificationSound('pedido_entregado'),
-              'pedido_entregado.aiff',
+              null,
               _androidFactoryIcon,
             ),
           NotificationSound.defaultSound => (
@@ -177,6 +196,7 @@ class NotificationService {
   static Future<void> showNewFactoryOrderNotification({
     required String sucursal,
     int? cantidadProductos,
+    bool noisy = false,
   }) async {
     await showNotification(
       id: DateTime.now().millisecondsSinceEpoch % 100000,
@@ -185,6 +205,7 @@ class NotificationService {
           ? 'Nuevo pedido desde $sucursal con $cantidadProductos productos'
           : 'Nuevo pedido desde $sucursal',
       payload: 'factory_order',
+      sound: noisy ? NotificationSound.newOrder : NotificationSound.defaultSound,
     );
   }
 
@@ -192,6 +213,7 @@ class NotificationService {
   static Future<void> showNewClientOrderNotification({
     required String cliente,
     int? cantidadProductos,
+    bool noisy = false,
   }) async {
     await showNotification(
       id: DateTime.now().millisecondsSinceEpoch % 100000,
@@ -200,6 +222,7 @@ class NotificationService {
           ? 'Nuevo pedido de $cliente con $cantidadProductos productos'
           : 'Nuevo pedido de $cliente',
       payload: 'client_order',
+      sound: noisy ? NotificationSound.newOrder : NotificationSound.defaultSound,
     );
   }
 

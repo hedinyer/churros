@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../services/supabase_service.dart';
 import '../../models/empleado.dart';
 import '../../models/producto.dart';
+import '../../services/factory_section_tracker.dart';
 
 class FactoryStatisticsPage extends StatefulWidget {
   const FactoryStatisticsPage({super.key});
@@ -20,7 +21,14 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
   @override
   void initState() {
     super.initState();
+    FactorySectionTracker.enter();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    FactorySectionTracker.exit();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -111,7 +119,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                     child: Text(
                       'Estadísticas de Fábrica',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -201,7 +209,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
     return Text(
       title,
       style: TextStyle(
-        fontSize: 8,
+        fontSize: 20,
         fontWeight: FontWeight.bold,
         color: isDark ? Colors.white : const Color(0xFF1B130D),
       ),
@@ -324,7 +332,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 28,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
               color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -334,7 +342,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             title,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
             ),
@@ -343,7 +351,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 11,
               color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
             ),
           ),
@@ -385,7 +393,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             'Total Items Hoy: ${pedidosFabrica['total_items_hoy'] ?? 0}',
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1B130D),
             ),
@@ -465,7 +473,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             'Ingresos Hoy: \$${NumberFormat('#,##0.00').format(ingresosHoy)}',
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1B130D),
             ),
@@ -525,7 +533,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 14,
                 color: isDark ? Colors.white : const Color(0xFF1B130D),
               ),
             ),
@@ -534,7 +542,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
         Text(
           value.toString(),
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -596,7 +604,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             'Producción por Empleado (Hoy)',
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1B130D),
             ),
@@ -606,7 +614,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
             Text(
               'No hay producción registrada hoy',
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 14,
                 color:
                     isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
               ),
@@ -624,7 +632,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                       child: Text(
                         empleado.nombre,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
@@ -633,7 +641,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                     Text(
                       '$cantidad unidades',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFFEC6D13),
                       ),
@@ -699,7 +707,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             'Top 5 Productos (Últimos 7 Días)',
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1B130D),
             ),
@@ -709,7 +717,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
             Text(
               'No hay producción registrada',
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 14,
                 color:
                     isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
               ),
@@ -735,7 +743,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                         child: Text(
                           '${index + 1}',
                           style: const TextStyle(
-                            fontSize: 8,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFFEC6D13),
                           ),
@@ -747,7 +755,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                       child: Text(
                         producto.nombre,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),
                         ),
@@ -756,7 +764,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                     Text(
                       '$cantidad unidades',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFFEC6D13),
                       ),
@@ -792,7 +800,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
         child: Text(
           'No hay datos de producción en los últimos 7 días',
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 14,
             color: isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
           ),
         ),
@@ -832,7 +840,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
           Text(
             'Producción Diaria',
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : const Color(0xFF1B130D),
             ),
@@ -866,7 +874,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                       Text(
                         fechaFormateada,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 12,
                           color:
                               isDark
                                   ? const Color(0xFF9A6C4C)
@@ -876,7 +884,7 @@ class _FactoryStatisticsPageState extends State<FactoryStatisticsPage> {
                       Text(
                         '$cantidad unidades',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),

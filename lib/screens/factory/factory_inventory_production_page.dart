@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/producto.dart';
+import '../../services/factory_section_tracker.dart';
 import '../../services/supabase_service.dart';
 
 class FactoryInventoryProductionPage extends StatefulWidget {
@@ -22,11 +23,13 @@ class _FactoryInventoryProductionPageState
   @override
   void initState() {
     super.initState();
+    FactorySectionTracker.enter();
     _loadData();
   }
 
   @override
   void dispose() {
+    FactorySectionTracker.exit();
     // Dispose de todos los controllers
     for (final controller in _cantidadControllers.values) {
       controller.dispose();
@@ -245,7 +248,7 @@ class _FactoryInventoryProductionPageState
                     child: Text(
                       'Producción de Inventario',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -282,7 +285,7 @@ class _FactoryInventoryProductionPageState
                               Text(
                                 'No hay productos disponibles',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -294,7 +297,7 @@ class _FactoryInventoryProductionPageState
                               Text(
                                 'No se encontraron churros en tamaño bandeja',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   color:
                                       isDark
                                           ? const Color(0xFFA8A29E)
@@ -381,7 +384,7 @@ class _FactoryInventoryProductionPageState
               Text(
                 producto.nombre,
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF1B130D),
                 ),
@@ -392,7 +395,7 @@ class _FactoryInventoryProductionPageState
                 Text(
                   producto.descripcion!,
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 12,
                     color:
                         isDark
                             ? const Color(0xFF9A6C4C)
@@ -415,13 +418,14 @@ class _FactoryInventoryProductionPageState
                       : Colors.grey.withOpacity(0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
               children: [
                 Text(
                   'Cantidad actual en inventario:',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 14,
                     color:
                         isDark
                             ? const Color(0xFF9A6C4C)
@@ -431,7 +435,7 @@ class _FactoryInventoryProductionPageState
                 Text(
                   '$cantidadActual ${producto.unidadMedida}',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: primaryColor,
                   ),
@@ -484,7 +488,7 @@ class _FactoryInventoryProductionPageState
               label: Text(
                 isGuardando ? 'Guardando...' : 'Guardar Cantidad',
                 style: const TextStyle(
-                  fontSize: 8,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
                 ),

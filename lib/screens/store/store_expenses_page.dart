@@ -76,7 +76,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     Text(
                       'Tipo de gasto',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
@@ -349,7 +349,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                     child: Text(
                       'Gastos de Hoy',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -391,7 +391,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                         Text(
                           'Total Gastos de Hoy',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color:
                                 isDark ? Colors.white : const Color(0xFF1B130D),
@@ -400,7 +400,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                         Text(
                           _formatCurrency(_getTotalGastos()),
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.red,
                           ),
@@ -491,7 +491,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                                         Text(
                                           'No hay gastos de hoy',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -558,7 +558,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 14,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color:
                 isSelected
@@ -617,7 +617,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                       child: Text(
                         descripcion,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color:
                               isDark ? Colors.white : const Color(0xFF1B130D),
@@ -636,7 +636,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                       child: Text(
                         tipoLabel,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: tipoColor,
                         ),
@@ -649,7 +649,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
                   Text(
                     categoria,
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       color:
                           isDark
                               ? const Color(0xFF9A6C4C)
@@ -663,7 +663,7 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
           Text(
             _formatCurrency(monto),
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.red,
             ),

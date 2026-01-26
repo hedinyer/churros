@@ -79,24 +79,49 @@ class _DispatchPageState extends State<DispatchPage> {
 
   List<dynamic> _getPedidosFiltrados() {
     List<dynamic> todosPedidos = [];
+    final hoy = DateTime.now();
 
     // Agregar pedidos de fábrica
     for (var pedido in _pedidosFabrica) {
-      if (_filtroEstado == 'todos' || pedido.estado == _filtroEstado) {
+      // Solo mostrar pedidos del día actual
+      final esHoy = _isSameDay(pedido.createdAt, hoy);
+      if (!esHoy) continue;
+
+      // Aplicar filtro de estado
+      final estadoPedido = pedido.estado.toLowerCase();
+      final filtroEstadoLower = _filtroEstado.toLowerCase();
+
+      if (_filtroEstado == 'todos' || estadoPedido == filtroEstadoLower) {
         todosPedidos.add({'tipo': 'fabrica', 'pedido': pedido});
       }
     }
 
     // Agregar pedidos de clientes
     for (var pedido in _pedidosClientes) {
-      if (_filtroEstado == 'todos' || pedido.estado == _filtroEstado) {
+      // Solo mostrar pedidos del día actual
+      final esHoy = _isSameDay(pedido.createdAt, hoy);
+      if (!esHoy) continue;
+
+      // Aplicar filtro de estado
+      final estadoPedido = pedido.estado.toLowerCase();
+      final filtroEstadoLower = _filtroEstado.toLowerCase();
+
+      if (_filtroEstado == 'todos' || estadoPedido == filtroEstadoLower) {
         todosPedidos.add({'tipo': 'cliente', 'pedido': pedido});
       }
     }
 
     // Agregar pedidos recurrentes
     for (var pedido in _pedidosRecurrentes) {
-      if (_filtroEstado == 'todos' || pedido.estado == _filtroEstado) {
+      // Solo mostrar pedidos del día actual
+      final esHoy = _isSameDay(pedido.createdAt, hoy);
+      if (!esHoy) continue;
+
+      // Aplicar filtro de estado
+      final estadoPedido = pedido.estado.toLowerCase();
+      final filtroEstadoLower = _filtroEstado.toLowerCase();
+
+      if (_filtroEstado == 'todos' || estadoPedido == filtroEstadoLower) {
         todosPedidos.add({'tipo': 'recurrente', 'pedido': pedido});
       }
     }
@@ -116,6 +141,9 @@ class _DispatchPageState extends State<DispatchPage> {
 
     return todosPedidos;
   }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   String _getEstadoBadge(String estado) {
     switch (estado.toLowerCase()) {
@@ -313,7 +341,7 @@ class _DispatchPageState extends State<DispatchPage> {
                     child: Text(
                       'Despacho',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -363,7 +391,7 @@ class _DispatchPageState extends State<DispatchPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -451,7 +479,7 @@ class _DispatchPageState extends State<DispatchPage> {
                                 Text(
                                   'No hay pedidos para despacho',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -463,7 +491,7 @@ class _DispatchPageState extends State<DispatchPage> {
                                 Text(
                                   'No se encontraron pedidos con el filtro seleccionado',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 14,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
@@ -544,7 +572,7 @@ class _DispatchPageState extends State<DispatchPage> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 14,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.2,
               color:
@@ -638,256 +666,253 @@ class _DispatchPageState extends State<DispatchPage> {
                 ),
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Badge de tipo
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.storefront, size: 12, color: Colors.blue),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Punto de Venta',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ],
+                // Nombre del pedido
+                Text(
+                  pedido.numeroPedido ?? 'Pedido #${pedido.id}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(height: 8),
+                // Etiquetas en fila
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    // Badge de tipo
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Text(
-                              pedido.numeroPedido ?? 'Pedido #${pedido.id}',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: estadoColor.withOpacity(
-                                isDark ? 0.2 : 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(estadoIcon, size: 14, color: estadoColor),
-                                const SizedBox(width: 4),
-                                Text(
-                                  estadoBadge,
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: estadoColor,
-                                  ),
-                                ),
-                              ],
+                          Icon(Icons.storefront, size: 12, color: Colors.blue),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Punto de Venta',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      // Información responsive - se adapta a pantallas pequeñas
-                      isSmallScreen
-                          ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.storefront,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      pedido.sucursal?.nombre ?? 'Sucursal',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      '$timeAgo • $fechaHora',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.shopping_cart,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${pedido.totalItems} items',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          )
-                          : Wrap(
-                            spacing: 16,
-                            runSpacing: 8,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.storefront,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
+                    ),
+                    // Badge de estado
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: estadoColor.withOpacity(isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(estadoIcon, size: 14, color: estadoColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            estadoBadge,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: estadoColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Información adicional
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Información responsive - se adapta a pantallas pequeñas
+                    isSmallScreen
+                        ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.storefront,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
                                     pedido.sucursal?.nombre ?? 'Sucursal',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
                                               : const Color(0xFF78716C),
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
                                     '$timeAgo • $fechaHora',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFFA8A29E)
                                               : const Color(0xFF78716C),
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.shopping_cart,
-                                    size: 14,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.shopping_cart,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${pedido.totalItems} items',
+                                  style: TextStyle(
+                                    fontSize: 12,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
                                             : const Color(0xFF78716C),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${pedido.totalItems} items',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                        : Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.storefront,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  pedido.sucursal?.nombre ?? 'Sucursal',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                    ],
-                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$timeAgo • $fechaHora',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.shopping_cart,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${pedido.totalItems} items',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // Botón para marcar como entregado (solo si está enviado)
-          if (estado == 'enviado')
+          // Botón para marcar como entregado (si no está ya entregado)
+          if (estado != 'entregado')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -947,7 +972,7 @@ class _DispatchPageState extends State<DispatchPage> {
                   Text(
                     'Productos:',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -975,7 +1000,7 @@ class _DispatchPageState extends State<DispatchPage> {
                             child: Text(
                               '${detalle.cantidad} ${producto?.unidadMedida ?? 'unidad'} ${producto?.nombre ?? 'Producto #${detalle.productoId}'}',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 14,
                                 color:
                                     isDark
                                         ? Colors.white
@@ -1045,312 +1070,309 @@ class _DispatchPageState extends State<DispatchPage> {
                 ),
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Badge de tipo
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (esRecurrente ? Colors.teal : Colors.green)
-                        .withOpacity(isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        esRecurrente ? Icons.repeat : Icons.chat,
-                        size: 12,
-                        color: esRecurrente ? Colors.teal : Colors.green,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        esRecurrente ? 'Recurrente' : 'WhatsApp',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          color: esRecurrente ? Colors.teal : Colors.green,
-                        ),
-                      ),
-                    ],
+                // Nombre del pedido
+                Text(
+                  pedido.numeroPedido ?? 'Pedido #${pedido.id}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(height: 8),
+                // Etiquetas en fila
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    // Badge de tipo
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (esRecurrente ? Colors.teal : Colors.green)
+                            .withOpacity(isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Text(
-                              pedido.numeroPedido ?? 'Pedido #${pedido.id}',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isDark
-                                        ? Colors.white
-                                        : const Color(0xFF1B130D),
-                              ),
+                          Icon(
+                            esRecurrente ? Icons.repeat : Icons.chat,
+                            size: 12,
+                            color: esRecurrente ? Colors.teal : Colors.green,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            esRecurrente ? 'Recurrente' : 'WhatsApp',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: esRecurrente ? Colors.teal : Colors.green,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                        ],
+                      ),
+                    ),
+                    // Badge de estado
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: estadoColor.withOpacity(isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(estadoIcon, size: 14, color: estadoColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            estadoBadge,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: estadoColor,
                             ),
-                            decoration: BoxDecoration(
-                              color: estadoColor.withOpacity(
-                                isDark ? 0.2 : 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Información adicional
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          size: 14,
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            pedido.clienteNombre,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  isDark
+                                      ? const Color(0xFFA8A29E)
+                                      : const Color(0xFF78716C),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            pedido.direccionEntrega,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  isDark
+                                      ? const Color(0xFFA8A29E)
+                                      : const Color(0xFF78716C),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Información responsive - se adapta a pantallas pequeñas
+                    isSmallScreen
+                        ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Icon(estadoIcon, size: 14, color: estadoColor),
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  estadoBadge,
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: estadoColor,
+                                Expanded(
+                                  child: Text(
+                                    '$timeAgo • $fechaHora',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          isDark
+                                              ? const Color(0xFFA8A29E)
+                                              : const Color(0xFF78716C),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.person,
-                            size: 14,
-                            color:
-                                isDark
-                                    ? const Color(0xFFA8A29E)
-                                    : const Color(0xFF78716C),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              pedido.clienteNombre,
-                              style: TextStyle(
-                                fontSize: 8,
-                                color:
-                                    isDark
-                                        ? const Color(0xFFA8A29E)
-                                        : const Color(0xFF78716C),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.shopping_cart,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${pedido.totalItems} items',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Icon(
+                                  Icons.attach_money,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatCurrency(pedido.total),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1B130D),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            size: 14,
-                            color:
-                                isDark
-                                    ? const Color(0xFFA8A29E)
-                                    : const Color(0xFF78716C),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              pedido.direccionEntrega,
-                              style: TextStyle(
-                                fontSize: 8,
-                                color:
-                                    isDark
-                                        ? const Color(0xFFA8A29E)
-                                        : const Color(0xFF78716C),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          ],
+                        )
+                        : Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$timeAgo • $fechaHora',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      // Información responsive - se adapta a pantallas pequeñas
-                      isSmallScreen
-                          ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.shopping_cart,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${pedido.totalItems} items',
+                                  style: TextStyle(
+                                    fontSize: 12,
                                     color:
                                         isDark
                                             ? const Color(0xFFA8A29E)
                                             : const Color(0xFF78716C),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      '$timeAgo • $fechaHora',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        color:
-                                            isDark
-                                                ? const Color(0xFFA8A29E)
-                                                : const Color(0xFF78716C),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.shopping_cart,
-                                    size: 14,
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.attach_money,
+                                  size: 14,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatCurrency(pedido.total),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
                                     color:
                                         isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
+                                            ? Colors.white
+                                            : const Color(0xFF1B130D),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${pedido.totalItems} items',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.attach_money,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatCurrency(pedido.total),
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          isDark
-                                              ? Colors.white
-                                              : const Color(0xFF1B130D),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          )
-                          : Wrap(
-                            spacing: 16,
-                            runSpacing: 8,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '$timeAgo • $fechaHora',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.shopping_cart,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${pedido.totalItems} items',
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      color:
-                                          isDark
-                                              ? const Color(0xFFA8A29E)
-                                              : const Color(0xFF78716C),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.attach_money,
-                                    size: 14,
-                                    color:
-                                        isDark
-                                            ? const Color(0xFFA8A29E)
-                                            : const Color(0xFF78716C),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatCurrency(pedido.total),
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          isDark
-                                              ? Colors.white
-                                              : const Color(0xFF1B130D),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                    ],
-                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // Botón para marcar como entregado (solo si está enviado)
-          if (estado == 'enviado')
+          // Botón para marcar como entregado (si no está ya entregado)
+          if (estado != 'entregado')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -1410,7 +1432,7 @@ class _DispatchPageState extends State<DispatchPage> {
                   Text(
                     'Productos:',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -1440,7 +1462,7 @@ class _DispatchPageState extends State<DispatchPage> {
                             child: Text(
                               '${detalle.cantidad} ${producto?.unidadMedida ?? 'unidad'} ${producto?.nombre ?? 'Producto #${detalle.productoId}'} - ${_formatCurrency(detalle.precioTotal)}',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 14,
                                 color:
                                     isDark
                                         ? Colors.white

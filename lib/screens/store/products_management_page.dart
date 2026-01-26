@@ -164,7 +164,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                     child: Text(
                       'Gestión de Productos',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -283,7 +283,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
         title: Text(
           producto.nombre,
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : const Color(0xFF1B130D),
           ),
@@ -298,7 +298,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                 child: Text(
                   producto.descripcion!,
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 12,
                     color:
                         isDark
                             ? const Color(0xFF9A6C4C)
@@ -321,14 +321,14 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                     ),
                     child: Text(
                       producto.categoria!.nombre,
-                      style: TextStyle(fontSize: 8, color: Colors.blue),
+                      style: TextStyle(fontSize: 10, color: Colors.blue),
                     ),
                   ),
                 const SizedBox(width: 8),
                 Text(
                   '\$${producto.precio.toStringAsFixed(0)}',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFFEC6D13),
                   ),
@@ -337,7 +337,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                 Text(
                   '• ${producto.unidadMedida}',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 12,
                     color:
                         isDark
                             ? const Color(0xFF9A6C4C)
@@ -364,7 +364,7 @@ class _ProductsManagementPageState extends State<ProductsManagementPage> {
                   child: Text(
                     producto.activo ? 'Activo' : 'Inactivo',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 10,
                       color: producto.activo ? Colors.green : Colors.red,
                     ),
                   ),

@@ -35,6 +35,11 @@ class SupabaseService {
     }
   }
 
+  /// Verifica si hay conexión a internet (método público)
+  static Future<bool> checkConnection() async {
+    return await _checkConnection();
+  }
+
   /// Verifica las credenciales del usuario
   /// Primero intenta con Supabase, si falla usa la base de datos local
   /// Retorna el usuario si las credenciales son correctas, null si no
@@ -86,7 +91,7 @@ class SupabaseService {
     try {
       final hasConnection = await _checkConnection();
       if (!hasConnection) {
-        print('No hay conexión, no se puede sincronizar');
+        print('No hay conexión, no se puede sincronizar usuarios');
         return;
       }
 
@@ -100,28 +105,82 @@ class SupabaseService {
     }
   }
 
-  /// Obtiene la sucursal principal (por ahora asumimos que hay una sola activa)
-  static Future<Sucursal?> getSucursalPrincipal() async {
+  /// Sincroniza todas las sucursales desde Supabase a la base de datos local
+  static Future<void> syncSucursalesToLocal() async {
     try {
       final hasConnection = await _checkConnection();
       if (!hasConnection) {
-        print('No hay conexión para obtener sucursal');
-        return null;
+        print('⚠️ No hay conexión, no se puede sincronizar sucursales');
+        return;
       }
 
-      final response =
-          await client
-              .from('sucursales')
-              .select()
-              .eq('activa', true)
-              .limit(1)
-              .maybeSingle();
-
-      if (response != null) {
-        return Sucursal.fromJson(response);
+      print('🔄 Sincronizando sucursales desde Supabase...');
+      final response = await client.from('sucursales').select();
+      print('📊 Sucursales encontradas en Supabase: ${response.length}');
+      
+      if (response.isNotEmpty) {
+        // Log de todas las sucursales encontradas
+        for (final sucursal in response) {
+          print('  - ID: ${sucursal['id']}, Nombre: ${sucursal['nombre']}, Activa: ${sucursal['activa']}');
+        }
+        
+        await LocalDatabaseService.syncSucursalesFromSupabase(response);
+        print('✅ Sucursales sincronizadas exitosamente: ${response.length}');
+      } else {
+        print('⚠️ No se encontraron sucursales en Supabase');
       }
-    } catch (e) {
-      print('Error obteniendo sucursal: $e');
+    } catch (e, stackTrace) {
+      print('❌ Error sincronizando sucursales desde Supabase: $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Obtiene la sucursal principal (por ahora asumimos que hay una sola activa)
+  /// Primero intenta con Supabase, si falla usa la base de datos local
+  static Future<Sucursal?> getSucursalPrincipal() async {
+    try {
+      final hasConnection = await _checkConnection();
+      
+      if (hasConnection) {
+        print('🔍 Buscando sucursal principal activa en Supabase...');
+        try {
+          final response =
+              await client
+                  .from('sucursales')
+                  .select()
+                  .eq('activa', true)
+                  .limit(1)
+                  .maybeSingle();
+
+          if (response != null) {
+            print('✅ Sucursal principal encontrada en Supabase: ${response['nombre']}');
+            // Guardar en base de datos local para uso offline
+            await LocalDatabaseService.upsertSucursal(response);
+            return Sucursal.fromJson(response);
+          } else {
+            print('⚠️ No se encontró ninguna sucursal activa en Supabase');
+          }
+        } catch (e) {
+          print('⚠️ Error obteniendo sucursal principal de Supabase: $e');
+          // Continuar para intentar con base de datos local
+        }
+      } else {
+        print('⚠️ No hay conexión, buscando sucursal principal en base de datos local...');
+      }
+
+      // Intentar con base de datos local
+      print('🔍 Buscando sucursal principal en base de datos local...');
+      final localSucursal = await LocalDatabaseService.getSucursalPrincipal();
+      if (localSucursal != null) {
+        print('✅ Sucursal principal encontrada en base de datos local: ${localSucursal['nombre']}');
+        return Sucursal.fromJson(localSucursal);
+      } else {
+        print('⚠️ No se encontró sucursal principal en base de datos local');
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error obteniendo sucursal principal: $e');
+      print('Stack trace: $stackTrace');
     }
     return null;
   }
@@ -493,26 +552,49 @@ class SupabaseService {
   }
 
   /// Obtiene una sucursal por ID
+  /// Primero intenta con Supabase, si falla usa la base de datos local
   static Future<Sucursal?> getSucursalById(int sucursalId) async {
     try {
       final hasConnection = await _checkConnection();
-      if (!hasConnection) {
-        print('No hay conexión para obtener sucursal');
-        return null;
+      
+      if (hasConnection) {
+        print('🔍 Buscando sucursal con ID: $sucursalId en Supabase...');
+        try {
+          final response =
+              await client
+                  .from('sucursales')
+                  .select()
+                  .eq('id', sucursalId)
+                  .maybeSingle();
+
+          if (response != null) {
+            print('✅ Sucursal encontrada en Supabase: ${response['nombre']} (activa: ${response['activa']})');
+            // Guardar en base de datos local para uso offline
+            await LocalDatabaseService.upsertSucursal(response);
+            return Sucursal.fromJson(response);
+          } else {
+            print('⚠️ No se encontró sucursal con ID: $sucursalId en Supabase');
+          }
+        } catch (e) {
+          print('⚠️ Error obteniendo sucursal de Supabase: $e');
+          // Continuar para intentar con base de datos local
+        }
+      } else {
+        print('⚠️ No hay conexión, buscando sucursal en base de datos local...');
       }
 
-      final response =
-          await client
-              .from('sucursales')
-              .select()
-              .eq('id', sucursalId)
-              .maybeSingle();
-
-      if (response != null) {
-        return Sucursal.fromJson(response);
+      // Intentar con base de datos local
+      print('🔍 Buscando sucursal con ID: $sucursalId en base de datos local...');
+      final localSucursal = await LocalDatabaseService.getSucursalById(sucursalId);
+      if (localSucursal != null) {
+        print('✅ Sucursal encontrada en base de datos local: ${localSucursal['nombre']}');
+        return Sucursal.fromJson(localSucursal);
+      } else {
+        print('⚠️ No se encontró sucursal con ID: $sucursalId en base de datos local');
       }
-    } catch (e) {
-      print('Error obteniendo sucursal: $e');
+    } catch (e, stackTrace) {
+      print('❌ Error obteniendo sucursal con ID $sucursalId: $e');
+      print('Stack trace: $stackTrace');
     }
     return null;
   }

@@ -28,7 +28,6 @@ create table public.aperturas_dia (
 
 create index IF not exists idx_aperturas_sucursal_fecha on public.aperturas_dia using btree (sucursal_id, fecha_apertura) TABLESPACE pg_default;
 
-
 create table public.categorias (
   id serial not null,
   nombre character varying(50) not null,
@@ -37,7 +36,6 @@ create table public.categorias (
   constraint categorias_pkey primary key (id),
   constraint categorias_nombre_key unique (nombre)
 ) TABLESPACE pg_default;
-
 
 create table public.cierres_dia (
   id serial not null,
@@ -79,6 +77,96 @@ create trigger update_cierres_dia_updated_at BEFORE
 update on cierres_dia for EACH row
 execute FUNCTION update_updated_at_column ();
 
+create table public.empleados (
+  id serial not null,
+  nombre character varying(100) not null,
+  telefono character varying(20) null,
+  email character varying(100) null,
+  activo boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint empleados_pkey primary key (id),
+  constraint empleados_nombre_key unique (nombre)
+) TABLESPACE pg_default;
+
+create index IF not exists idx_empleados_activo on public.empleados using btree (activo) TABLESPACE pg_default;
+
+create trigger update_empleados_updated_at BEFORE
+update on empleados for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.gastos_puntoventa (
+  id serial not null,
+  sucursal_id integer not null,
+  usuario_id bigint not null,
+  tipo character varying(50) not null default 'otro'::character varying,
+  descripcion character varying(255) not null,
+  monto numeric(10, 2) not null,
+  categoria character varying(100) null,
+  fecha date not null default CURRENT_DATE,
+  hora time without time zone not null default CURRENT_TIME,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint gastos_puntoventa_pkey primary key (id),
+  constraint gastos_puntoventa_sucursal_id_fkey foreign KEY (sucursal_id) references sucursales (id) on delete CASCADE,
+  constraint gastos_puntoventa_usuario_id_fkey foreign KEY (usuario_id) references users (id) on delete RESTRICT,
+  constraint gastos_puntoventa_monto_check check ((monto >= (0)::numeric)),
+  constraint gastos_puntoventa_tipo_check check (
+    (
+      (tipo)::text = any (
+        array[
+          ('personal'::character varying)::text,
+          ('pago_pedido'::character varying)::text,
+          ('pago_ocasional'::character varying)::text,
+          ('otro'::character varying)::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_gastos_puntoventa_sucursal on public.gastos_puntoventa using btree (sucursal_id, fecha desc, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_gastos_puntoventa_tipo on public.gastos_puntoventa using btree (tipo) TABLESPACE pg_default;
+
+create index IF not exists idx_gastos_puntoventa_fecha on public.gastos_puntoventa using btree (fecha desc) TABLESPACE pg_default;
+
+create trigger update_gastos_puntoventa_updated_at BEFORE
+update on gastos_puntoventa for EACH row
+execute FUNCTION update_gastos_puntoventa_updated_at ();
+
+create table public.gastos_varios (
+  id serial not null,
+  descripcion character varying(255) not null,
+  monto numeric(10, 2) not null,
+  tipo character varying(50) not null default 'otro'::character varying,
+  categoria character varying(100) null,
+  fecha date not null default CURRENT_DATE,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint gastos_varios_pkey primary key (id),
+  constraint gastos_varios_monto_check check ((monto >= (0)::numeric)),
+  constraint gastos_varios_tipo_check check (
+    (
+      (tipo)::text = any (
+        array[
+          ('compra'::character varying)::text,
+          ('pago'::character varying)::text,
+          ('otro'::character varying)::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_gastos_varios_fecha on public.gastos_varios using btree (fecha desc, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_gastos_varios_tipo on public.gastos_varios using btree (tipo) TABLESPACE pg_default;
+
+create trigger update_gastos_varios_updated_at BEFORE
+update on gastos_varios for EACH row
+execute FUNCTION update_gastos_varios_updated_at ();
+
 create table public.inventario_actual (
   id serial not null,
   sucursal_id integer not null,
@@ -94,7 +182,6 @@ create table public.inventario_actual (
 
 create index IF not exists idx_inventario_actual on public.inventario_actual using btree (sucursal_id, producto_id) TABLESPACE pg_default;
 
-
 create table public.inventario_apertura (
   id serial not null,
   apertura_id integer not null,
@@ -109,7 +196,6 @@ create table public.inventario_apertura (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_inventario_apertura on public.inventario_apertura using btree (apertura_id, producto_id) TABLESPACE pg_default;
-
 
 create table public.inventario_cierre (
   id serial not null,
@@ -128,6 +214,290 @@ create table public.inventario_cierre (
   constraint inventario_cierre_cantidad_final_check check ((cantidad_final >= 0))
 ) TABLESPACE pg_default;
 
+create table public.inventario_fabrica (
+  id serial not null,
+  producto_id integer not null,
+  cantidad integer not null default 0,
+  ultima_actualizacion timestamp with time zone not null default now(),
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint inventario_fabrica_pkey primary key (id),
+  constraint inventario_fabrica_producto_id_key unique (producto_id),
+  constraint inventario_fabrica_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete CASCADE,
+  constraint inventario_fabrica_cantidad_check check ((cantidad >= 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_inventario_fabrica_producto on public.inventario_fabrica using btree (producto_id) TABLESPACE pg_default;
+
+create index IF not exists idx_inventario_fabrica_ultima_actualizacion on public.inventario_fabrica using btree (ultima_actualizacion desc) TABLESPACE pg_default;
+
+create trigger update_inventario_fabrica_updated_at BEFORE
+update on inventario_fabrica for EACH row
+execute FUNCTION update_inventario_fabrica_updated_at ();
+
+
+create table public.pedido_cliente_detalles (
+  id serial not null,
+  pedido_id integer not null,
+  producto_id integer not null,
+  cantidad integer not null default 1,
+  precio_unitario numeric(10, 2) not null,
+  precio_total numeric(10, 2) not null,
+  created_at timestamp with time zone not null default now(),
+  constraint pedido_cliente_detalles_pkey primary key (id),
+  constraint pedido_cliente_detalles_pedido_id_fkey foreign KEY (pedido_id) references pedidos_clientes (id) on delete CASCADE,
+  constraint pedido_cliente_detalles_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
+  constraint pedido_cliente_detalles_cantidad_check check ((cantidad > 0)),
+  constraint pedido_cliente_detalles_precio_total_check check ((precio_total >= (0)::numeric)),
+  constraint pedido_cliente_detalles_precio_unitario_check check ((precio_unitario >= (0)::numeric))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pedido_cliente_detalles_pedido on public.pedido_cliente_detalles using btree (pedido_id) TABLESPACE pg_default;
+
+create index IF not exists idx_pedido_cliente_detalles_producto on public.pedido_cliente_detalles using btree (producto_id) TABLESPACE pg_default;
+
+create table public.pedido_fabrica_detalles (
+  id serial not null,
+  pedido_id integer not null,
+  producto_id integer not null,
+  cantidad integer not null default 1,
+  created_at timestamp with time zone not null default now(),
+  constraint pedido_fabrica_detalles_pkey primary key (id),
+  constraint pedido_fabrica_detalles_pedido_id_fkey foreign KEY (pedido_id) references pedidos_fabrica (id) on delete CASCADE,
+  constraint pedido_fabrica_detalles_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
+  constraint pedido_fabrica_detalles_cantidad_check check ((cantidad > 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pedido_fabrica_detalles_pedido on public.pedido_fabrica_detalles using btree (pedido_id) TABLESPACE pg_default;
+
+create index IF not exists idx_pedido_fabrica_detalles_producto on public.pedido_fabrica_detalles using btree (producto_id) TABLESPACE pg_default;
+
+create table public.pedido_recurrente_detalles (
+  id serial not null,
+  pedido_id integer not null,
+  producto_id integer not null,
+  cantidad integer not null default 1,
+  precio_unitario numeric(10, 2) not null,
+  precio_base numeric(10, 2) not null,
+  precio_especial numeric(10, 2) null,
+  precio_total numeric(10, 2) not null,
+  tiene_precio_especial boolean not null default false,
+  created_at timestamp with time zone not null default now(),
+  estado text null,
+  constraint pedido_recurrente_detalles_pkey primary key (id),
+  constraint pedido_recurrente_detalles_pedido_id_fkey foreign KEY (pedido_id) references pedidos_recurrentes (id) on delete CASCADE,
+  constraint pedido_recurrente_detalles_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
+  constraint pedido_recurrente_detalles_precio_total_check check ((precio_total >= (0)::numeric)),
+  constraint pedido_recurrente_detalles_precio_unitario_check check ((precio_unitario >= (0)::numeric)),
+  constraint pedido_recurrente_detalles_precio_especial_check check (
+    (
+      (precio_especial is null)
+      or (precio_especial >= (0)::numeric)
+    )
+  ),
+  constraint pedido_recurrente_detalles_precio_base_check check ((precio_base >= (0)::numeric)),
+  constraint pedido_recurrente_detalles_cantidad_check check ((cantidad > 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pedido_recurrente_detalles_pedido on public.pedido_recurrente_detalles using btree (pedido_id) TABLESPACE pg_default;
+
+create index IF not exists idx_pedido_recurrente_detalles_producto on public.pedido_recurrente_detalles using btree (producto_id) TABLESPACE pg_default;
+
+create table public.pedidos_clientes (
+  id serial not null,
+  cliente_nombre character varying(100) not null,
+  cliente_telefono character varying(20) null,
+  direccion_entrega character varying(255) not null,
+  fecha_pedido date not null default CURRENT_DATE,
+  hora_pedido time without time zone not null default CURRENT_TIME,
+  total_items integer not null default 0,
+  total numeric(10, 2) not null default 0.00,
+  estado character varying(20) not null default 'pendiente'::character varying,
+  numero_pedido character varying(50) null,
+  observaciones text null,
+  metodo_pago character varying(50) null default 'efectivo'::character varying,
+  sincronizado boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  domicilio double precision null,
+  constraint pedidos_clientes_pkey primary key (id),
+  constraint pedidos_clientes_estado_check check (
+    (
+      (estado)::text = any (
+        array[
+          ('pendiente'::character varying)::text,
+          ('en_preparacion'::character varying)::text,
+          ('enviado'::character varying)::text,
+          ('entregado'::character varying)::text,
+          ('cancelado'::character varying)::text
+        ]
+      )
+    )
+  ),
+  constraint pedidos_clientes_metodo_pago_check check (
+    (
+      (metodo_pago)::text = any (
+        array[
+          ('efectivo'::character varying)::text,
+          ('tarjeta'::character varying)::text,
+          ('transferencia'::character varying)::text,
+          ('mixto'::character varying)::text
+        ]
+      )
+    )
+  ),
+  constraint pedidos_clientes_total_check check ((total >= (0)::numeric)),
+  constraint pedidos_clientes_total_items_check check ((total_items >= 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_clientes_estado on public.pedidos_clientes using btree (estado) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_clientes_fecha on public.pedidos_clientes using btree (fecha_pedido desc, created_at desc) TABLESPACE pg_default;
+
+create trigger update_pedidos_clientes_updated_at BEFORE
+update on pedidos_clientes for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.pedidos_fabrica (
+  id serial not null,
+  sucursal_id integer not null,
+  usuario_id bigint not null,
+  fecha_pedido date not null default CURRENT_DATE,
+  hora_pedido time without time zone not null default CURRENT_TIME,
+  total_items integer not null default 0,
+  estado character varying(20) not null default 'pendiente'::character varying,
+  numero_pedido character varying(50) null,
+  observaciones text null,
+  sincronizado boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint pedidos_fabrica_pkey primary key (id),
+  constraint pedidos_fabrica_sucursal_id_fkey foreign KEY (sucursal_id) references sucursales (id) on delete CASCADE,
+  constraint pedidos_fabrica_usuario_id_fkey foreign KEY (usuario_id) references users (id) on delete RESTRICT,
+  constraint pedidos_fabrica_estado_check check (
+    (
+      (estado)::text = any (
+        array[
+          ('pendiente'::character varying)::text,
+          ('en_preparacion'::character varying)::text,
+          ('enviado'::character varying)::text,
+          ('entregado'::character varying)::text,
+          ('cancelado'::character varying)::text
+        ]
+      )
+    )
+  ),
+  constraint pedidos_fabrica_total_items_check check ((total_items >= 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_fabrica_sucursal on public.pedidos_fabrica using btree (sucursal_id, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_fabrica_estado on public.pedidos_fabrica using btree (estado) TABLESPACE pg_default;
+
+create trigger update_pedidos_fabrica_updated_at BEFORE
+update on pedidos_fabrica for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.pedidos_recurrentes (
+  id serial not null,
+  cliente_nombre character varying(100) not null,
+  cliente_telefono character varying(20) null,
+  direccion_entrega character varying(255) not null,
+  fecha_pedido date not null default CURRENT_DATE,
+  hora_pedido time without time zone not null default CURRENT_TIME,
+  total_items integer not null default 0,
+  total numeric(10, 2) not null default 0.00,
+  estado character varying(20) not null default 'pendiente'::character varying,
+  numero_pedido character varying(50) null,
+  observaciones text null,
+  metodo_pago character varying(50) null default 'efectivo'::character varying,
+  sincronizado boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint pedidos_recurrentes_pkey primary key (id),
+  constraint pedidos_recurrentes_estado_check check (
+    (
+      (estado)::text = any (
+        array[
+          ('pendiente'::character varying)::text,
+          ('en_preparacion'::character varying)::text,
+          ('enviado'::character varying)::text,
+          ('entregado'::character varying)::text,
+          ('cancelado'::character varying)::text
+        ]
+      )
+    )
+  ),
+  constraint pedidos_recurrentes_metodo_pago_check check (
+    (
+      (metodo_pago)::text = any (
+        array[
+          ('efectivo'::character varying)::text,
+          ('tarjeta'::character varying)::text,
+          ('transferencia'::character varying)::text,
+          ('mixto'::character varying)::text
+        ]
+      )
+    )
+  ),
+  constraint pedidos_recurrentes_total_check check ((total >= (0)::numeric)),
+  constraint pedidos_recurrentes_total_items_check check ((total_items >= 0))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_recurrentes_estado on public.pedidos_recurrentes using btree (estado) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_recurrentes_fecha on public.pedidos_recurrentes using btree (fecha_pedido desc, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_pedidos_recurrentes_cliente on public.pedidos_recurrentes using btree (cliente_nombre) TABLESPACE pg_default;
+
+create trigger update_pedidos_recurrentes_updated_at BEFORE
+update on pedidos_recurrentes for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create table public.produccion_empleado (
+  id serial not null,
+  empleado_id integer not null,
+  producto_id integer not null,
+  cantidad_producida integer not null default 1,
+  fecha_produccion date not null default CURRENT_DATE,
+  hora_produccion time without time zone not null default CURRENT_TIME,
+  pedido_fabrica_id integer null,
+  pedido_cliente_id integer null,
+  observaciones text null,
+  created_at timestamp with time zone not null default now(),
+  constraint produccion_empleado_pkey primary key (id),
+  constraint produccion_empleado_empleado_id_fkey foreign KEY (empleado_id) references empleados (id) on delete RESTRICT,
+  constraint produccion_empleado_pedido_cliente_id_fkey foreign KEY (pedido_cliente_id) references pedidos_clientes (id) on delete set null,
+  constraint produccion_empleado_pedido_fabrica_id_fkey foreign KEY (pedido_fabrica_id) references pedidos_fabrica (id) on delete set null,
+  constraint produccion_empleado_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
+  constraint produccion_empleado_cantidad_producida_check check ((cantidad_producida > 0)),
+  constraint produccion_empleado_pedido_check check (
+    (
+      (
+        (pedido_fabrica_id is null)
+        and (pedido_cliente_id is null)
+      )
+      or (
+        (pedido_fabrica_id is not null)
+        and (pedido_cliente_id is null)
+      )
+      or (
+        (pedido_fabrica_id is null)
+        and (pedido_cliente_id is not null)
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_produccion_empleado_empleado on public.produccion_empleado using btree (empleado_id, fecha_produccion desc) TABLESPACE pg_default;
+
+create index IF not exists idx_produccion_empleado_producto on public.produccion_empleado using btree (producto_id) TABLESPACE pg_default;
+
+create index IF not exists idx_produccion_empleado_fecha on public.produccion_empleado using btree (fecha_produccion desc) TABLESPACE pg_default;
+
+create index IF not exists idx_produccion_empleado_pedido_fabrica on public.produccion_empleado using btree (pedido_fabrica_id) TABLESPACE pg_default;
+
+create index IF not exists idx_produccion_empleado_pedido_cliente on public.produccion_empleado using btree (pedido_cliente_id) TABLESPACE pg_default;
 
 create table public.productos (
   id serial not null,
@@ -142,7 +512,6 @@ create table public.productos (
   constraint productos_pkey primary key (id),
   constraint productos_categoria_id_fkey foreign KEY (categoria_id) references categorias (id) on delete set null
 ) TABLESPACE pg_default;
-
 
 create table public.recarga_detalles (
   id serial not null,
@@ -163,7 +532,6 @@ create table public.recarga_detalles (
   constraint recarga_detalles_cantidad_anterior_check check ((cantidad_anterior >= 0)),
   constraint recarga_detalles_cantidad_recargada_check check ((cantidad_recargada > 0))
 ) TABLESPACE pg_default;
-
 
 create table public.recargas_inventario (
   id serial not null,
@@ -200,7 +568,6 @@ create trigger update_recargas_inventario_updated_at BEFORE
 update on recargas_inventario for EACH row
 execute FUNCTION update_updated_at_column ();
 
-
 create table public.sucursales (
   id serial not null,
   nombre character varying(100) not null,
@@ -222,7 +589,6 @@ create table public.users (
   constraint users_pkey primary key (id),
   constraint users_sucursal_fkey foreign KEY (sucursal) references sucursales (id)
 ) TABLESPACE pg_default;
-
 
 create table public.venta_detalles (
   id serial not null,
@@ -300,7 +666,6 @@ create trigger update_ventas_updated_at BEFORE
 update on ventas for EACH row
 execute FUNCTION update_updated_at_column ();
 
-
 create view public.vista_cierres_diarios as
 select
   c.sucursal_id,
@@ -325,7 +690,6 @@ group by
 order by
   c.fecha_cierre desc,
   c.sucursal_id;
-
 
   create view public.vista_productos_mas_recargados as
 select
@@ -378,7 +742,6 @@ group by
 order by
   (sum(vd.cantidad)) desc;
 
-
   create view public.vista_recargas_diarias as
 select
   r.sucursal_id,
@@ -403,7 +766,6 @@ group by
 order by
   r.fecha_recarga desc,
   r.sucursal_id;
-
 
   create view public.vista_rendimiento_cajeros as
 select
@@ -431,8 +793,8 @@ group by
 order by
   (sum(v.total)) desc;
 
-
-  create view public.vista_ventas_diarias as
+  
+create view public.vista_ventas_diarias as
 select
   v.sucursal_id,
   s.nombre as sucursal_nombre,
@@ -462,8 +824,7 @@ order by
   v.fecha_venta desc,
   v.sucursal_id;
 
-
-  create view public.vista_ventas_por_hora as
+create view public.vista_ventas_por_hora as
 select
   EXTRACT(
     hour
@@ -495,292 +856,3 @@ order by
         v.hora_venta
     )
   );
-
-
--- Tabla para pedidos a fábrica
-create table public.pedidos_fabrica (
-  id serial not null,
-  sucursal_id integer not null,
-  usuario_id bigint not null,
-  fecha_pedido date not null default CURRENT_DATE,
-  hora_pedido time without time zone not null default CURRENT_TIME,
-  total_items integer not null default 0,
-  estado character varying(20) not null default 'pendiente'::character varying,
-  numero_pedido character varying(50) null,
-  observaciones text null,
-  sincronizado boolean not null default true,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now(),
-  constraint pedidos_fabrica_pkey primary key (id),
-  constraint pedidos_fabrica_sucursal_id_fkey foreign KEY (sucursal_id) references sucursales (id) on delete CASCADE,
-  constraint pedidos_fabrica_usuario_id_fkey foreign KEY (usuario_id) references users (id) on delete RESTRICT,
-  constraint pedidos_fabrica_total_items_check check ((total_items >= 0)),
-  constraint pedidos_fabrica_estado_check check (
-    (
-      (estado)::text = any (
-        (
-          array[
-            'pendiente'::character varying,
-            'en_preparacion'::character varying,
-            'enviado'::character varying,
-            'entregado'::character varying,
-            'cancelado'::character varying
-          ]
-        )::text[]
-      )
-    )
-  )
-) TABLESPACE pg_default;
-
-create trigger update_pedidos_fabrica_updated_at BEFORE
-update on pedidos_fabrica for EACH row
-execute FUNCTION update_updated_at_column ();
-
-create index IF not exists idx_pedidos_fabrica_sucursal on public.pedidos_fabrica using btree (sucursal_id, created_at desc) TABLESPACE pg_default;
-create index IF not exists idx_pedidos_fabrica_estado on public.pedidos_fabrica using btree (estado) TABLESPACE pg_default;
-
--- NOTA: Si la tabla ya existe y necesitas agregar el estado 'en_preparacion', ejecuta:
--- ALTER TABLE public.pedidos_fabrica DROP CONSTRAINT IF EXISTS pedidos_fabrica_estado_check;
--- ALTER TABLE public.pedidos_fabrica ADD CONSTRAINT pedidos_fabrica_estado_check CHECK (
---   (estado)::text = ANY (ARRAY['pendiente'::character varying, 'en_preparacion'::character varying, 'enviado'::character varying, 'entregado'::character varying, 'cancelado'::character varying]::text[])
--- );
-
-
--- Tabla para detalles de pedidos a fábrica
-create table public.pedido_fabrica_detalles (
-  id serial not null,
-  pedido_id integer not null,
-  producto_id integer not null,
-  cantidad integer not null default 1,
-  created_at timestamp with time zone not null default now(),
-  constraint pedido_fabrica_detalles_pkey primary key (id),
-  constraint pedido_fabrica_detalles_pedido_id_fkey foreign KEY (pedido_id) references pedidos_fabrica (id) on delete CASCADE,
-  constraint pedido_fabrica_detalles_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
-  constraint pedido_fabrica_detalles_cantidad_check check ((cantidad > 0))
-) TABLESPACE pg_default;
-
-create index IF not exists idx_pedido_fabrica_detalles_pedido on public.pedido_fabrica_detalles using btree (pedido_id) TABLESPACE pg_default;
-create index IF not exists idx_pedido_fabrica_detalles_producto on public.pedido_fabrica_detalles using btree (producto_id) TABLESPACE pg_default;
-
-
--- Tabla para pedidos de clientes (desde WhatsApp)
-create table public.pedidos_clientes (
-  id serial not null,
-  cliente_nombre character varying(100) not null,
-  cliente_telefono character varying(20) null,
-  direccion_entrega character varying(255) not null,
-  fecha_pedido date not null default CURRENT_DATE,
-  hora_pedido time without time zone not null default CURRENT_TIME,
-  total_items integer not null default 0,
-  total numeric(10, 2) not null default 0.00,
-  estado character varying(20) not null default 'pendiente'::character varying,
-  numero_pedido character varying(50) null,
-  observaciones text null,
-  metodo_pago character varying(50) null default 'efectivo'::character varying,
-  sincronizado boolean not null default true,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now(),
-  constraint pedidos_clientes_pkey primary key (id),
-  constraint pedidos_clientes_total_items_check check ((total_items >= 0)),
-  constraint pedidos_clientes_total_check check ((total >= (0)::numeric)),
-  constraint pedidos_clientes_estado_check check (
-    (
-      (estado)::text = any (
-        (
-          array[
-            'pendiente'::character varying,
-            'en_preparacion'::character varying,
-            'enviado'::character varying,
-            'entregado'::character varying,
-            'cancelado'::character varying
-          ]
-        )::text[]
-      )
-    )
-  ),
-  constraint pedidos_clientes_metodo_pago_check check (
-    (
-      (metodo_pago)::text = any (
-        (
-          array[
-            'efectivo'::character varying,
-            'tarjeta'::character varying,
-            'transferencia'::character varying,
-            'mixto'::character varying
-          ]
-        )::text[]
-      )
-    )
-  )
-) TABLESPACE pg_default;
-
-create trigger update_pedidos_clientes_updated_at BEFORE
-update on pedidos_clientes for EACH row
-execute FUNCTION update_updated_at_column ();
-
-create index IF not exists idx_pedidos_clientes_estado on public.pedidos_clientes using btree (estado) TABLESPACE pg_default;
-create index IF not exists idx_pedidos_clientes_fecha on public.pedidos_clientes using btree (fecha_pedido desc, created_at desc) TABLESPACE pg_default;
-
-
--- Tabla para detalles de pedidos de clientes
-create table public.pedido_cliente_detalles (
-  id serial not null,
-  pedido_id integer not null,
-  producto_id integer not null,
-  cantidad integer not null default 1,
-  precio_unitario numeric(10, 2) not null,
-  precio_total numeric(10, 2) not null,
-  created_at timestamp with time zone not null default now(),
-  constraint pedido_cliente_detalles_pkey primary key (id),
-  constraint pedido_cliente_detalles_pedido_id_fkey foreign KEY (pedido_id) references pedidos_clientes (id) on delete CASCADE,
-  constraint pedido_cliente_detalles_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
-  constraint pedido_cliente_detalles_cantidad_check check ((cantidad > 0)),
-  constraint pedido_cliente_detalles_precio_unitario_check check ((precio_unitario >= (0)::numeric)),
-  constraint pedido_cliente_detalles_precio_total_check check ((precio_total >= (0)::numeric))
-) TABLESPACE pg_default;
-
-create index IF not exists idx_pedido_cliente_detalles_pedido on public.pedido_cliente_detalles using btree (pedido_id) TABLESPACE pg_default;
-create index IF not exists idx_pedido_cliente_detalles_producto on public.pedido_cliente_detalles using btree (producto_id) TABLESPACE pg_default;
-
-
--- Tabla para empleados de producción
-create table public.empleados (
-  id serial not null,
-  nombre character varying(100) not null,
-  telefono character varying(20) null,
-  email character varying(100) null,
-  activo boolean not null default true,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now(),
-  constraint empleados_pkey primary key (id),
-  constraint empleados_nombre_key unique (nombre)
-) TABLESPACE pg_default;
-
-create trigger update_empleados_updated_at BEFORE
-update on empleados for EACH row
-execute FUNCTION update_updated_at_column ();
-
-create index IF not exists idx_empleados_activo on public.empleados using btree (activo) TABLESPACE pg_default;
-
-
--- Tabla para producción por empleado
-create table public.produccion_empleado (
-  id serial not null,
-  empleado_id integer not null,
-  producto_id integer not null,
-  cantidad_producida integer not null default 1,
-  fecha_produccion date not null default CURRENT_DATE,
-  hora_produccion time without time zone not null default CURRENT_TIME,
-  pedido_fabrica_id integer null,
-  pedido_cliente_id integer null,
-  observaciones text null,
-  created_at timestamp with time zone not null default now(),
-  constraint produccion_empleado_pkey primary key (id),
-  constraint produccion_empleado_empleado_id_fkey foreign KEY (empleado_id) references empleados (id) on delete RESTRICT,
-  constraint produccion_empleado_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
-  constraint produccion_empleado_pedido_fabrica_id_fkey foreign KEY (pedido_fabrica_id) references pedidos_fabrica (id) on delete set null,
-  constraint produccion_empleado_pedido_cliente_id_fkey foreign KEY (pedido_cliente_id) references pedidos_clientes (id) on delete set null,
-  constraint produccion_empleado_cantidad_producida_check check ((cantidad_producida > 0)),
-  constraint produccion_empleado_pedido_check check (
-    (pedido_fabrica_id is null and pedido_cliente_id is null) or
-    (pedido_fabrica_id is not null and pedido_cliente_id is null) or
-    (pedido_fabrica_id is null and pedido_cliente_id is not null)
-  )
-) TABLESPACE pg_default;
-
-create index IF not exists idx_produccion_empleado_empleado on public.produccion_empleado using btree (empleado_id, fecha_produccion desc) TABLESPACE pg_default;
-create index IF not exists idx_produccion_empleado_producto on public.produccion_empleado using btree (producto_id) TABLESPACE pg_default;
-create index IF not exists idx_produccion_empleado_fecha on public.produccion_empleado using btree (fecha_produccion desc) TABLESPACE pg_default;
-create index IF not exists idx_produccion_empleado_pedido_fabrica on public.produccion_empleado using btree (pedido_fabrica_id) TABLESPACE pg_default;
-create index IF not exists idx_produccion_empleado_pedido_cliente on public.produccion_empleado using btree (pedido_cliente_id) TABLESPACE pg_default;
-
-
--- ============================================
--- ESQUEMA DE BASE DE DATOS PARA PEDIDOS RECURRENTES
--- Sistema POS Churros - Gestión de Pedidos Recurrentes con Precios Especiales
--- ============================================
-
--- Tabla principal de pedidos recurrentes
-create table public.pedidos_recurrentes (
-  id serial not null,
-  cliente_nombre character varying(100) not null,
-  cliente_telefono character varying(20) null,
-  direccion_entrega character varying(255) not null,
-  fecha_pedido date not null default CURRENT_DATE,
-  hora_pedido time without time zone not null default CURRENT_TIME,
-  total_items integer not null default 0,
-  total numeric(10, 2) not null default 0.00,
-  estado character varying(20) not null default 'pendiente'::character varying,
-  numero_pedido character varying(50) null,
-  observaciones text null,
-  metodo_pago character varying(50) null default 'efectivo'::character varying,
-  sincronizado boolean not null default true,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now(),
-  constraint pedidos_recurrentes_pkey primary key (id),
-  constraint pedidos_recurrentes_total_items_check check ((total_items >= 0)),
-  constraint pedidos_recurrentes_total_check check ((total >= (0)::numeric)),
-  constraint pedidos_recurrentes_estado_check check (
-    (
-      (estado)::text = any (
-        (
-          array[
-            'pendiente'::character varying,
-            'en_preparacion'::character varying,
-            'enviado'::character varying,
-            'entregado'::character varying,
-            'cancelado'::character varying
-          ]
-        )::text[]
-      )
-    )
-  ),
-  constraint pedidos_recurrentes_metodo_pago_check check (
-    (
-      (metodo_pago)::text = any (
-        (
-          array[
-            'efectivo'::character varying,
-            'tarjeta'::character varying,
-            'transferencia'::character varying,
-            'mixto'::character varying
-          ]
-        )::text[]
-      )
-    )
-  )
-) TABLESPACE pg_default;
-
-create trigger update_pedidos_recurrentes_updated_at BEFORE
-update on pedidos_recurrentes for EACH row
-execute FUNCTION update_updated_at_column ();
-
-create index IF not exists idx_pedidos_recurrentes_estado on public.pedidos_recurrentes using btree (estado) TABLESPACE pg_default;
-create index IF not exists idx_pedidos_recurrentes_fecha on public.pedidos_recurrentes using btree (fecha_pedido desc, created_at desc) TABLESPACE pg_default;
-create index IF not exists idx_pedidos_recurrentes_cliente on public.pedidos_recurrentes using btree (cliente_nombre) TABLESPACE pg_default;
-
-
--- Tabla para detalles de pedidos recurrentes (con precios especiales)
-create table public.pedido_recurrente_detalles (
-  id serial not null,
-  pedido_id integer not null,
-  producto_id integer not null,
-  cantidad integer not null default 1,
-  precio_unitario numeric(10, 2) not null,
-  precio_base numeric(10, 2) not null,
-  precio_especial numeric(10, 2) null,
-  precio_total numeric(10, 2) not null,
-  tiene_precio_especial boolean not null default false,
-  created_at timestamp with time zone not null default now(),
-  constraint pedido_recurrente_detalles_pkey primary key (id),
-  constraint pedido_recurrente_detalles_pedido_id_fkey foreign KEY (pedido_id) references pedidos_recurrentes (id) on delete CASCADE,
-  constraint pedido_recurrente_detalles_producto_id_fkey foreign KEY (producto_id) references productos (id) on delete RESTRICT,
-  constraint pedido_recurrente_detalles_cantidad_check check ((cantidad > 0)),
-  constraint pedido_recurrente_detalles_precio_unitario_check check ((precio_unitario >= (0)::numeric)),
-  constraint pedido_recurrente_detalles_precio_base_check check ((precio_base >= (0)::numeric)),
-  constraint pedido_recurrente_detalles_precio_especial_check check ((precio_especial is null or precio_especial >= (0)::numeric)),
-  constraint pedido_recurrente_detalles_precio_total_check check ((precio_total >= (0)::numeric))
-) TABLESPACE pg_default;
-
-create index IF not exists idx_pedido_recurrente_detalles_pedido on public.pedido_recurrente_detalles using btree (pedido_id) TABLESPACE pg_default;
-create index IF not exists idx_pedido_recurrente_detalles_producto on public.pedido_recurrente_detalles using btree (producto_id) TABLESPACE pg_default;

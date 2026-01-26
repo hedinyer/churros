@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/supabase_service.dart';
 import 'services/notification_service.dart';
+import 'services/app_keys.dart';
+import 'services/factory_realtime_orders_listener.dart';
+import 'services/factory_session_service.dart';
 import 'screens/store/dashboard_page.dart';
 import 'screens/factory/factory_dashboard_page.dart';
 import 'screens/store/deliveries_page.dart';
@@ -32,9 +35,18 @@ void main() async {
   // Inicializar servicio de notificaciones
   await NotificationService.initialize();
 
-  // Sincronizar usuarios en background (no bloquea el inicio de la app)
+  // Load persisted session (factory vs non-factory)
+  await FactorySessionService.ensureInitialized();
+
+  // Global listener: noisy notifications while user is inside Factory screens
+  await FactoryRealtimeOrdersListener.start();
+
+  // Sincronizar usuarios y sucursales en background (no bloquea el inicio de la app)
   SupabaseService.syncUsersToLocal().catchError((e) {
-    print('Error en sincronización inicial: $e');
+    print('Error en sincronización inicial de usuarios: $e');
+  });
+  SupabaseService.syncSucursalesToLocal().catchError((e) {
+    print('Error en sincronización inicial de sucursales: $e');
   });
 
   runApp(const ChurrosApp());
@@ -48,6 +60,7 @@ class ChurrosApp extends StatelessWidget {
     return MaterialApp(
       title: 'Churros POS',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -192,19 +205,35 @@ class _LoginPageState extends State<LoginPage> {
         // Convertir a AppUser
         final appUser = AppUser.fromJson(user);
 
-        // Login exitoso
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Inicio de sesión exitoso'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        // Persist "factory session" flag for realtime notifications
+        await FactorySessionService.setFactorySession(appUser.type == 2);
 
-          // Verificar el tipo de usuario
-          if (appUser.type == 2) {
-            // Usuario tipo 2: Dashboard de fábrica
+        // Sincronizar sucursales ANTES de intentar obtenerlas (solo si hay conexión)
+        // Si no hay conexión, usar datos locales si están disponibles
+        try {
+          final hasConnection = await SupabaseService.checkConnection();
+          if (hasConnection) {
+            await SupabaseService.syncSucursalesToLocal();
+            print('✅ Sincronización de sucursales completada');
+          } else {
+            print('ℹ️ Sin conexión, usando datos locales de sucursales');
+          }
+        } catch (e) {
+          print('⚠️ Error sincronizando sucursales después del login: $e');
+          // Continuar aunque falle la sincronización, puede haber datos locales
+        }
+
+        // Verificar el tipo de usuario
+        if (appUser.type == 2) {
+          // Usuario tipo 2: Dashboard de fábrica
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Inicio de sesión exitoso'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -212,26 +241,77 @@ class _LoginPageState extends State<LoginPage> {
                     (context) => FactoryDashboardPage(currentUser: appUser),
               ),
             );
-          } else if (appUser.type == 3) {
-            // Usuario tipo 3: Domicilios y Entregas
+          }
+        } else if (appUser.type == 3) {
+          // Usuario tipo 3: Domicilios y Entregas
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Inicio de sesión exitoso'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const DeliveriesPage()),
             );
-          } else if (appUser.type == 1) {
-            // Usuario tipo 1: Dashboard de punto de venta
-            // Obtener la sucursal del usuario
-            Sucursal? sucursal;
-            if (appUser.sucursalId != null) {
+          }
+        } else if (appUser.type == 1) {
+          // Usuario tipo 1: Dashboard de punto de venta
+          // Obtener la sucursal del usuario
+          Sucursal? sucursal;
+
+          // Intentar obtener la sucursal asignada al usuario
+          if (appUser.sucursalId != null) {
+            print(
+              '🔍 Intentando obtener sucursal con ID: ${appUser.sucursalId}',
+            );
+            try {
               sucursal = await SupabaseService.getSucursalById(
                 appUser.sucursalId!,
               );
+              if (sucursal != null) {
+                print('✅ Sucursal obtenida: ${sucursal.nombre}');
+              } else {
+                print(
+                  '⚠️ No se encontró sucursal con ID: ${appUser.sucursalId}',
+                );
+              }
+            } catch (e, stackTrace) {
+              print('❌ Error obteniendo sucursal por ID: $e');
+              print('Stack trace: $stackTrace');
             }
+          } else {
+            print('ℹ️ Usuario no tiene sucursal asignada');
+          }
 
-            // Si no tiene sucursal asignada o no se encontró, obtener la principal
-            sucursal ??= await SupabaseService.getSucursalPrincipal();
+          // Si no tiene sucursal asignada o no se encontró, obtener la principal
+          if (sucursal == null) {
+            print('🔍 Intentando obtener sucursal principal');
+            try {
+              sucursal = await SupabaseService.getSucursalPrincipal();
+              if (sucursal != null) {
+                print('✅ Sucursal principal obtenida: ${sucursal.nombre}');
+              } else {
+                print('⚠️ No se encontró sucursal principal activa');
+              }
+            } catch (e, stackTrace) {
+              print('❌ Error obteniendo sucursal principal: $e');
+              print('Stack trace: $stackTrace');
+            }
+          }
 
-            if (sucursal != null) {
+          if (sucursal != null) {
+            // Login exitoso - mostrar mensaje solo después de obtener la sucursal
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Inicio de sesión exitoso'),
+                  backgroundColor: Colors.green,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
               // Navegar al dashboard con la información del usuario y sucursal
               Navigator.pushReplacement(
                 context,
@@ -243,21 +323,37 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                 ),
               );
-            } else {
-              // Si no hay sucursal disponible, mostrar error
-              if (mounted) {
-                _showError(
-                  'No se pudo obtener la información de la sucursal. Contacta al administrador.',
-                );
-              }
             }
           } else {
-            // Tipo de usuario no reconocido
+            // Si no hay sucursal disponible, mostrar error con más detalles
             if (mounted) {
-              _showError(
-                'No tienes permisos para acceder a esta aplicación. Contacta al administrador.',
-              );
+              // Verificar si hay conexión para dar un mensaje más específico
+              final hasConnection = await SupabaseService.checkConnection();
+              String errorMsg;
+
+              if (!hasConnection) {
+                // Sin conexión y sin datos locales
+                errorMsg =
+                    appUser.sucursalId != null
+                        ? 'Sin conexión a internet y no se encontraron datos locales de la sucursal asignada (ID: ${appUser.sucursalId}). Conecta a internet al menos una vez para sincronizar los datos, o contacta al administrador.'
+                        : 'Sin conexión a internet y no se encontraron datos locales de sucursales. Conecta a internet al menos una vez para sincronizar los datos, o contacta al administrador.';
+              } else {
+                // Con conexión pero no se encontró la sucursal
+                errorMsg =
+                    appUser.sucursalId != null
+                        ? 'No se pudo obtener la información de la sucursal asignada (ID: ${appUser.sucursalId}) ni la sucursal principal. Verifica que la sucursal exista en la base de datos o contacta al administrador.'
+                        : 'No se pudo obtener la información de la sucursal principal. Verifica que exista al menos una sucursal activa en la base de datos o contacta al administrador.';
+              }
+
+              _showError(errorMsg);
             }
+          }
+        } else {
+          // Tipo de usuario no reconocido
+          if (mounted) {
+            _showError(
+              'No tienes permisos para acceder a esta aplicación. Contacta al administrador.',
+            );
           }
         }
       } else {
@@ -309,6 +405,7 @@ class _LoginPageState extends State<LoginPage> {
         isSmallScreen ? 24.0 : (isLargeScreen ? 48.0 : 32.0);
     final maxContentWidth = isLargeScreen ? 500.0 : double.infinity;
     final iconSize = isSmallScreen ? 80.0 : 100.0;
+    final titleFontSize = isSmallScreen ? 32.0 : 40.0;
     final spacing = isSmallScreen ? 24.0 : 32.0;
 
     return Scaffold(
@@ -366,7 +463,7 @@ class _LoginPageState extends State<LoginPage> {
                                   Text(
                                     'Churros POS',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: titleFontSize,
                                       fontWeight: FontWeight.bold,
                                       color:
                                           isDark
@@ -379,7 +476,7 @@ class _LoginPageState extends State<LoginPage> {
                                   Text(
                                     'Bienvenido, inicia tu turno.',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: isSmallScreen ? 14 : 16,
                                       fontWeight: FontWeight.w500,
                                       color:
                                           isDark
@@ -410,7 +507,7 @@ class _LoginPageState extends State<LoginPage> {
                                           child: Text(
                                             'Correo o Usuario',
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                               color:
                                                   isDark
@@ -431,7 +528,7 @@ class _LoginPageState extends State<LoginPage> {
                                             return null;
                                           },
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 16,
                                             color:
                                                 isDark
                                                     ? Colors.white
@@ -513,7 +610,7 @@ class _LoginPageState extends State<LoginPage> {
                                           child: Text(
                                             'PIN de Acceso',
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                               color:
                                                   isDark
@@ -541,7 +638,7 @@ class _LoginPageState extends State<LoginPage> {
                                             return null;
                                           },
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 16,
                                             color:
                                                 isDark
                                                     ? Colors.white
@@ -679,7 +776,10 @@ class _LoginPageState extends State<LoginPage> {
                                                     Text(
                                                       'INGRESAR',
                                                       style: TextStyle(
-                                                        fontSize: 8,
+                                                        fontSize:
+                                                            isSmallScreen
+                                                                ? 15
+                                                                : 16,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         letterSpacing: 1,
@@ -710,7 +810,7 @@ class _LoginPageState extends State<LoginPage> {
                             child: Text(
                               'v2.1.0 • ID Dispositivo: #4029',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: isSmallScreen ? 11 : 12,
                                 fontWeight: FontWeight.w500,
                                 color:
                                     isDark
@@ -765,7 +865,7 @@ class _LoginPageState extends State<LoginPage> {
                     Text(
                       _isConnected ? 'Conectado' : 'Desconectado',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color:
                             isDark

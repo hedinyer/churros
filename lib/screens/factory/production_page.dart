@@ -5,6 +5,7 @@ import '../../models/pedido_cliente.dart';
 import '../../models/producto.dart';
 import '../../models/produccion_empleado.dart';
 import '../../services/supabase_service.dart';
+import '../../services/factory_section_tracker.dart';
 
 class ProductionPage extends StatefulWidget {
   const ProductionPage({super.key});
@@ -29,7 +30,14 @@ class _ProductionPageState extends State<ProductionPage> {
   @override
   void initState() {
     super.initState();
+    FactorySectionTracker.enter();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    FactorySectionTracker.exit();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -257,7 +265,7 @@ class _ProductionPageState extends State<ProductionPage> {
                 Text(
                   'Cantidad solicitada: $cantidadSolicitada',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 14,
                     color: isDark ? Colors.white70 : Colors.black87,
                   ),
                 ),
@@ -538,7 +546,7 @@ class _ProductionPageState extends State<ProductionPage> {
                 Text(
                   'Registrar producción continua sin pedido asociado',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 14,
                     color: isDark ? Colors.white70 : Colors.black87,
                   ),
                 ),
@@ -661,7 +669,7 @@ class _ProductionPageState extends State<ProductionPage> {
             Text(
               producto,
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -670,7 +678,7 @@ class _ProductionPageState extends State<ProductionPage> {
             Text(
               'Registrar',
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 10,
                 color:
                     isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
               ),
@@ -727,7 +735,7 @@ class _ProductionPageState extends State<ProductionPage> {
                     child: Text(
                       'Producción',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -762,7 +770,7 @@ class _ProductionPageState extends State<ProductionPage> {
                         Text(
                           'Producción Continua',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color:
                                 isDark ? Colors.white : const Color(0xFF1B130D),
@@ -774,7 +782,7 @@ class _ProductionPageState extends State<ProductionPage> {
                     Text(
                       'Registra producción de J, Q, B sin pedido asociado',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 12,
                         color:
                             isDark
                                 ? const Color(0xFF9A6C4C)
@@ -885,7 +893,7 @@ class _ProductionPageState extends State<ProductionPage> {
                               Text(
                                 'No hay pedidos en preparación',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -897,7 +905,7 @@ class _ProductionPageState extends State<ProductionPage> {
                               Text(
                                 'Los pedidos aparecerán aquí cuando estén en estado "En Preparación"',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   color:
                                       isDark
                                           ? const Color(0xFFA8A29E)
@@ -931,7 +939,7 @@ class _ProductionPageState extends State<ProductionPage> {
                               Text(
                                 'Siguientes en cola',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -1135,7 +1143,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                 child: Text(
                                   'EN PROCESO',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: primaryColor,
                                     letterSpacing: 1,
@@ -1146,7 +1154,7 @@ class _ProductionPageState extends State<ProductionPage> {
                               Text(
                                 timeAgo,
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 12,
                                   color:
                                       isDark
                                           ? const Color(0xFF9A6C4C)
@@ -1163,7 +1171,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                 : (pedidoCliente!.numeroPedido ??
                                     'Pedido #${pedidoCliente.id}'),
                             style: TextStyle(
-                              fontSize: 8,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color:
                                   isDark
@@ -1189,7 +1197,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                         'Sucursal')
                                     : pedidoCliente!.clienteNombre,
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   color:
                                       isDark
                                           ? const Color(0xFF9A6C4C)
@@ -1215,7 +1223,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                   child: Text(
                                     pedidoCliente!.direccionEntrega,
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFF9A6C4C)
@@ -1254,7 +1262,7 @@ class _ProductionPageState extends State<ProductionPage> {
                   Text(
                     'Productos a producir:',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
@@ -1327,7 +1335,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                       producto?.nombre ??
                                           'Producto #$productoId',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                         color:
                                             isDark
@@ -1339,7 +1347,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                     Text(
                                       'Solicitado: ${cantidadSolicitada} ${producto?.unidadMedida ?? 'unidad'}',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 12,
                                         color:
                                             isDark
                                                 ? const Color(0xFF9A6C4C)
@@ -1351,7 +1359,7 @@ class _ProductionPageState extends State<ProductionPage> {
                                       Text(
                                         'Producido: $totalProducido ${producto?.unidadMedida ?? 'unidad'}',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w500,
                                           color:
                                               totalProducido >=
@@ -1424,7 +1432,7 @@ class _ProductionPageState extends State<ProductionPage> {
                       Text(
                         'Total ítems: ${detalles.length}',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           color:
                               isDark
                                   ? const Color(0xFF9A6C4C)
@@ -1436,7 +1444,7 @@ class _ProductionPageState extends State<ProductionPage> {
                             ? 'Listo para despachar'
                             : 'En producción',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color:
                               _puedeDespachar() ? Colors.green : primaryColor,
@@ -1471,7 +1479,7 @@ class _ProductionPageState extends State<ProductionPage> {
                             ? 'Confirmando...'
                             : 'Confirmar y Despachar Pedido',
                         style: const TextStyle(
-                          fontSize: 8,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1561,7 +1569,7 @@ class _ProductionPageState extends State<ProductionPage> {
                   Text(
                     numeroPedido,
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
@@ -1570,7 +1578,7 @@ class _ProductionPageState extends State<ProductionPage> {
                   Text(
                     info,
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 14,
                       color:
                           isDark
                               ? const Color(0xFF9A6C4C)
@@ -1591,7 +1599,7 @@ class _ProductionPageState extends State<ProductionPage> {
               ),
               child: const Text(
                 'Seleccionar',
-                style: TextStyle(fontSize: 8, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
               ),
             ),
           ],

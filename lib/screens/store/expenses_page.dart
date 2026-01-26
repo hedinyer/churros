@@ -83,7 +83,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     Text(
                       'Tipo de gasto',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
@@ -152,7 +152,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       Text(
                         'Empleado',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
@@ -404,7 +404,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     child: Text(
                       'Gastos de Hoy',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -527,7 +527,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 14,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color:
                     isSelected
@@ -541,7 +541,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
             Text(
               _formatCurrency(total),
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color:
                     isSelected
@@ -578,7 +578,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Text(
                 'No hay pagos de hoy',
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF1B130D),
                 ),
@@ -643,7 +643,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     Text(
                       pedido.clienteNombre,
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -652,7 +652,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     Text(
                       pedido.numeroPedido ?? 'Pedido #${pedido.id}',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 12,
                         color:
                             isDark
                                 ? const Color(0xFF9A6C4C)
@@ -665,7 +665,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Text(
                 _formatCurrency(pedido.total),
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: primaryColor,
                 ),
@@ -685,7 +685,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Text(
                 pedido.metodoPago ?? 'efectivo',
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 12,
                   color:
                       isDark
                           ? const Color(0xFF9A6C4C)
@@ -720,7 +720,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               Text(
                 'No hay gastos varios de hoy',
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : const Color(0xFF1B130D),
                 ),
@@ -812,7 +812,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 Text(
                   descripcion,
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : const Color(0xFF1B130D),
                   ),
@@ -822,7 +822,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   Text(
                     categoria,
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       color:
                           isDark
                               ? const Color(0xFF9A6C4C)
@@ -836,7 +836,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
           Text(
             _formatCurrency(monto),
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.red,
             ),

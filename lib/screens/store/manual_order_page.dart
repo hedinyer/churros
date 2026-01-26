@@ -339,7 +339,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                     child: Text(
                       'Registrar Pedido Manual',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -389,7 +389,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -421,7 +421,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                               Text(
                                 'Información del Cliente',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -553,7 +553,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                               Text(
                                 'Método de Pago',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color:
                                       isDark
@@ -642,7 +642,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                               Text(
                                 'Productos',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -701,7 +701,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                 Text(
                                                   producto.nombre,
                                                   style: TextStyle(
-                                                    fontSize: 8,
+                                                    fontSize: 16,
                                                     fontWeight: FontWeight.bold,
                                                     color:
                                                         isDark
@@ -717,7 +717,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                     producto.precio,
                                                   ),
                                                   style: TextStyle(
-                                                    fontSize: 8,
+                                                    fontSize: 14,
                                                     color:
                                                         isDark
                                                             ? const Color(
@@ -787,7 +787,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                     keyboardType:
                                                         TextInputType.number,
                                                     style: TextStyle(
-                                                      fontSize: 8,
+                                                      fontSize: 14,
                                                       fontWeight:
                                                           FontWeight.bold,
                                                       color:
@@ -841,7 +841,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                             Text(
                                               'Subtotal: ${_formatCurrency(subtotal)}',
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.w600,
                                                 color:
                                                     isDark
@@ -900,7 +900,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                         Text(
                                           'Total Items: ${_calcularTotalItems()}',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 14,
                                             color:
                                                 isDark
                                                     ? const Color(0xFF9A6C4C)
@@ -927,7 +927,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                           Text(
                                             'Domicilio:',
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 14,
                                               color:
                                                   isDark
                                                       ? const Color(0xFF9A6C4C)
@@ -943,7 +943,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                   0,
                                             ),
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 14,
                                               color:
                                                   isDark
                                                       ? const Color(0xFF9A6C4C)
@@ -961,7 +961,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                         Text(
                                           'Total:',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.bold,
                                             color: primaryColor,
                                           ),
@@ -969,7 +969,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                         Text(
                                           _formatCurrency(_calcularTotal()),
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.bold,
                                             color: primaryColor,
                                           ),
@@ -1040,7 +1040,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                           : const Text(
                             'Guardar Pedido',
                             style: TextStyle(
-                              fontSize: 8,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

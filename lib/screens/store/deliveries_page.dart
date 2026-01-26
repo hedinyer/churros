@@ -222,7 +222,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                     child: Text(
                       'Domicilios y Entregas',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
                       ),
@@ -294,7 +294,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                     Text(
                       '$totalPedidos pedido${totalPedidos != 1 ? 's' : ''} pendiente${totalPedidos != 1 ? 's' : ''} de entrega',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: primaryColor,
                       ),
@@ -327,7 +327,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 'No hay pedidos pendientes',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -339,7 +339,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 'Todos los pedidos han sido entregados',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   color:
                                       isDark
                                           ? const Color(0xFFA8A29E)
@@ -364,7 +364,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 'Pedidos de Puntos de Venta',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -390,7 +390,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 'Pedidos de Clientes',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -490,7 +490,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 child: Text(
                                   'ENVIADO',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.orange,
                                     letterSpacing: 1,
@@ -501,7 +501,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 timeAgo,
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 12,
                                   color:
                                       isDark
                                           ? const Color(0xFF9A6C4C)
@@ -514,7 +514,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                           Text(
                             numeroPedido,
                             style: TextStyle(
-                              fontSize: 8,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color:
                                   isDark
@@ -541,7 +541,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                           'Sucursal')
                                       : pedidoCliente!.clienteNombre,
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 14,
                                     color:
                                         isDark
                                             ? const Color(0xFF9A6C4C)
@@ -568,7 +568,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                   child: Text(
                                     pedidoCliente!.direccionEntrega,
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFF9A6C4C)
@@ -607,7 +607,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                   Text(
                     'Detalle de productos:',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
@@ -656,7 +656,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 Text(
                                   '• ',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 16,
                                     color:
                                         isDark
                                             ? const Color(0xFF9A6C4C)
@@ -671,7 +671,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                       Text(
                                         '${producto?.nombre ?? 'Producto #${isFabrica ? (detalle as PedidoFabricaDetalle).productoId : (detalle as PedidoClienteDetalle).productoId}'}',
                                         style: TextStyle(
-                                          fontSize: 8,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                           color:
                                               isDark
@@ -685,7 +685,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                           Text(
                                             'Cantidad: $cantidad ${producto?.unidadMedida ?? 'unidad'}${cantidad != 1 ? 's' : ''}',
                                             style: TextStyle(
-                                              fontSize: 8,
+                                              fontSize: 12,
                                               color:
                                                   isDark
                                                       ? const Color(0xFF9A6C4C)
@@ -697,7 +697,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                             Text(
                                               '• $precioTotal',
                                               style: TextStyle(
-                                                fontSize: 8,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.bold,
                                                 color:
                                                     isDark
@@ -729,7 +729,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 Text(
                                   'Total: ${detalles.length} producto${detalles.length != 1 ? 's' : ''}',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 14,
                                     color:
                                         isDark
                                             ? const Color(0xFF9A6C4C)
@@ -739,7 +739,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                 Text(
                                   '$totalItems items',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 12,
                                     color:
                                         isDark
                                             ? const Color(0xFF9A6C4C)
@@ -755,7 +755,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                   Text(
                                     'Total del pedido:',
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 12,
                                       color:
                                           isDark
                                               ? const Color(0xFF9A6C4C)
@@ -765,7 +765,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                   Text(
                                     _formatCurrency(pedidoCliente.total),
                                     style: TextStyle(
-                                      fontSize: 8,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                       color: primaryColor,
                                     ),
@@ -776,7 +776,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                               Text(
                                 '$totalItems items',
                                 style: TextStyle(
-                                  fontSize: 8,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color:
                                       isDark
@@ -807,7 +807,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                     label: const Text(
                       'Marcar como Entregado',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

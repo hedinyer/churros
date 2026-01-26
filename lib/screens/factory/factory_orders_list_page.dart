@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/pedido_fabrica.dart';
 import '../../models/producto.dart';
+import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
+import '../../services/factory_section_tracker.dart';
 
 class FactoryOrdersListPage extends StatefulWidget {
   const FactoryOrdersListPage({super.key});
@@ -14,6 +16,7 @@ class FactoryOrdersListPage extends StatefulWidget {
 class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
   List<PedidoFabrica> _pedidos = [];
   List<Producto> _productos = [];
+  Map<int, Categoria> _categoriasMap = {};
   String _filtroEstado =
       'todos'; // 'todos', 'pendiente', 'enviado', 'entregado'
   bool _isLoading = true;
@@ -22,8 +25,15 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
   @override
   void initState() {
     super.initState();
+    FactorySectionTracker.enter();
     _loadData();
     _checkConnection();
+  }
+
+  @override
+  void dispose() {
+    FactorySectionTracker.exit();
+    super.dispose();
   }
 
   Future<void> _checkConnection() async {
@@ -52,6 +62,10 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
       // Cargar productos para mostrar nombres
       final productos = await SupabaseService.getProductosActivos();
 
+      // Cargar categorías
+      final categorias = await SupabaseService.getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
+
       // Cargar pedidos de todas las sucursales
       final pedidos =
           await SupabaseService.getPedidosFabricaRecientesTodasSucursales(
@@ -60,7 +74,13 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
 
       setState(() {
         _productos = productos;
-        _pedidos = pedidos;
+        _categoriasMap = categoriasMap;
+        // Solo pedidos de HOY + ordenados (más recientes primero)
+        final hoy = DateTime.now();
+        final pedidosHoy =
+            pedidos.where((p) => _isSameDay(p.createdAt, hoy)).toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _pedidos = pedidosHoy;
         _isLoading = false;
       });
     } catch (e) {
@@ -71,17 +91,189 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     }
   }
 
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   List<PedidoFabrica> _getPedidosFiltrados() {
     if (_filtroEstado == 'todos') {
       return _pedidos;
     }
-    return _pedidos.where((p) => p.estado == _filtroEstado).toList();
+    return _pedidos
+        .where((p) => p.estado.toLowerCase() == _filtroEstado.toLowerCase())
+        .toList();
+  }
+
+  // Obtener categorías disponibles en los pedidos filtrados por estado
+  // Agrupar pedidos por categoría
+  Map<int?, List<PedidoFabrica>> _getPedidosAgrupadosPorCategoria() {
+    final pedidosFiltrados = _getPedidosFiltrados();
+    final grupos = <int?, List<PedidoFabrica>>{};
+
+    for (final pedido in pedidosFiltrados) {
+      // Determinar la categoría principal del pedido (primera categoría encontrada)
+      int? categoriaId;
+      if (pedido.detalles != null && pedido.detalles!.isNotEmpty) {
+        final primerDetalle = pedido.detalles!.first;
+        final producto = _getProductoById(primerDetalle.productoId);
+        categoriaId = producto?.categoria?.id;
+      }
+
+      (grupos[categoriaId] ??= []).add(pedido);
+    }
+
+    return grupos;
+  }
+
+  Widget _buildPedidosAgrupados({
+    required bool isDark,
+    required Color primaryColor,
+    required bool isSmallScreen,
+  }) {
+    final grupos = _getPedidosAgrupadosPorCategoria();
+
+    if (grupos.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 64,
+                color:
+                    isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No hay pedidos',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF1B130D),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No se encontraron pedidos con el filtro seleccionado',
+                style: TextStyle(
+                  fontSize: 14,
+                  color:
+                      isDark
+                          ? const Color(0xFFA8A29E)
+                          : const Color(0xFF78716C),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Ordenar las categorías
+    final categoriasOrdenadas =
+        grupos.keys.toList()..sort((a, b) {
+          if (a == null) return 1;
+          if (b == null) return -1;
+          final nameA = _categoriasMap[a]?.nombre ?? '';
+          final nameB = _categoriasMap[b]?.nombre ?? '';
+          return nameA.compareTo(nameB);
+        });
+
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 16 : 20,
+        vertical: 16,
+      ),
+      itemCount: categoriasOrdenadas.length,
+      itemBuilder: (context, index) {
+        final categoriaId = categoriasOrdenadas[index];
+        final pedidos = grupos[categoriaId]!;
+        final categoria =
+            categoriaId != null ? _categoriasMap[categoriaId] : null;
+        final categoriaNombre = categoria?.nombre ?? 'Sin categoría';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header de categoría
+            Padding(
+              padding: EdgeInsets.only(bottom: 12, top: index > 0 ? 8 : 0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(isDark ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(isDark ? 0.4 : 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.category, size: 16, color: primaryColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          categoriaNombre,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: primaryColor,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${pedidos.length}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Pedidos de la categoría
+            ...pedidos.map(
+              (pedido) => _buildOrderCard(
+                isDark: isDark,
+                pedido: pedido,
+                primaryColor: primaryColor,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _getEstadoBadge(String estado) {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return 'Pendiente';
+      case 'en_preparacion':
+        return 'En Preparación';
       case 'enviado':
         return 'Enviado';
       case 'entregado':
@@ -97,6 +289,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return const Color(0xFFEC6D13); // primary orange
+      case 'en_preparacion':
+        return Colors.orange;
       case 'enviado':
         return Colors.blue;
       case 'entregado':
@@ -112,6 +306,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     switch (estado.toLowerCase()) {
       case 'pendiente':
         return Icons.sync_problem;
+      case 'en_preparacion':
+        return Icons.restaurant;
       case 'enviado':
         return Icons.send;
       case 'entregado':
@@ -124,7 +320,8 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
   }
 
   bool _puedeDespachar(String estadoActual) {
-    return estadoActual.toLowerCase() == 'pendiente';
+    final estado = estadoActual.toLowerCase();
+    return estado == 'pendiente' || estado == 'en_preparacion';
   }
 
   Future<void> _despacharPedido(PedidoFabrica pedido) async {
@@ -335,7 +532,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                     child: Text(
                       'Pedidos Puntos',
                       style: TextStyle(
-                        fontSize: 8,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                         color: isDark ? Colors.white : const Color(0xFF1B130D),
@@ -385,7 +582,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                         Text(
                           _isOnline ? 'Online' : 'Offline',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _isOnline ? Colors.green : primaryColor,
                             letterSpacing: 0.3,
@@ -398,7 +595,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
               ),
             ),
 
-            // Filtros
+            // Filtros de Estado
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
@@ -487,7 +684,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                         Text(
                                           'No hay pedidos',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color:
                                                 isDark
@@ -499,7 +696,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                         Text(
                                           'No se encontraron pedidos con el filtro seleccionado',
                                           style: TextStyle(
-                                            fontSize: 8,
+                                            fontSize: 14,
                                             color:
                                                 isDark
                                                     ? const Color(0xFFA8A29E)
@@ -511,20 +708,10 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                     ),
                                   ),
                                 )
-                                : ListView.builder(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isSmallScreen ? 16 : 20,
-                                    vertical: 16,
-                                  ),
-                                  itemCount: pedidosFiltrados.length,
-                                  itemBuilder: (context, index) {
-                                    final pedido = pedidosFiltrados[index];
-                                    return _buildOrderCard(
-                                      isDark: isDark,
-                                      pedido: pedido,
-                                      primaryColor: primaryColor,
-                                    );
-                                  },
+                                : _buildPedidosAgrupados(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                  isSmallScreen: isSmallScreen,
                                 ),
                       ),
             ),
@@ -581,7 +768,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 14,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.2,
               color:
@@ -647,14 +834,15 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
             ),
             child: Row(
               children: [
-                // Borde izquierdo de color para pedidos pendientes
-                if (estado == 'pendiente')
+                // Borde izquierdo de color para pedidos pendientes o en preparación
+                if (estado == 'pendiente' || estado == 'en_preparacion')
                   Container(
                     width: 4,
                     height: 60,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      color: primaryColor,
+                      color:
+                          estado == 'pendiente' ? primaryColor : Colors.orange,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
@@ -675,7 +863,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                 Text(
                                   pedido.numeroPedido ?? 'Pedido #${pedido.id}',
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color:
                                         isDark
@@ -698,7 +886,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                     Text(
                                       pedido.sucursal?.nombre ?? 'Sucursal',
                                       style: TextStyle(
-                                        fontSize: 8,
+                                        fontSize: 14,
                                         color:
                                             isDark
                                                 ? const Color(0xFFA8A29E)
@@ -742,7 +930,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                                 Text(
                                   estadoBadge,
                                   style: TextStyle(
-                                    fontSize: 8,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     color: estadoColor,
                                     letterSpacing: 0.3,
@@ -754,46 +942,60 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
                         children: [
-                          Icon(
-                            Icons.access_time,
-                            size: 14,
-                            color:
-                                isDark
-                                    ? const Color(0xFFA8A29E)
-                                    : const Color(0xFF78716C),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color:
+                                    isDark
+                                        ? const Color(0xFFA8A29E)
+                                        : const Color(0xFF78716C),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  '$timeAgo • $fechaHora',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$timeAgo • $fechaHora',
-                            style: TextStyle(
-                              fontSize: 8,
-                              color:
-                                  isDark
-                                      ? const Color(0xFFA8A29E)
-                                      : const Color(0xFF78716C),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Icon(
-                            Icons.shopping_cart,
-                            size: 14,
-                            color:
-                                isDark
-                                    ? const Color(0xFFA8A29E)
-                                    : const Color(0xFF78716C),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${pedido.totalItems} items',
-                            style: TextStyle(
-                              fontSize: 8,
-                              color:
-                                  isDark
-                                      ? const Color(0xFFA8A29E)
-                                      : const Color(0xFF78716C),
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.shopping_cart,
+                                size: 14,
+                                color:
+                                    isDark
+                                        ? const Color(0xFFA8A29E)
+                                        : const Color(0xFF78716C),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${pedido.totalItems} items',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFFA8A29E)
+                                          : const Color(0xFF78716C),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -867,7 +1069,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                   Text(
                     'Productos:',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color:
                           isDark
@@ -895,7 +1097,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
                             child: Text(
                               '${detalle.cantidad} ${producto?.unidadMedida ?? 'unidad'} ${producto?.nombre ?? 'Producto #${detalle.productoId}'}',
                               style: TextStyle(
-                                fontSize: 8,
+                                fontSize: 14,
                                 color:
                                     isDark
                                         ? Colors.white
