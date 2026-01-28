@@ -1102,6 +1102,93 @@ class SupabaseService {
     }
   }
 
+  /// Guarda una recarga de inventario y descuenta productos CRUDOS en una sola operación atómica (servidor).
+  ///
+  /// Esto evita inconsistencias del tipo: "subió FRITO pero NO bajó CRUDO" por mala conexión o concurrencia.
+  ///
+  /// Requiere tener instalada la función SQL en Supabase:
+  /// `public.guardar_recarga_inventario_y_descontar_crudos(...)`
+  ///
+  /// Retorna:
+  /// - exito: bool
+  /// - mensaje: String
+  /// - recargaId: int? (si exito)
+  static Future<Map<String, dynamic>>
+  guardarRecargaInventarioConDescuentoCrudos({
+    required int sucursalId,
+    required int usuarioId,
+    required Map<int, int> productosRecarga, // productoId -> cantidad a recargar
+    required Map<int, int>
+    crudosADescontar, // productoId (crudo) -> cantidad a descontar
+    String? observaciones,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        return {
+          'exito': false,
+          'mensaje':
+              'No hay conexión para guardar recarga atómica (se requiere conexión)',
+        };
+      }
+
+      if (productosRecarga.isEmpty) {
+        return {'exito': false, 'mensaje': 'No hay productos para recargar'};
+      }
+
+      // Convertir mapas a arrays JSON para el RPC
+      final productosRecargaJson =
+          productosRecarga.entries.map((e) {
+            return {'producto_id': e.key, 'cantidad': e.value};
+          }).toList();
+
+      final crudosDescontarJson = crudosADescontar.entries.map((e) {
+        return {'producto_id': e.key, 'cantidad': e.value};
+      }).toList();
+
+      final response = await client.rpc(
+        'guardar_recarga_inventario_y_descontar_crudos',
+        params: {
+          'p_sucursal_id': sucursalId,
+          'p_usuario_id': usuarioId,
+          'p_observaciones': observaciones,
+          'p_productos_recarga': productosRecargaJson,
+          'p_crudos_a_descontar': crudosDescontarJson,
+        },
+      );
+
+      final recargaId = (response as num?)?.toInt();
+      if (recargaId == null) {
+        return {
+          'exito': false,
+          'mensaje':
+              'La recarga no devolvió ID. Verifica que el RPC esté instalado.',
+        };
+      }
+
+      return {
+        'exito': true,
+        'mensaje': 'Recarga guardada correctamente (ID $recargaId)',
+        'recargaId': recargaId,
+      };
+    } catch (e) {
+      // Mensaje más accionable para el caso "RPC no existe"
+      final msg = e.toString();
+      if (msg.contains('PGRST202') ||
+          msg.toLowerCase().contains('could not find the function') ||
+          msg.toLowerCase().contains('function') &&
+              msg.toLowerCase().contains('not found')) {
+        return {
+          'exito': false,
+          'mensaje':
+              'No está instalada la función RPC en Supabase: guardar_recarga_inventario_y_descontar_crudos. '
+              'Ejecuta el SQL de `database_rpc_recarga_frito_crudo_atomic.sql` en Supabase.',
+        };
+      }
+      return {'exito': false, 'mensaje': 'Error: $e'};
+    }
+  }
+
   /// Obtiene el cierre del día actual para una sucursal
   static Future<Map<String, dynamic>?> getCierreDiaActual(
     int sucursalId,
@@ -2809,17 +2896,37 @@ required int productoId,
         'fecha': DateTime.now().toIso8601String().split('T')[0],
       };
 
-      // Si hay empleado_id, intentar agregarlo (puede que la tabla no lo tenga)
+      // Si hay empleado_id, intentar insertarlo (algunas BD aún no tienen esa columna).
+      // Si falla por "column does not exist", reintentar sin empleado_id para no bloquear nómina.
       if (empleadoId != null) {
-        try {
-          data['empleado_id'] = empleadoId;
-        } catch (e) {
-          // Si la tabla no tiene el campo empleado_id, no se agrega
-          print('Campo empleado_id no disponible en la tabla: $e');
-        }
+        data['empleado_id'] = empleadoId;
       }
 
-      await client.from('gastos_varios').insert(data);
+      try {
+        await client.from('gastos_varios').insert(data);
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        final isTipoConstraint =
+            msg.contains('gastos_varios_tipo_check') ||
+            (msg.contains('violates check constraint') &&
+                msg.contains('tipo_check'));
+        final isMissingEmpleadoIdColumn =
+            msg.contains('empleado_id') &&
+            (msg.contains('does not exist') ||
+                msg.contains('column') && msg.contains('not found'));
+        if (isTipoConstraint && (data['tipo'] == 'nomina')) {
+          // La BD aún no permite 'nomina' como tipo. Reintentar con tipo 'pago'
+          // manteniendo la descripción "Nómina - X" para que no se pierda el contexto.
+          data['tipo'] = 'pago';
+          await client.from('gastos_varios').insert(data);
+        } else if (isMissingEmpleadoIdColumn) {
+          // Reintentar sin el campo que no existe en la tabla
+          data.remove('empleado_id');
+          await client.from('gastos_varios').insert(data);
+        } else {
+          rethrow;
+        }
+      }
 
       return true;
     } catch (e) {
@@ -2982,6 +3089,7 @@ required int productoId,
     String? clienteTelefono,
     required String direccionEntrega,
     required Map<int, int> productos, // productoId -> cantidad
+    Map<int, double>? preciosEspeciales, // productoId -> precio unitario (opcional)
     String? observaciones,
     String? metodoPago,
     double? domicilio,
@@ -3004,7 +3112,13 @@ required int productoId,
         if (producto == null || entry.value <= 0) continue;
 
         final cantidad = entry.value;
-        final precioUnitario = producto.precio;
+        final precioEspecial = preciosEspeciales?[producto.id];
+        final tienePrecioEspecial =
+            precioEspecial != null &&
+            precioEspecial > 0 &&
+            precioEspecial != producto.precio;
+        final precioUnitario =
+            tienePrecioEspecial ? precioEspecial : producto.precio;
         final precioTotal = precioUnitario * cantidad;
 
         totalItems += cantidad;

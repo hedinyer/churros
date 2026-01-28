@@ -1389,10 +1389,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                       (24 * textScaleFactor).clamp(16.0, 32.0) +
                       mediaQuery.padding.bottom,
                   right: (24 * textScaleFactor).clamp(16.0, 32.0),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () async {
+                  child: OutlinedButton(
+                    onPressed: () async {
                         // Inicializar cantidades de recarga con valores por defecto
                         _cantidadesRecarga.clear();
                         for (final productoId in _productosParaRecargar) {
@@ -2241,52 +2239,24 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                               }
                             }
 
-                            // Guardar recarga en Supabase (solo productos fritos/recargas positivas)
+                            // Guardar recarga y descuentos de CRUDOS de forma ATÓMICA en el servidor
+                            // (evita inconsistencias por mala conexión o concurrencia).
+                            final resultadoAtomico =
+                                await SupabaseService
+                                    .guardarRecargaInventarioConDescuentoCrudos(
+                                      sucursalId: widget.sucursal.id,
+                                      usuarioId: widget.currentUser.id,
+                                      productosRecarga: productosRecarga,
+                                      crudosADescontar: productosCrudosADescontar,
+                                      observaciones:
+                                          'Recarga masiva desde inventario',
+                                    );
+
                             final exito =
-                                await SupabaseService.guardarRecargaInventario(
-                                  sucursalId: widget.sucursal.id,
-                                  usuarioId: widget.currentUser.id,
-                                  productosRecarga: productosRecarga,
-                                  observaciones:
-                                      'Recarga masiva desde inventario',
-                                );
-
-                            // Si la recarga fue exitosa, descontar de los productos crudos
-                            if (exito && productosCrudosADescontar.isNotEmpty) {
-                              bool descuentosExitosos = true;
-                              for (final entry in productosCrudosADescontar.entries) {
-                                final productoCrudoId = entry.key;
-                                final cantidadADescontar = entry.value;
-                                
-                                final resultadoDescuento =
-                                    await SupabaseService.descontarInventarioActual(
-                                  sucursalId: widget.sucursal.id,
-                                  productoId: productoCrudoId,
-                                  cantidad: cantidadADescontar,
-                                );
-
-                                if (!resultadoDescuento['exito']) {
-                                  descuentosExitosos = false;
-                                  print(
-                                    'Error descontando ${resultadoDescuento['mensaje']}',
-                                  );
-                                } else {
-                                  final productoCrudo = _productos.firstWhere(
-                                    (p) => p.id == productoCrudoId,
-                                  );
-                                  print(
-                                    '✓ Descontadas $cantidadADescontar unidades de ${productoCrudo.nombre}',
-                                  );
-                                }
-                              }
-
-                              if (!descuentosExitosos) {
-                                // Mostrar advertencia pero no fallar completamente
-                                print(
-                                  'Advertencia: Algunos descuentos de productos crudos fallaron',
-                                );
-                              }
-                            }
+                                (resultadoAtomico['exito'] as bool?) ?? false;
+                            final mensajeAtomico =
+                                (resultadoAtomico['mensaje'] as String?) ??
+                                'Error desconocido';
 
                             // Cerrar loading
                             Navigator.pop(context);
@@ -2322,9 +2292,9 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                               // Mostrar error
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text(
-                                      '✗ Error al guardar la recarga. Intenta nuevamente.',
+                                      '✗ Error al guardar la recarga: $mensajeAtomico',
                                     ),
                                     backgroundColor: Colors.red,
                                     duration: Duration(seconds: 3),
@@ -2353,73 +2323,67 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                           }
                         }
                       },
-                      borderRadius: BorderRadius.circular(999),
-                      child: Container(
-                        width: (56 * textScaleFactor).clamp(48.0, 64.0),
-                        height: (56 * textScaleFactor).clamp(48.0, 64.0),
-                        decoration: BoxDecoration(
-                          color: primaryColor,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: primaryColor.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Icon(
-                              Icons.refresh,
-                              color: Colors.white,
-                              size: (28 * textScaleFactor).clamp(24.0, 32.0),
-                            ),
-                            if (_productosParaRecargar.isNotEmpty)
-                              Positioned(
-                                top: (4 * textScaleFactor).clamp(2.0, 6.0),
-                                right: (4 * textScaleFactor).clamp(2.0, 6.0),
-                                child: Container(
-                                  width: (20 * textScaleFactor).clamp(
-                                    18.0,
-                                    24.0,
-                                  ),
-                                  height: (20 * textScaleFactor).clamp(
-                                    18.0,
-                                    24.0,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: primaryColor,
-                                      width: (2 * textScaleFactor).clamp(
-                                        1.5,
-                                        3.0,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        _productosParaRecargar.length
-                                            .toString(),
-                                        style: TextStyle(
-                                          color: primaryColor,
-                                          fontSize: (10 * textScaleFactor)
-                                              .clamp(8.0, 12.0),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: Colors.red,
+                        width: (2 * textScaleFactor).clamp(1.5, 3.0),
                       ),
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.red,
+                      minimumSize: Size(
+                        (190 * textScaleFactor).clamp(170.0, 260.0),
+                        (52 * textScaleFactor).clamp(46.0, 60.0),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: (18 * textScaleFactor).clamp(14.0, 24.0),
+                        vertical: (14 * textScaleFactor).clamp(10.0, 18.0),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.refresh,
+                          size: (18 * textScaleFactor).clamp(16.0, 22.0),
+                        ),
+                        SizedBox(
+                          width: (10 * textScaleFactor).clamp(8.0, 12.0),
+                        ),
+                        Text(
+                          'Recargar',
+                          style: TextStyle(
+                            fontSize: (16 * textScaleFactor).clamp(14.0, 18.0),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        SizedBox(
+                          width: (12 * textScaleFactor).clamp(10.0, 16.0),
+                        ),
+                        // Badge con cantidad seleccionada (sin sobreponerse al texto)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: (10 * textScaleFactor).clamp(8.0, 12.0),
+                            vertical: (5 * textScaleFactor).clamp(4.0, 7.0),
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            _productosParaRecargar.length.toString(),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: (12 * textScaleFactor).clamp(10.0, 14.0),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

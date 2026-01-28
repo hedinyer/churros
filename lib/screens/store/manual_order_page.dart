@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../models/producto.dart';
 import '../../services/supabase_service.dart';
@@ -22,6 +23,12 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   Map<int, int> _cantidades = {}; // productoId -> cantidad
   Map<int, TextEditingController> _cantidadControllers =
       {}; // productoId -> controller
+  final Map<int, FocusNode> _cantidadFocusNodes = {}; // productoId -> focusNode
+  Map<int, TextEditingController> _precioControllers =
+      {}; // productoId -> controller precio especial
+  final Map<int, FocusNode> _precioFocusNodes = {}; // productoId -> focusNode
+  Map<int, double> _preciosEspeciales =
+      {}; // productoId -> precio especial (si aplica)
   String _metodoPago = 'efectivo';
   bool _isLoading = true;
   bool _isGuardando = false;
@@ -46,6 +53,18 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       controller.dispose();
     }
     _cantidadControllers.clear();
+    for (final node in _cantidadFocusNodes.values) {
+      node.dispose();
+    }
+    _cantidadFocusNodes.clear();
+    for (var controller in _precioControllers.values) {
+      controller.dispose();
+    }
+    _precioControllers.clear();
+    for (final node in _precioFocusNodes.values) {
+      node.dispose();
+    }
+    _precioFocusNodes.clear();
     super.dispose();
   }
 
@@ -81,6 +100,11 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
       setState(() {
         _productos = productosFiltrados;
+        // Inicializar controllers de precio con el precio base del producto
+        _precioControllers = {
+          for (final p in productosFiltrados)
+            p.id: TextEditingController(text: p.precio.toStringAsFixed(0)),
+        };
         _isLoading = false;
       });
     } catch (e) {
@@ -151,14 +175,20 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     return _cantidadControllers[productoId]!;
   }
 
-  double _calcularTotal() {
-    double total = 0.0;
-    for (final entry in _cantidades.entries) {
+  FocusNode _getOrCreateCantidadFocusNode(int productoId) {
+    return _cantidadFocusNodes.putIfAbsent(
+      productoId,
+      () => FocusNode(debugLabel: 'manual_qty_$productoId'),
+    );
+  }
+
+  TextEditingController _getOrCreatePrecioController(int productoId) {
+    if (!_precioControllers.containsKey(productoId)) {
       final producto = _productos.firstWhere(
-        (p) => p.id == entry.key,
+        (p) => p.id == productoId,
         orElse:
             () => Producto(
-              id: entry.key,
+              id: productoId,
               nombre: 'Producto',
               precio: 0.0,
               unidadMedida: 'unidad',
@@ -167,7 +197,70 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
               updatedAt: DateTime.now(),
             ),
       );
-      total += producto.precio * entry.value;
+      _precioControllers[productoId] = TextEditingController(
+        text: producto.precio.toStringAsFixed(0),
+      );
+    }
+    return _precioControllers[productoId]!;
+  }
+
+  FocusNode _getOrCreatePrecioFocusNode(int productoId) {
+    return _precioFocusNodes.putIfAbsent(
+      productoId,
+      () => FocusNode(debugLabel: 'manual_price_$productoId'),
+    );
+  }
+
+  double _getPrecioProducto(int productoId) {
+    final precioEspecial = _preciosEspeciales[productoId];
+    if (precioEspecial != null && precioEspecial > 0) {
+      return precioEspecial;
+    }
+    final producto = _productos.firstWhere(
+      (p) => p.id == productoId,
+      orElse:
+          () => Producto(
+            id: productoId,
+            nombre: 'Producto',
+            precio: 0.0,
+            unidadMedida: 'unidad',
+            activo: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+    );
+    return producto.precio;
+  }
+
+  void _onPrecioChanged(int productoId, String value) {
+    final v = value.trim();
+    // Aceptar formatos comunes (1,300 / 1.300 / $1300) limpiando a solo dígitos
+    final digitsOnly = v.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.isEmpty) {
+      setState(() {
+        _preciosEspeciales.remove(productoId);
+      });
+      return;
+    }
+
+    final precioInt = int.tryParse(digitsOnly) ?? 0;
+    if (precioInt >= 0) {
+      setState(() {
+        // Si el precio es 0 o negativo, lo tratamos como "sin precio especial"
+        if (precioInt > 0) {
+          _preciosEspeciales[productoId] = precioInt.toDouble();
+        } else {
+          _preciosEspeciales.remove(productoId);
+        }
+      });
+    }
+  }
+
+  double _calcularTotal() {
+    double total = 0.0;
+    for (final entry in _cantidades.entries) {
+      final precio = _getPrecioProducto(entry.key);
+      total += precio * entry.value;
     }
     // Agregar domicilio si existe
     final domicilio = double.tryParse(_domicilioController.text.trim()) ?? 0.0;
@@ -209,6 +302,14 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     try {
       final domicilio = double.tryParse(_domicilioController.text.trim());
 
+      // Mapa de precios especiales (solo para productos seleccionados)
+      final preciosEspeciales = <int, double>{};
+      for (final entry in productosConCantidad) {
+        final productoId = entry.key;
+        final precio = _getPrecioProducto(productoId);
+        preciosEspeciales[productoId] = precio;
+      }
+
       final pedido = await SupabaseService.crearPedidoCliente(
         clienteNombre: _clienteNombreController.text.trim(),
         clienteTelefono:
@@ -217,6 +318,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                 : _clienteTelefonoController.text.trim(),
         direccionEntrega: _direccionController.text.trim(),
         productos: Map.fromEntries(productosConCantidad),
+        preciosEspeciales: preciosEspeciales,
         observaciones:
             _observacionesController.text.trim().isEmpty
                 ? null
@@ -234,6 +336,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         _domicilioController.clear();
         setState(() {
           _cantidades.clear();
+          _preciosEspeciales.clear();
           _metodoPago = 'efectivo';
           _isGuardando = false;
         });
@@ -661,7 +764,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                               // Lista de Productos
                               ..._productos.map((producto) {
                                 final cantidad = _cantidades[producto.id] ?? 0;
-                                final precio = producto.precio;
+                                final precio = _getPrecioProducto(producto.id);
                                 final subtotal = precio * cantidad;
 
                                 return Container(
@@ -718,21 +821,87 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
-                                                Text(
-                                                  _formatCurrency(
-                                                    producto.precio,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color:
-                                                        isDark
-                                                            ? const Color(
-                                                              0xFF9A6C4C,
-                                                            )
-                                                            : const Color(
-                                                              0xFF9A6C4C,
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        _formatCurrency(precio),
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color:
+                                                              isDark
+                                                                  ? const Color(
+                                                                    0xFF9A6C4C,
+                                                                  )
+                                                                  : const Color(
+                                                                    0xFF9A6C4C,
+                                                                  ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    SizedBox(
+                                                      width: 130,
+                                                      child: TextField(
+                                                        key: ValueKey(
+                                                          'manual_price_${producto.id}',
+                                                        ),
+                                                        controller:
+                                                            _getOrCreatePrecioController(
+                                                              producto.id,
                                                             ),
-                                                  ),
+                                                        focusNode:
+                                                            _getOrCreatePrecioFocusNode(
+                                                              producto.id,
+                                                            ),
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        keyboardType:
+                                                            TextInputType.number,
+                                                        inputFormatters: [
+                                                          FilteringTextInputFormatter
+                                                              .digitsOnly,
+                                                        ],
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              isDark
+                                                                  ? Colors.white
+                                                                  : const Color(
+                                                                    0xFF1B130D,
+                                                                  ),
+                                                        ),
+                                                        decoration: InputDecoration(
+                                                          labelText: 'Precio',
+                                                          prefixText: '\$',
+                                                          border:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                      10,
+                                                                    ),
+                                                          ),
+                                                          isDense: true,
+                                                          contentPadding:
+                                                              const EdgeInsets
+                                                                  .symmetric(
+                                                                    horizontal:
+                                                                        10,
+                                                                    vertical:
+                                                                        10,
+                                                                  ),
+                                                        ),
+                                                        onChanged:
+                                                            (v) =>
+                                                                _onPrecioChanged(
+                                                                  producto.id,
+                                                                  v,
+                                                                ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
@@ -785,8 +954,15 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                 SizedBox(
                                                   width: 60,
                                                   child: TextField(
+                                                    key: ValueKey(
+                                                      'manual_qty_${producto.id}',
+                                                    ),
                                                     controller:
                                                         _getOrCreateController(
+                                                          producto.id,
+                                                        ),
+                                                    focusNode:
+                                                        _getOrCreateCantidadFocusNode(
                                                           producto.id,
                                                         ),
                                                     textAlign: TextAlign.center,

@@ -262,7 +262,13 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
     final descripcion = descripcionController.text.trim();
     final categoria = categoriaController.text.trim();
-    final monto = double.tryParse(montoController.text.trim());
+    // Soportar formatos comunes: 10.000 / 10,000 / $10000
+    final montoDigits = montoController.text.trim().replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+    final montoParsed = int.tryParse(montoDigits);
+    final monto = montoParsed?.toDouble();
     final empleado = resultado['empleado'] as Empleado?;
 
     if (descripcion.isEmpty) {
