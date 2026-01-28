@@ -33,6 +33,8 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
   bool _isLoading = true;
   bool _isOnline = true;
   bool _isEnviando = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       controller.dispose();
     }
     _cantidadControllers.clear();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -80,13 +83,13 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       final productos = await SupabaseService.getProductosActivos();
 
       // Filtrar productos:
-      // - categoria_id = 1 o 4: nombre contiene "crudo" y unidad_medida = "bandeja"
-      // - categoria_id = 5: sin restricciones adicionales
+      // - categoria_id = 5: pasabocas (sin restricciones)
+      // - categoria_id = 1 o 4: churros crudos que NO sean en bandeja
       final productosFiltrados =
           productos.where((producto) {
             final categoriaId = producto.categoria?.id;
 
-            // Si es categoría 5, se puede pedir sin restricciones
+            // Si es categoría 5 (pasabocas), se puede pedir sin restricciones
             if (categoriaId == 5) {
               return true;
             }
@@ -99,10 +102,10 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
               // Verificar que el nombre contenga "crudo"
               final contieneCrudo = nombre.contains('crudo');
 
-              // Verificar que la unidad de medida sea "bandeja"
-              final esBandeja = unidadMedida == 'bandeja';
+              // Verificar que la unidad de medida NO sea "bandeja"
+              final noEsBandeja = unidadMedida != 'bandeja';
 
-              return contieneCrudo && esBandeja;
+              return contieneCrudo && noEsBandeja;
             }
 
             // Otras categorías no se pueden pedir
@@ -117,12 +120,20 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
       // Cargar pedidos recientes
       final pedidos = await SupabaseService.getPedidosFabricaRecientes(
         widget.sucursal.id,
+        limit: 100, // Aumentar límite para asegurar que obtenemos todos los del día
       );
+
+      // Filtrar solo pedidos del día actual
+      final hoy = DateTime.now();
+      final pedidosHoy = pedidos
+          .where((p) => _isSameDay(p.createdAt, hoy))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Más recientes primero
 
       setState(() {
         _productos = productosFiltrados;
         _inventario = inventario;
-        _pedidosRecientes = pedidos;
+        _pedidosRecientes = pedidosHoy;
         _isLoading = false;
       });
     } catch (e) {
@@ -190,6 +201,24 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
   int _getTotalItems() {
     return _cantidades.values.fold(0, (sum, cantidad) => sum + cantidad);
   }
+
+  List<Producto> _getProductosFiltrados() {
+    if (_searchQuery.trim().isEmpty) {
+      return _productos;
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    return _productos.where((producto) {
+      final nombre = producto.nombre.toLowerCase();
+      // Buscar por palabras clave (cada palabra del query debe estar en el nombre)
+      final palabrasQuery = query.split(' ').where((p) => p.isNotEmpty).toList();
+      return palabrasQuery.every((palabra) => nombre.contains(palabra));
+    }).toList();
+  }
+
+  /// Verifica si dos fechas son del mismo día
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   Future<void> _enviarPedido() async {
     // Filtrar solo productos con cantidad > 0
@@ -475,8 +504,74 @@ class _FactoryOrderPageState extends State<FactoryOrderPage> {
                             ),
                             const SizedBox(height: 16),
 
+                            // Search Bar
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF2D231B)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.05)
+                                      : Colors.black.withOpacity(0.05),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _searchQuery = value;
+                                  });
+                                },
+                                decoration: InputDecoration(
+                                  hintText: 'Buscar producto...',
+                                  hintStyle: TextStyle(
+                                    color: isDark
+                                        ? const Color(0xFF78716C)
+                                        : const Color(0xFF78716C),
+                                    fontSize: 14,
+                                  ),
+                                  prefixIcon: Icon(
+                                    Icons.search,
+                                    color: isDark
+                                        ? const Color(0xFF78716C)
+                                        : const Color(0xFF78716C),
+                                    size: 24,
+                                  ),
+                                  suffixIcon: _searchQuery.isNotEmpty
+                                      ? IconButton(
+                                          icon: Icon(
+                                            Icons.clear,
+                                            color: isDark
+                                                ? const Color(0xFF78716C)
+                                                : const Color(0xFF78716C),
+                                            size: 20,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _searchQuery = '';
+                                              _searchController.clear();
+                                            });
+                                          },
+                                        )
+                                      : null,
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white : const Color(0xFF1B130D),
+                                ),
+                              ),
+                            ),
+
                             // Product Cards
-                            ..._productos.map((producto) {
+                            ..._getProductosFiltrados().map((producto) {
                               // Note: _inventario is available for future stock display/validation
 
                               return Container(

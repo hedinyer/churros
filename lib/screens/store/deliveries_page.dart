@@ -35,10 +35,14 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       final productos = await SupabaseService.getProductosActivos();
 
       // Cargar pedidos de fábrica en estado "enviado"
-      final todosPedidosFabrica =
-          await SupabaseService.getPedidosFabricaParaDespacho(limit: 100);
+      // Ahora el método ya filtra directamente por estado "enviado"
       final pedidosFabricaEnviados =
-          todosPedidosFabrica.where((p) => p.estado == 'enviado').toList();
+          await SupabaseService.getPedidosFabricaParaDespacho(
+        limit: 100,
+        estadoFiltro: 'enviado',
+      );
+
+      print('📦 Pedidos de fábrica en estado "enviado": ${pedidosFabricaEnviados.length}');
 
       // Cargar pedidos de clientes en estado "enviado"
       final todosPedidosClientes =
@@ -46,14 +50,17 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       final pedidosClientesEnviados =
           todosPedidosClientes.where((p) => p.estado == 'enviado').toList();
 
+      print('📦 Pedidos de clientes en estado "enviado": ${pedidosClientesEnviados.length}');
+
       setState(() {
         _productos = productos;
         _pedidosFabrica = pedidosFabricaEnviados;
         _pedidosClientes = pedidosClientesEnviados;
         _isLoading = false;
       });
-    } catch (e) {
-      print('Error cargando pedidos para entrega: $e');
+    } catch (e, stackTrace) {
+      print('❌ Error cargando pedidos para entrega: $e');
+      print('Stack trace: $stackTrace');
       setState(() {
         _isLoading = false;
       });
@@ -112,6 +119,8 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     if (confirmado != true) return;
 
     try {
+      print('🔄 Marcando pedido #$pedidoId (tipo: $tipo) como entregado...');
+      
       Map<String, dynamic> resultado;
       if (tipo == 'fabrica') {
         resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
@@ -126,23 +135,27 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       }
 
       if (resultado['exito'] == true && mounted) {
+        print('✅ Pedido #$pedidoId marcado como entregado exitosamente');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pedido marcado como entregado'),
             backgroundColor: Colors.green,
           ),
         );
-        // Recargar datos
+        // Recargar datos para actualizar la lista
         await _loadData();
       } else if (mounted) {
         final mensaje =
             resultado['mensaje'] as String? ??
             'Error al marcar el pedido como entregado';
+        print('❌ Error marcando pedido como entregado: $mensaje');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Excepción al marcar pedido como entregado: $e');
+      print('Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),

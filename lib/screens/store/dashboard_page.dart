@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/sucursal.dart';
 import '../../models/user.dart';
 import '../../models/pedido_fabrica.dart';
 import '../../services/supabase_service.dart';
 import '../../services/notification_service.dart';
-import '../../widgets/onboarding_overlay.dart';
+import '../../services/factory_session_service.dart';
+import '../../main.dart';
 import 'store_opening_page.dart';
 import 'quick_sale_page.dart';
 import 'inventory_control_page.dart';
@@ -35,21 +37,32 @@ class _DashboardPageState extends State<DashboardPage> {
   double _porcentajeVsAyer = 0.0;
   bool _isLoadingVentas = true;
 
-  // GlobalKeys para el onboarding
-  final GlobalKey _storeOpeningKey = GlobalKey();
-  final GlobalKey _quickSaleKey = GlobalKey();
-  final GlobalKey _inventoryKey = GlobalKey();
-  final GlobalKey _closingKey = GlobalKey();
-
   // Monitoreo de cambios de estado de pedidos a fábrica
   Timer? _orderStatusTimer;
   Map<int, String> _previousOrderStates = {}; // pedidoId -> estado
+  RealtimeChannel? _orderStatusChannel; // Listener de Realtime para cambios de estado
+
+  Future<void> _logout() async {
+    // Resetear flag de sesión de fábrica
+    await FactorySessionService.setFactorySession(false);
+
+    if (!mounted) return;
+
+    // Navegar a la pantalla de Login y limpiar el stack de navegación
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    // Inicializar notificaciones primero
+    NotificationService.initialize().then((_) {
+      print('✅ Servicio de notificaciones inicializado en Dashboard');
+    });
     _loadVentasHoy();
-    _checkAndShowOnboarding();
     _initializeOrderStatusMonitoring();
     _setupNotificationNavigation();
   }
@@ -57,6 +70,8 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     _orderStatusTimer?.cancel();
+    // Desconectar el listener de Realtime
+    _orderStatusChannel?.unsubscribe();
     // Limpiar el callback de notificaciones
     NotificationService.onNotificationTapped = null;
     super.dispose();
@@ -85,36 +100,6 @@ class _DashboardPageState extends State<DashboardPage> {
         });
       }
     };
-  }
-
-  Future<void> _checkAndShowOnboarding() async {
-    // Esperar a que el widget se construya completamente y los widgets estén renderizados
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-
-    final isCompleted = await OnboardingOverlay.isCompleted();
-    if (!isCompleted) {
-      // Esperar un poco más para asegurar que los widgets están completamente renderizados
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) {
-        _showOnboarding();
-      }
-    }
-  }
-
-  void _showOnboarding() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (context) => OnboardingOverlay(
-            storeOpeningKey: _storeOpeningKey,
-            quickSaleKey: _quickSaleKey,
-            inventoryKey: _inventoryKey,
-            closingKey: _closingKey,
-          ),
-    );
   }
 
   Future<void> _loadVentasHoy() async {
@@ -186,14 +171,114 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Inicializa el monitoreo de cambios de estado de pedidos a fábrica
   Future<void> _initializeOrderStatusMonitoring() async {
+    // Asegurar que el servicio de notificaciones esté inicializado
+    await NotificationService.initialize();
+    
     // Cargar estado inicial de los pedidos
     await _loadInitialOrderStates();
 
-    // Configurar timer para verificar cambios cada 30 segundos
+    // Verificar cambios inmediatamente después de cargar estados iniciales
+    await _checkOrderStatusChanges();
+
+    // Configurar listener de Realtime para cambios instantáneos
+    _setupRealtimeListener();
+
+    // Configurar timer como respaldo para verificar cambios cada 15 segundos
     _orderStatusTimer = Timer.periodic(
-      const Duration(seconds: 30),
+      const Duration(seconds: 15),
       (_) => _checkOrderStatusChanges(),
     );
+    
+    print('✅ Monitoreo de pedidos inicializado - Realtime activo + verificación cada 15 segundos');
+  }
+
+  /// Configura el listener de Realtime para detectar cambios de estado al instante
+  void _setupRealtimeListener() {
+    try {
+      print('🔌 Configurando listener de Realtime para pedidos_fabrica...');
+      
+      _orderStatusChannel = SupabaseService.client
+          .channel('store_order_status_listener_${widget.sucursal.id}_${DateTime.now().millisecondsSinceEpoch}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'pedidos_fabrica',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'sucursal_id',
+              value: widget.sucursal.id,
+            ),
+            callback: (payload) async {
+              print('📡 Cambio detectado en Realtime: ${payload.newRecord}');
+              
+              try {
+                final pedidoId = payload.newRecord['id'] as int?;
+                final estadoNuevo = (payload.newRecord['estado'] as String?)?.toLowerCase();
+                final estadoAnterior = (payload.oldRecord['estado'] as String?)?.toLowerCase();
+                final numeroPedido = payload.newRecord['numero_pedido'] as String?;
+
+                if (pedidoId == null || estadoNuevo == null) {
+                  print('⚠️ Datos incompletos en el cambio: pedidoId=$pedidoId, estado=$estadoNuevo');
+                  return;
+                }
+
+                print('🔍 Analizando cambio: Pedido #$pedidoId de "$estadoAnterior" a "$estadoNuevo"');
+
+                // Verificar cambio de Pendiente a Enviado
+                if (estadoAnterior == 'pendiente' && estadoNuevo == 'enviado') {
+                  print('🚀 Cambio detectado: PENDIENTE → ENVIADO para pedido #$pedidoId');
+                  
+                  // Asegurar que las notificaciones estén inicializadas
+                  await NotificationService.initialize();
+                  
+                  // Mostrar notificación inmediatamente
+                  await NotificationService.showFactoryOrderSentNotification(
+                    numeroPedido: numeroPedido ?? pedidoId.toString(),
+                    sucursalNombre: 'Fábrica',
+                  );
+                  
+                  // Actualizar estado en el mapa
+                  _previousOrderStates[pedidoId] = estadoNuevo;
+                  
+                  print('✅ Notificación de ENVIADO mostrada para pedido #$pedidoId');
+                }
+                // Verificar cambio de Enviado a Entregado
+                else if (estadoAnterior == 'enviado' && estadoNuevo == 'entregado') {
+                  print('📦 Cambio detectado: ENVIADO → ENTREGADO para pedido #$pedidoId');
+                  
+                  // Asegurar que las notificaciones estén inicializadas
+                  await NotificationService.initialize();
+                  
+                  // Mostrar notificación inmediatamente
+                  await NotificationService.showFactoryOrderDeliveredNotification(
+                    numeroPedido: numeroPedido ?? pedidoId.toString(),
+                    sucursalNombre: 'Fábrica',
+                  );
+                  
+                  // Actualizar estado en el mapa
+                  _previousOrderStates[pedidoId] = estadoNuevo;
+                  
+                  print('✅ Notificación de ENTREGADO mostrada para pedido #$pedidoId');
+                }
+                // Actualizar estado si cambió a otro estado
+                else if (estadoAnterior != estadoNuevo) {
+                  print('📝 Estado actualizado: Pedido #$pedidoId de "$estadoAnterior" a "$estadoNuevo"');
+                  _previousOrderStates[pedidoId] = estadoNuevo;
+                }
+              } catch (e) {
+                print('❌ Error procesando cambio de Realtime: $e');
+                print('Stack trace: ${StackTrace.current}');
+              }
+            },
+          )
+          .subscribe();
+
+      print('✅ Listener de Realtime configurado y suscrito exitosamente');
+    } catch (e) {
+      print('❌ Error configurando listener de Realtime: $e');
+      print('Stack trace: ${StackTrace.current}');
+      // Continuar con el timer como respaldo
+    }
   }
 
   /// Carga el estado inicial de los pedidos a fábrica de esta sucursal
@@ -222,44 +307,74 @@ class _DashboardPageState extends State<DashboardPage> {
         limit: 50,
       );
 
+      bool cambioDetectado = false;
+
       for (final PedidoFabrica pedido in pedidos) {
         final pedidoId = pedido.id;
-        final estadoActual = pedido.estado;
-        final estadoAnterior = _previousOrderStates[pedidoId];
+        final estadoActual = pedido.estado.toLowerCase(); // Normalizar a minúsculas
+        final estadoAnterior = _previousOrderStates[pedidoId]?.toLowerCase();
 
         // Si el pedido no estaba en el mapa anterior, agregarlo sin notificar
         if (estadoAnterior == null) {
-          _previousOrderStates[pedidoId] = estadoActual;
+          _previousOrderStates[pedidoId] = pedido.estado;
           continue;
         }
 
         // Verificar cambio de Pendiente a Enviado
         if (estadoAnterior == 'pendiente' && estadoActual == 'enviado') {
+          print('🔔 Cambio detectado: Pedido #$pedidoId de PENDIENTE a ENVIADO');
+          cambioDetectado = true;
+          
+          // Asegurar que las notificaciones estén inicializadas
+          await NotificationService.initialize();
+          
           await NotificationService.showFactoryOrderSentNotification(
             numeroPedido: pedido.numeroPedido ?? pedido.id.toString(),
             sucursalNombre: 'Fábrica',
           );
-          _previousOrderStates[pedidoId] = estadoActual;
+          
+          print('✅ Notificación de ENVIADO mostrada para pedido #$pedidoId');
+          _previousOrderStates[pedidoId] = pedido.estado;
         }
         // Verificar cambio de Enviado a Entregado
         else if (estadoAnterior == 'enviado' && estadoActual == 'entregado') {
+          print('🔔 Cambio detectado: Pedido #$pedidoId de ENVIADO a ENTREGADO');
+          cambioDetectado = true;
+          
+          // Asegurar que las notificaciones estén inicializadas
+          await NotificationService.initialize();
+          
           await NotificationService.showFactoryOrderDeliveredNotification(
             numeroPedido: pedido.numeroPedido ?? pedido.id.toString(),
             sucursalNombre: 'Fábrica',
           );
-          _previousOrderStates[pedidoId] = estadoActual;
+          
+          print('✅ Notificación de ENTREGADO mostrada para pedido #$pedidoId');
+          _previousOrderStates[pedidoId] = pedido.estado;
         }
         // Actualizar estado si cambió a otro estado
         else if (estadoAnterior != estadoActual) {
-          _previousOrderStates[pedidoId] = estadoActual;
+          print('📝 Estado actualizado: Pedido #$pedidoId de $estadoAnterior a $estadoActual');
+          _previousOrderStates[pedidoId] = pedido.estado;
         }
       }
 
       // Limpiar pedidos que ya no existen (más de 50 días)
       final pedidosIds = pedidos.map((p) => p.id).toSet();
-      _previousOrderStates.removeWhere((id, _) => !pedidosIds.contains(id));
+      final pedidosEliminados = _previousOrderStates.keys
+          .where((id) => !pedidosIds.contains(id))
+          .length;
+      if (pedidosEliminados > 0) {
+        _previousOrderStates.removeWhere((id, _) => !pedidosIds.contains(id));
+        print('🧹 Limpiados $pedidosEliminados pedidos antiguos del mapa de estados');
+      }
+
+      if (!cambioDetectado) {
+        print('👀 Monitoreo activo - Sin cambios detectados (${pedidos.length} pedidos monitoreados)');
+      }
     } catch (e) {
-      print('Error verificando cambios de estado de pedidos: $e');
+      print('❌ Error verificando cambios de estado de pedidos: $e');
+      print('Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -278,12 +393,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return MediaQuery(
       data: mediaQueryWithoutTextScale,
-      child: Scaffold(
-        backgroundColor:
-            isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
-        body: SafeArea(
-          child: Column(
-            children: [
+      child: WillPopScope(
+        onWillPop: () async => false, // Deshabilitar botón físico de atrás
+        child: Scaffold(
+          backgroundColor:
+              isDark ? const Color(0xFF221810) : const Color(0xFFF8F7F6),
+          body: SafeArea(
+            child: Column(
+              children: [
               // Header
               Container(
                 padding: EdgeInsets.symmetric(
@@ -298,7 +415,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 child: Row(
                   children: [
-                    // Sucursal Name
+                    // Nombre de sucursal centrado
                     Expanded(
                       child: Text(
                         widget.sucursal.nombre,
@@ -313,20 +430,29 @@ class _DashboardPageState extends State<DashboardPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    IconButton(
+                      onPressed: _logout,
+                      icon: Icon(
+                        Icons.logout,
+                        color:
+                            isDark ? Colors.white : const Color(0xFF1B130D),
+                      ),
+                      tooltip: 'Cerrar sesión',
+                    ),
                   ],
                 ),
               ),
 
-              // Main Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isSmallScreen ? 16 : 20,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                // Main Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 16 : 20,
+                      vertical: 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       // Sales Card
                       Container(
                         width: double.infinity,
@@ -512,164 +638,184 @@ class _DashboardPageState extends State<DashboardPage> {
 
                       const SizedBox(height: 24),
 
-                      // Action Buttons Grid
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 1.1,
-                        children: [
-                          // Venta Rápida
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => QuickSalePage(
-                                        sucursal: widget.sucursal,
-                                        currentUser: widget.currentUser,
-                                      ),
-                                ),
-                              );
-                            },
-                            child: _buildModernCard(
-                              key: _quickSaleKey,
-                              isDark: isDark,
-                              color: primaryColor,
-                              icon: Icons.payments,
-                              title: 'VENTA RÁPIDA',
+                        // Action Buttons Grid
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 1.1,
+                          children: [
+                            // Venta Rápida
+                            GestureDetector(
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => QuickSalePage(
+                                          sucursal: widget.sucursal,
+                                          currentUser: widget.currentUser,
+                                        ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                              child: _buildModernCard(
+                                key: null,
+                                isDark: isDark,
+                                color: primaryColor,
+                                icon: Icons.payments,
+                                title: 'VENTA RÁPIDA',
+                              ),
                             ),
-                          ),
 
-                          // Apertura de Punto
-                          _buildActionButton(
-                            key: _storeOpeningKey,
-                            context: context,
-                            isDark: isDark,
-                            icon: Icons.storefront,
-                            iconColor: Colors.blue,
-                            backgroundColor: Colors.blue,
-                            backgroundIcon: Icons.storefront,
-                            title: 'APERTURA\nDE PUNTO',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => StoreOpeningPage(
-                                        currentUser:
-                                            widget.currentUser.toJson(),
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
+                            // Apertura de Punto
+                            _buildActionButton(
+                              key: null,
+                              context: context,
+                              isDark: isDark,
+                              icon: Icons.storefront,
+                              iconColor: Colors.blue,
+                              backgroundColor: Colors.blue,
+                              backgroundIcon: Icons.storefront,
+                              title: 'APERTURA\nDE PUNTO',
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => StoreOpeningPage(
+                                          currentUser:
+                                              widget.currentUser.toJson(),
+                                        ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                            ),
 
-                          // Control de Inventario
-                          _buildActionButton(
-                            key: _inventoryKey,
-                            context: context,
-                            isDark: isDark,
-                            icon: Icons.inventory_2,
-                            iconColor: Colors.orange,
-                            backgroundColor: Colors.orange,
-                            backgroundIcon: Icons.inventory_2,
-                            title: 'CONTROL DE\nINVENTARIO',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => InventoryControlPage(
-                                        sucursal: widget.sucursal,
-                                        currentUser: widget.currentUser,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
+                            // Control de Inventario
+                            _buildActionButton(
+                              key: null,
+                              context: context,
+                              isDark: isDark,
+                              icon: Icons.inventory_2,
+                              iconColor: Colors.orange,
+                              backgroundColor: Colors.orange,
+                              backgroundIcon: Icons.inventory_2,
+                              title: 'CONTROL DE\nINVENTARIO',
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => InventoryControlPage(
+                                          sucursal: widget.sucursal,
+                                          currentUser: widget.currentUser,
+                                        ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                            ),
 
-                          // Cierre de Día
-                          _buildActionButton(
-                            key: _closingKey,
-                            context: context,
-                            isDark: isDark,
-                            icon: Icons.lock_clock,
-                            iconColor: Colors.grey,
-                            backgroundColor: Colors.grey,
-                            backgroundIcon: Icons.lock_clock,
-                            title: 'CIERRE\nDE DÍA',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => DayClosingPage(
-                                        sucursal: widget.sucursal,
-                                        currentUser: widget.currentUser,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
+                            // Cierre de Día
+                            _buildActionButton(
+                              key: null,
+                              context: context,
+                              isDark: isDark,
+                              icon: Icons.lock_clock,
+                              iconColor: Colors.grey,
+                              backgroundColor: Colors.grey,
+                              backgroundIcon: Icons.lock_clock,
+                              title: 'CIERRE\nDE DÍA',
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => DayClosingPage(
+                                          sucursal: widget.sucursal,
+                                          currentUser: widget.currentUser,
+                                        ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                            ),
 
-                          // Pedido a Fábrica
-                          _buildActionButton(
-                            key: null,
-                            context: context,
-                            isDark: isDark,
-                            icon: Icons.factory,
-                            iconColor: Colors.purple,
-                            backgroundColor: Colors.purple,
-                            backgroundIcon: Icons.factory,
-                            title: 'PEDIDO A\nFÁBRICA',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => FactoryOrderPage(
-                                        sucursal: widget.sucursal,
-                                        currentUser: widget.currentUser,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
+                            // Pedido a Fábrica
+                            _buildActionButton(
+                              key: null,
+                              context: context,
+                              isDark: isDark,
+                              icon: Icons.factory,
+                              iconColor: Colors.purple,
+                              backgroundColor: Colors.purple,
+                              backgroundIcon: Icons.factory,
+                              title: 'PEDIDO A\nFÁBRICA',
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => FactoryOrderPage(
+                                          sucursal: widget.sucursal,
+                                          currentUser: widget.currentUser,
+                                        ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                            ),
 
-                          // Gastos
-                          _buildActionButton(
-                            key: null,
-                            context: context,
-                            isDark: isDark,
-                            icon: Icons.receipt_long,
-                            iconColor: Colors.red,
-                            backgroundColor: Colors.red,
-                            backgroundIcon: Icons.receipt_long,
-                            title: 'GASTOS',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => StoreExpensesPage(
-                                        sucursal: widget.sucursal,
-                                        currentUser: widget.currentUser,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
+                            // Gastos
+                            _buildActionButton(
+                              key: null,
+                              context: context,
+                              isDark: isDark,
+                              icon: Icons.receipt_long,
+                              iconColor: Colors.red,
+                              backgroundColor: Colors.red,
+                              backgroundIcon: Icons.receipt_long,
+                              title: 'GASTOS',
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => StoreExpensesPage(
+                                          sucursal: widget.sucursal,
+                                          currentUser: widget.currentUser,
+                                        ),
+                                  ),
+                                );
+                                // Recargar datos cuando se regrese de la página de gastos
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

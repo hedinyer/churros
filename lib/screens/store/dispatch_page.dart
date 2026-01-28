@@ -83,8 +83,8 @@ class _DispatchPageState extends State<DispatchPage> {
 
     // Agregar pedidos de fábrica
     for (var pedido in _pedidosFabrica) {
-      // Solo mostrar pedidos del día actual
-      final esHoy = _isSameDay(pedido.createdAt, hoy);
+      // Solo mostrar pedidos del día actual (según fecha del pedido)
+      final esHoy = _isSameDay(pedido.fechaPedido, hoy);
       if (!esHoy) continue;
 
       // Aplicar filtro de estado
@@ -98,8 +98,8 @@ class _DispatchPageState extends State<DispatchPage> {
 
     // Agregar pedidos de clientes
     for (var pedido in _pedidosClientes) {
-      // Solo mostrar pedidos del día actual
-      final esHoy = _isSameDay(pedido.createdAt, hoy);
+      // Solo mostrar pedidos del día actual (según fecha del pedido)
+      final esHoy = _isSameDay(pedido.fechaPedido, hoy);
       if (!esHoy) continue;
 
       // Aplicar filtro de estado
@@ -113,8 +113,8 @@ class _DispatchPageState extends State<DispatchPage> {
 
     // Agregar pedidos recurrentes
     for (var pedido in _pedidosRecurrentes) {
-      // Solo mostrar pedidos del día actual
-      final esHoy = _isSameDay(pedido.createdAt, hoy);
+      // Solo mostrar pedidos del día actual (según fecha del pedido)
+      final esHoy = _isSameDay(pedido.fechaPedido, hoy);
       if (!esHoy) continue;
 
       // Aplicar filtro de estado
@@ -912,7 +912,7 @@ class _DispatchPageState extends State<DispatchPage> {
           ),
 
           // Botón para marcar como entregado (si no está ya entregado)
-          if (estado != 'entregado')
+          if (estado.toLowerCase() != 'entregado')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -1372,7 +1372,7 @@ class _DispatchPageState extends State<DispatchPage> {
           ),
 
           // Botón para marcar como entregado (si no está ya entregado)
-          if (estado != 'entregado')
+          if (estado.toLowerCase() != 'entregado')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(

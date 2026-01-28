@@ -35,11 +35,19 @@ class _DayClosingPageState extends State<DayClosingPage> {
   int? _aperturaId;
   // Filtro de categorías: -1 = Todas, 0 = Sin categoría, >0 = categoria_id
   int _selectedCategoriaFilter = -1;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -682,6 +690,77 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           ),
                         ),
 
+                        // Search Bar
+                        Container(
+                          margin: EdgeInsets.only(bottom: spacingMedium),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF2C2018)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF44403C)
+                                  : const Color(0xFFE7E5E4),
+                              width: 1,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Buscar producto...',
+                              hintStyle: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF78716C)
+                                    : const Color(0xFF78716C),
+                                fontSize: smallFontSize,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: isDark
+                                    ? const Color(0xFF78716C)
+                                    : const Color(0xFF78716C),
+                                size: (24 * textScaleFactor).clamp(20.0, 28.0),
+                              ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: isDark
+                                            ? const Color(0xFF78716C)
+                                            : const Color(0xFF78716C),
+                                        size: (20 * textScaleFactor).clamp(
+                                          18.0,
+                                          24.0,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _searchQuery = '';
+                                          _searchController.clear();
+                                        });
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: spacingMedium,
+                                vertical: (12 * textScaleFactor).clamp(10.0, 16.0),
+                              ),
+                            ),
+                            style: TextStyle(
+                              fontSize: bodyFontSize,
+                              color: isDark ? Colors.white : const Color(0xFF1B130D),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: spacingMedium),
+
                         // Products by Category
                         _buildCategoryFilter(
                           isDark: isDark,
@@ -696,18 +775,33 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           Widget
                         >((entry) {
                           final categoriaId = entry.key;
-                          final productos = entry.value;
+                          var productos = entry.value;
                           final categoria =
                               categoriaId != null
                                   ? _categoriasMap[categoriaId]
                                   : null;
 
-                          // Aplicar filtro
+                          // Aplicar filtro de categoría
                           if (_selectedCategoriaFilter != -1) {
                             final filtroId = _selectedCategoriaFilter;
                             final entryId =
                                 categoriaId == null ? 0 : categoriaId;
                             if (entryId != filtroId) {
+                              return const SizedBox.shrink();
+                            }
+                          }
+
+                          // Aplicar filtro de búsqueda
+                          if (_searchQuery.trim().isNotEmpty) {
+                            final query = _searchQuery.trim().toLowerCase();
+                            productos = productos.where((producto) {
+                              final nombre = producto.nombre.toLowerCase();
+                              final palabrasQuery = query.split(' ').where((p) => p.isNotEmpty).toList();
+                              return palabrasQuery.every((palabra) => nombre.contains(palabra));
+                            }).toList();
+                            
+                            // Si no hay productos después del filtro, no mostrar la categoría
+                            if (productos.isEmpty) {
                               return const SizedBox.shrink();
                             }
                           }

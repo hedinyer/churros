@@ -31,6 +31,8 @@ class _QuickSalePageState extends State<QuickSalePage> {
   Map<int, int> _inventario = {}; // productoId -> cantidad disponible
   bool _isLoading = true;
   final bool _isOnline = true;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
       controller.dispose();
     }
     _cantidadControllers.clear();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -65,13 +68,26 @@ class _QuickSalePageState extends State<QuickSalePage> {
       );
 
       setState(() {
+        // Filtrar productos: excluir los que tienen "x10" o "x 10" en el nombre o unidad de medida
+        final productosFiltrados = productos.where((producto) {
+          final nombre = producto.nombre.toLowerCase();
+          final unidadMedida = producto.unidadMedida.toLowerCase().trim();
+          
+          // Excluir si el nombre contiene "x10" o "x 10"
+          final nombreContieneX10 = nombre.contains('x10') || nombre.contains('x 10');
+          
+          // Excluir si la unidad de medida es "x10" o "x 10"
+          final unidadEsX10 = unidadMedida == 'x10' || unidadMedida == 'x 10';
+          
+          return !nombreContieneX10 && !unidadEsX10;
+        }).toList();
+
         // Ordenar productos por inventario descendente (mayor a menor)
-        _productos =
-            productos..sort((a, b) {
-              final inventarioA = inventario[a.id] ?? 0;
-              final inventarioB = inventario[b.id] ?? 0;
-              return inventarioB.compareTo(inventarioA);
-            });
+        _productos = productosFiltrados..sort((a, b) {
+          final inventarioA = inventario[a.id] ?? 0;
+          final inventarioB = inventario[b.id] ?? 0;
+          return inventarioB.compareTo(inventarioA);
+        });
         _categoriasMap = categoriasMap;
         _inventario = inventario;
         _isLoading = false;
@@ -184,18 +200,34 @@ class _QuickSalePageState extends State<QuickSalePage> {
   }
 
   List<Producto> _getProductosFiltrados() {
+    List<Producto> productosFiltrados;
+
+    // Filtrar por categoría
     if (_selectedCategoriaFilter == -1) {
       // Mostrar todos
-      return _productos;
+      productosFiltrados = _productos;
     } else if (_selectedCategoriaFilter == 0) {
       // Mostrar solo sin categoría
-      return _productos.where((p) => p.categoria == null).toList();
+      productosFiltrados = _productos.where((p) => p.categoria == null).toList();
     } else {
       // Mostrar solo la categoría seleccionada
-      return _productos
+      productosFiltrados = _productos
           .where((p) => p.categoria?.id == _selectedCategoriaFilter)
           .toList();
     }
+
+    // Filtrar por búsqueda si hay texto
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.trim().toLowerCase();
+      productosFiltrados = productosFiltrados.where((producto) {
+        final nombre = producto.nombre.toLowerCase();
+        // Buscar por palabras clave (cada palabra del query debe estar en el nombre)
+        final palabrasQuery = query.split(' ').where((p) => p.isNotEmpty).toList();
+        return palabrasQuery.every((palabra) => nombre.contains(palabra));
+      }).toList();
+    }
+
+    return productosFiltrados;
   }
 
   double get _totalAmount {
@@ -1118,6 +1150,76 @@ class _QuickSalePageState extends State<QuickSalePage> {
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(height: spacingMedium),
+
+                        // Search Bar
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF2C2018)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF44403C)
+                                  : const Color(0xFFE7E5E4),
+                              width: 1,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Buscar producto...',
+                              hintStyle: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF78716C)
+                                    : const Color(0xFF78716C),
+                                fontSize: bodyFontSize,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: isDark
+                                    ? const Color(0xFF78716C)
+                                    : const Color(0xFF78716C),
+                                size: (24 * textScaleFactor).clamp(20.0, 28.0),
+                              ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: isDark
+                                            ? const Color(0xFF78716C)
+                                            : const Color(0xFF78716C),
+                                        size: (20 * textScaleFactor).clamp(
+                                          18.0,
+                                          24.0,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _searchQuery = '';
+                                          _searchController.clear();
+                                        });
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: spacingMedium,
+                                vertical: (12 * textScaleFactor).clamp(10.0, 16.0),
+                              ),
+                            ),
+                            style: TextStyle(
+                              fontSize: bodyFontSize,
+                              color: isDark ? Colors.white : const Color(0xFF1B130D),
+                            ),
                           ),
                         ),
                         SizedBox(height: spacingMedium),

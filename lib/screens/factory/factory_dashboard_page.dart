@@ -4,6 +4,8 @@ import '../../models/user.dart';
 import '../../services/supabase_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/factory_section_tracker.dart';
+import '../../services/factory_session_service.dart';
+import '../../main.dart';
 import 'factory_orders_list_page.dart';
 import '../store/client_orders_list_page.dart';
 import '../store/dispatch_page.dart';
@@ -34,7 +36,7 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
   int _todayClientOrdersCount =
       0; // Contador de pedidos de clientes y recurrentes pendientes del día actual
   int _todayDeliveredOrdersCount =
-      0; // Contador de pedidos entregados del día actual
+      0; // Contador de pedidos ENVIADOS del día actual
 
   // Animaciones para las notificaciones
   final Map<String, AnimationController> _notificationAnimations = {};
@@ -44,6 +46,19 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
   RealtimeChannel? _factoryOrdersChannel;
   RealtimeChannel? _clientOrdersChannel;
   RealtimeChannel? _dispatchStatusChannel;
+
+  Future<void> _logout() async {
+    // Resetear flag de sesión de fábrica
+    await FactorySessionService.setFactorySession(false);
+
+    if (!mounted) return;
+
+    // Navegar a la pantalla de Login y limpiar el stack de navegación
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false,
+    );
+  }
 
   @override
   void initState() {
@@ -165,30 +180,30 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
     }
   }
 
-  /// Carga el conteo de pedidos entregados del día actual
+  /// Carga el conteo de pedidos ENVIADOS del día actual
   Future<void> _loadTodayDeliveredOrdersCount() async {
     try {
       final today = DateTime.now().toIso8601String().split('T')[0];
 
-      // Contar pedidos de fábrica entregados del día actual
+      // Contar pedidos de fábrica ENVIADOS del día actual
       final fabricaResponse = await SupabaseService.client
           .from('pedidos_fabrica')
           .select('id')
-          .eq('estado', 'entregado')
+          .eq('estado', 'enviado')
           .eq('fecha_pedido', today);
 
-      // Contar pedidos de clientes entregados del día actual
+      // Contar pedidos de clientes ENVIADOS del día actual
       final clientesResponse = await SupabaseService.client
           .from('pedidos_clientes')
           .select('id')
-          .eq('estado', 'entregado')
+          .eq('estado', 'enviado')
           .eq('fecha_pedido', today);
 
-      // Contar pedidos recurrentes entregados del día actual
+      // Contar pedidos recurrentes ENVIADOS del día actual
       final recurrentesResponse = await SupabaseService.client
           .from('pedidos_recurrentes')
           .select('id')
-          .eq('estado', 'entregado')
+          .eq('estado', 'enviado')
           .eq('fecha_pedido', today);
 
       if (mounted) {
@@ -296,9 +311,9 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
                       fechaPedido == today) {
                     _loadTodayClientOrdersCount();
                   }
-                  // Actualizar conteo de entregados si el estado cambia a/desde entregado del día
-                  if ((estadoAnterior == 'entregado' ||
-                          estadoNuevo == 'entregado') &&
+                  // Actualizar conteo de "despacho" si el estado cambia a/desde ENVIADO del día
+                  if ((estadoAnterior == 'enviado' ||
+                          estadoNuevo == 'enviado') &&
                       fechaPedido == today) {
                     _loadTodayDeliveredOrdersCount();
                   }
@@ -349,9 +364,9 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
                       fechaPedido == today) {
                     _loadTodayClientOrdersCount();
                   }
-                  // Actualizar conteo de entregados si el estado cambia a/desde entregado del día
-                  if ((estadoAnterior == 'entregado' ||
-                          estadoNuevo == 'entregado') &&
+                  // Actualizar conteo de "despacho" si el estado cambia a/desde ENVIADO del día
+                  if ((estadoAnterior == 'enviado' ||
+                          estadoNuevo == 'enviado') &&
                       fechaPedido == today) {
                     _loadTodayDeliveredOrdersCount();
                   }
@@ -409,9 +424,9 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
                         fechaPedido == today) {
                       _loadTodayOrdersCount();
                     }
-                    // Actualizar conteo de entregados si el estado cambia a/desde entregado
-                    if (estadoAnterior == 'entregado' ||
-                        estadoNuevo == 'entregado') {
+                    // Actualizar conteo de "despacho" si el estado cambia a/desde ENVIADO
+                    if (estadoAnterior == 'enviado' ||
+                        estadoNuevo == 'enviado') {
                       _loadTodayDeliveredOrdersCount();
                     }
                     _handleDispatchStatusChange(
@@ -452,9 +467,9 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
                         fechaPedido == today) {
                       _loadTodayClientOrdersCount();
                     }
-                    // Actualizar conteo de entregados si el estado cambia a/desde entregado
-                    if (estadoAnterior == 'entregado' ||
-                        estadoNuevo == 'entregado') {
+                    // Actualizar conteo de "despacho" si el estado cambia a/desde ENVIADO
+                    if (estadoAnterior == 'enviado' ||
+                        estadoNuevo == 'enviado') {
                       _loadTodayDeliveredOrdersCount();
                     }
                     _handleDispatchStatusChange(
@@ -495,9 +510,9 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
                         fechaPedido == today) {
                       _loadTodayClientOrdersCount();
                     }
-                    // Actualizar conteo de entregados si el estado cambia a/desde entregado
-                    if (estadoAnterior == 'entregado' ||
-                        estadoNuevo == 'entregado') {
+                    // Actualizar conteo de "despacho" si el estado cambia a/desde ENVIADO
+                    if (estadoAnterior == 'enviado' ||
+                        estadoNuevo == 'enviado') {
                       _loadTodayDeliveredOrdersCount();
                     }
                     _handleDispatchStatusChange(
@@ -725,16 +740,28 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
                   ),
                 ),
               ),
-              child: Center(
-                child: Text(
-                  'FÁBRICA CENTRAL',
-                  style: TextStyle(
-                    fontSize: headerFontSize,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'FÁBRICA CENTRAL',
+                      style: TextStyle(
+                        fontSize: headerFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF1B130D),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  IconButton(
+                    onPressed: _logout,
+                    icon: Icon(
+                      Icons.logout,
+                      color: isDark ? Colors.white : const Color(0xFF1B130D),
+                    ),
+                    tooltip: 'Cerrar sesión',
+                  ),
+                ],
               ),
             ),
 

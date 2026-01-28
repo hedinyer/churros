@@ -1723,6 +1723,25 @@ class SupabaseService {
         // Para pedidos de fábrica y clientes normales, usar inventario_fabrica
         final inventario = await getInventarioFabricaCompleto();
 
+        // Para pedidos de clientes, necesitamos saber la sucursal
+        String? sucursalNombre;
+        if (tipoPedido == 'cliente') {
+          try {
+            final pedidoRow = await client
+                .from('pedidos_clientes')
+                .select('sucursal_id')
+                .eq('id', pedidoId)
+                .maybeSingle();
+            final sucursalId = pedidoRow != null ? pedidoRow['sucursal_id'] as int? : null;
+            if (sucursalId != null) {
+              final sucursal = await getSucursalById(sucursalId);
+              sucursalNombre = sucursal?.nombre;
+            }
+          } catch (e) {
+            print('Error obteniendo sucursal para pedido cliente $pedidoId: $e');
+          }
+        }
+
         final productosInsuficientes = <Map<String, dynamic>>[];
 
         // Validar cada producto
@@ -1730,6 +1749,21 @@ class SupabaseService {
           final productoId = detalle['producto_id'] as int;
           final cantidadPedida = (detalle['cantidad'] as num?)?.toInt() ?? 0;
           final cantidadDisponible = inventario[productoId] ?? 0;
+
+          // Regla especial: en pedidos de clientes de la sucursal "EL DANGOND",
+          // los "churro mediano" son sobre pedido y no deben validar inventario.
+          if (tipoPedido == 'cliente' && sucursalNombre != null) {
+            final sucursalNombreUpper = sucursalNombre.toUpperCase().trim();
+            final esSucursalDangond = sucursalNombreUpper == 'EL DANGOND';
+            if (esSucursalDangond) {
+              final producto = await getProductoById(productoId);
+              final nombreProducto = (producto?.nombre ?? '').toUpperCase();
+              if (nombreProducto.contains('CHURRO MEDIANO')) {
+                // Ignorar este producto en la validación de inventario
+                continue;
+              }
+            }
+          }
 
           if (cantidadPedida > cantidadDisponible) {
             // Obtener nombre del producto
@@ -1766,7 +1800,10 @@ class SupabaseService {
         return {'exito': false, 'mensaje': 'No hay conexión para actualizar estado del pedido'};
       }
 
+      print('🔄 Actualizando pedido #$pedidoId a estado: $nuevoEstado');
+
       // Si el nuevo estado es "enviado", validar y descontar del inventario
+      // Si es "entregado", solo actualizar el estado sin validar inventario
       if (nuevoEstado == 'enviado') {
         // Validar inventario antes de despachar
         final validacion = await validarInventarioParaDespacho(
@@ -1806,14 +1843,17 @@ class SupabaseService {
         }
       }
 
+      // Actualizar el estado del pedido
       await client
           .from('pedidos_fabrica')
           .update({'estado': nuevoEstado})
           .eq('id', pedidoId);
 
+      print('✅ Pedido #$pedidoId actualizado exitosamente a estado: $nuevoEstado');
       return {'exito': true, 'mensaje': 'Pedido actualizado exitosamente'};
-    } catch (e) {
-      print('Error actualizando estado del pedido: $e');
+    } catch (e, stackTrace) {
+      print('❌ Error actualizando estado del pedido #$pedidoId: $e');
+      print('Stack trace: $stackTrace');
       return {'exito': false, 'mensaje': 'Error: $e'};
     }
   }
@@ -2128,6 +2168,21 @@ required int productoId,
     }
   }
 
+  /// Descuenta cantidad del inventario actual de una sucursal (método público)
+  /// Usado cuando se recarga un producto frito y se debe descontar del producto crudo
+  /// Retorna un Map con 'exito' (bool) y 'mensaje' (String)
+  static Future<Map<String, dynamic>> descontarInventarioActual({
+    required int sucursalId,
+    required int productoId,
+    required int cantidad,
+  }) async {
+    return await _descontarInventarioActual(
+      sucursalId: sucursalId,
+      productoId: productoId,
+      cantidad: cantidad,
+    );
+  }
+
   /// Obtiene el resumen general de la fábrica
   static Future<Map<String, dynamic>> getResumenFabrica() async {
     try {
@@ -2356,13 +2411,43 @@ required int productoId,
         );
 
         if (!validacion['valido']) {
-          final productosInsuficientes = validacion['productosInsuficientes'] as List;
+          final productosInsuficientes =
+              validacion['productosInsuficientes'] as List;
           String mensaje = 'No hay suficiente inventario para despachar:\n';
           for (final producto in productosInsuficientes) {
-            mensaje += '• ${producto['producto_nombre']}: Faltan ${producto['faltante']} unidades\n';
+            mensaje +=
+                '• ${producto['producto_nombre']}: Faltan ${producto['faltante']} unidades\n';
           }
-          return {'exito': false, 'mensaje': mensaje, 'productosInsuficientes': productosInsuficientes};
+          return {
+            'exito': false,
+            'mensaje': mensaje,
+            'productosInsuficientes': productosInsuficientes,
+          };
         }
+
+        // Obtener datos de la sucursal del pedido
+        String? sucursalNombre;
+        try {
+          final pedidoRow = await client
+              .from('pedidos_clientes')
+              .select('sucursal_id')
+              .eq('id', pedidoId)
+              .maybeSingle();
+          final sucursalId =
+              pedidoRow != null ? pedidoRow['sucursal_id'] as int? : null;
+          if (sucursalId != null) {
+            final sucursal = await getSucursalById(sucursalId);
+            sucursalNombre = sucursal?.nombre;
+          }
+        } catch (e) {
+          print(
+            'Error obteniendo sucursal para descuento de inventario en pedido cliente $pedidoId: $e',
+          );
+        }
+
+        // Obtener lista de productos para evaluar nombres
+        final productos = await getProductosActivos();
+        final productosMap = {for (var p in productos) p.id: p};
 
         // Obtener los detalles del pedido
         final detallesResponse = await client
@@ -2374,14 +2459,38 @@ required int productoId,
         for (final detalle in detallesResponse) {
           final productoId = detalle['producto_id'] as int;
           final cantidad = (detalle['cantidad'] as num?)?.toInt() ?? 0;
-          
+
           if (cantidad > 0) {
+            // Regla especial: en pedidos de clientes de la sucursal "EL DANGOND",
+            // los "churro mediano" son sobre pedido y NO deben descontarse del inventario.
+            bool saltarDescuento = false;
+            if (sucursalNombre != null) {
+              final sucursalNombreUpper = sucursalNombre.toUpperCase().trim();
+              final esSucursalDangond = sucursalNombreUpper == 'EL DANGOND';
+              if (esSucursalDangond) {
+                final producto = productosMap[productoId];
+                final nombreProducto =
+                    (producto?.nombre ?? '').toUpperCase().trim();
+                if (nombreProducto.contains('CHURRO MEDIANO')) {
+                  saltarDescuento = true;
+                }
+              }
+            }
+
+            if (saltarDescuento) {
+              continue;
+            }
+
             final resultado = await _descontarInventarioFabrica(
               productoId: productoId,
               cantidad: cantidad,
             );
             if (!resultado['exito']) {
-              return {'exito': false, 'mensaje': 'Error al descontar inventario: ${resultado['mensaje']}'};
+              return {
+                'exito': false,
+                'mensaje':
+                    'Error al descontar inventario: ${resultado['mensaje']}',
+              };
             }
           }
         }
@@ -2493,9 +2602,10 @@ required int productoId,
     }
   }
 
-  /// Obtiene pedidos de fábrica con estado "enviado" o "entregado"
+  /// Obtiene pedidos de fábrica con estado "enviado" o "entregado" para entregar
   static Future<List<PedidoFabrica>> getPedidosFabricaParaDespacho({
     int limit = 100,
+    String? estadoFiltro, // Opcional: si se especifica, filtra por ese estado
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -2504,11 +2614,21 @@ required int productoId,
         return [];
       }
 
-      // Obtener los pedidos con estado enviado o entregado
-      final pedidosResponse = await client
+      // Si se especifica estadoFiltro, usar ese estado; si no, traer "enviado" y "entregado"
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      PostgrestFilterBuilder query = client
           .from('pedidos_fabrica')
           .select('*, sucursales(*)')
-          .or('estado.eq.enviado,estado.eq.entregado')
+          .eq('fecha_pedido', today);
+
+      if (estadoFiltro != null) {
+        query = query.eq('estado', estadoFiltro);
+      } else {
+        query = query.or('estado.eq.enviado,estado.eq.entregado');
+      }
+
+      // Obtener los pedidos con los estados especificados
+      final pedidosResponse = await query
           .order('created_at', ascending: false)
           .limit(limit);
 
@@ -2719,10 +2839,13 @@ required int productoId,
         return [];
       }
 
-      // Obtener los pedidos con estado enviado o entregado
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      // Obtener los pedidos de hoy con estado enviado o entregado
       final pedidosResponse = await client
           .from('pedidos_clientes')
           .select()
+          .eq('fecha_pedido', today)
           .or('estado.eq.enviado,estado.eq.entregado')
           .order('created_at', ascending: false)
           .limit(limit);
@@ -2777,10 +2900,13 @@ required int productoId,
         return [];
       }
 
-      // Obtener los pedidos recurrentes con estado enviado o entregado
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      // Obtener los pedidos recurrentes de hoy con estado enviado o entregado
       final pedidosResponse = await client
           .from('pedidos_recurrentes')
           .select()
+          .eq('fecha_pedido', today)
           .or('estado.eq.enviado,estado.eq.entregado')
           .order('created_at', ascending: false)
           .limit(limit);

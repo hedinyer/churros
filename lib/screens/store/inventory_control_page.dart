@@ -33,11 +33,19 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
       {}; // productoId -> productos seleccionados para recarga
   final Map<int, int> _cantidadesRecarga =
       {}; // productoId -> cantidad a recargar
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -67,13 +75,26 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
       );
 
       setState(() {
+        // Filtrar productos: excluir los que tienen "x10" o "x 10" en el nombre o unidad de medida
+        final productosFiltrados = productos.where((producto) {
+          final nombre = producto.nombre.toLowerCase();
+          final unidadMedida = producto.unidadMedida.toLowerCase().trim();
+          
+          // Excluir si el nombre contiene "x10" o "x 10"
+          final nombreContieneX10 = nombre.contains('x10') || nombre.contains('x 10');
+          
+          // Excluir si la unidad de medida es "x10" o "x 10"
+          final unidadEsX10 = unidadMedida == 'x10' || unidadMedida == 'x 10';
+          
+          return !nombreContieneX10 && !unidadEsX10;
+        }).toList();
+
         // Ordenar productos por inventario actual descendente (mayor a menor)
-        _productos =
-            productos..sort((a, b) {
-              final inventarioA = inventarioActual[a.id] ?? 0;
-              final inventarioB = inventarioActual[b.id] ?? 0;
-              return inventarioB.compareTo(inventarioA);
-            });
+        _productos = productosFiltrados..sort((a, b) {
+          final inventarioA = inventarioActual[a.id] ?? 0;
+          final inventarioB = inventarioActual[b.id] ?? 0;
+          return inventarioB.compareTo(inventarioA);
+        });
         _categoriasMap = categoriasMap;
         _inventarioInicial = inventarioInicial;
         _ventasHoy = ventasHoy;
@@ -163,17 +184,60 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
   }
 
   List<Producto> _getProductosFiltrados() {
+    List<Producto> productosFiltrados;
+
+    // Filtrar por categoría
     if (_selectedCategoriaFilter == -1) {
       // Mostrar todos
-      return _productos;
+      productosFiltrados = _productos;
     } else if (_selectedCategoriaFilter == 0) {
       // Mostrar solo sin categoría
-      return _productos.where((p) => p.categoria == null).toList();
+      productosFiltrados = _productos.where((p) => p.categoria == null).toList();
     } else {
       // Mostrar solo la categoría seleccionada
-      return _productos
+      productosFiltrados = _productos
           .where((p) => p.categoria?.id == _selectedCategoriaFilter)
           .toList();
+    }
+
+    // Filtrar por búsqueda si hay texto
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.trim().toLowerCase();
+      productosFiltrados = productosFiltrados.where((producto) {
+        final nombre = producto.nombre.toLowerCase();
+        // Buscar por palabras clave (cada palabra del query debe estar en el nombre)
+        final palabrasQuery = query.split(' ').where((p) => p.isNotEmpty).toList();
+        return palabrasQuery.every((palabra) => nombre.contains(palabra));
+      }).toList();
+    }
+
+    return productosFiltrados;
+  }
+
+  /// Encuentra el producto crudo correspondiente a un producto frito
+  /// Retorna null si no se encuentra o si el producto no es frito
+  Producto? _findProductoCrudo(Producto productoFrito) {
+    // Verificar si el producto es frito
+    if (!productoFrito.nombre.toUpperCase().contains('FRITO')) {
+      return null;
+    }
+
+    // Reemplazar "FRITO" por "CRUDO" en el nombre
+    final nombreCrudo = productoFrito.nombre
+        .toUpperCase()
+        .replaceAll('FRITO', 'CRUDO');
+
+    // Buscar el producto crudo correspondiente
+    try {
+      return _productos.firstWhere(
+        (p) => p.nombre.toUpperCase() == nombreCrudo,
+      );
+    } catch (e) {
+      // No se encontró el producto crudo
+      print(
+        'No se encontró producto crudo para: ${productoFrito.nombre} (buscando: $nombreCrudo)',
+      );
+      return null;
     }
   }
 
@@ -408,6 +472,76 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                       isDark
                                           ? const Color(0xFF44403C)
                                           : const Color(0xFFE7E5E4),
+                                ),
+                                SizedBox(height: spacingMedium),
+
+                                // Search Bar
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(0xFF2C2018)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? const Color(0xFF44403C)
+                                          : const Color(0xFFE7E5E4),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _searchQuery = value;
+                                      });
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Buscar producto...',
+                                      hintStyle: TextStyle(
+                                        color: isDark
+                                            ? const Color(0xFF78716C)
+                                            : const Color(0xFF78716C),
+                                        fontSize: smallFontSize,
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.search,
+                                        color: isDark
+                                            ? const Color(0xFF78716C)
+                                            : const Color(0xFF78716C),
+                                        size: (24 * textScaleFactor).clamp(20.0, 28.0),
+                                      ),
+                                      suffixIcon: _searchQuery.isNotEmpty
+                                          ? IconButton(
+                                              icon: Icon(
+                                                Icons.clear,
+                                                color: isDark
+                                                    ? const Color(0xFF78716C)
+                                                    : const Color(0xFF78716C),
+                                                size: (20 * textScaleFactor).clamp(
+                                                  18.0,
+                                                  24.0,
+                                                ),
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _searchQuery = '';
+                                                  _searchController.clear();
+                                                });
+                                              },
+                                            )
+                                          : null,
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: spacingMedium,
+                                        vertical: (12 * textScaleFactor).clamp(10.0, 16.0),
+                                      ),
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: bodyFontSize,
+                                      color: isDark ? Colors.white : const Color(0xFF1B130D),
+                                    ),
+                                  ),
                                 ),
                                 SizedBox(height: spacingMedium),
 
@@ -2041,15 +2175,73 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                           );
 
                           try {
-                            // Preparar datos de recarga
+                            // Preparar datos de recarga (solo productos con valores positivos)
                             final productosRecarga = <int, int>{};
+                            final productosCrudosADescontar = <int, int>{}; // productoId -> cantidad a descontar
+
+                            // Validar que haya suficiente stock CRUDO para los productos fritos seleccionados
+                            final erroresStock = <String>[];
+
+                            for (final productoId in _productosParaRecargar) {
+                              final producto = _productos.firstWhere(
+                                (p) => p.id == productoId,
+                              );
+                              final cantidadSolicitada =
+                                  _cantidadesRecarga[productoId] ?? 1;
+                              final productoCrudo = _findProductoCrudo(producto);
+
+                              if (productoCrudo != null) {
+                                final stockCrudoDisponible =
+                                    _getCantidadDisponible(productoCrudo.id);
+
+                                if (cantidadSolicitada > stockCrudoDisponible) {
+                                  erroresStock.add(
+                                    '${producto.nombre}: solicita $cantidadSolicitada, stock crudo disponible de ${productoCrudo.nombre}: $stockCrudoDisponible',
+                                  );
+                                }
+                              }
+                            }
+
+                            if (erroresStock.isNotEmpty) {
+                              // Cerrar loading y mostrar mensaje de error
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'No hay suficiente stock CRUDO para algunos productos fritos:\n${erroresStock.join('\n')}',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                    duration: const Duration(seconds: 5),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+
                             for (final productoId in _productosParaRecargar) {
                               final cantidad =
                                   _cantidadesRecarga[productoId] ?? 1;
                               productosRecarga[productoId] = cantidad;
+
+                              // Si el producto es frito, preparar descuento del producto crudo correspondiente
+                              final producto = _productos.firstWhere(
+                                (p) => p.id == productoId,
+                              );
+                              final productoCrudo = _findProductoCrudo(producto);
+
+                              if (productoCrudo != null) {
+                                // Guardar el descuento para hacerlo después de la recarga
+                                productosCrudosADescontar[productoCrudo.id] =
+                                    (productosCrudosADescontar[productoCrudo.id] ?? 0) + cantidad;
+
+                                print(
+                                  'Preparando descuento de $cantidad unidades de ${productoCrudo.nombre} por recarga de ${producto.nombre}',
+                                );
+                              }
                             }
 
-                            // Guardar recarga en Supabase
+                            // Guardar recarga en Supabase (solo productos fritos/recargas positivas)
                             final exito =
                                 await SupabaseService.guardarRecargaInventario(
                                   sucursalId: widget.sucursal.id,
@@ -2058,6 +2250,43 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                   observaciones:
                                       'Recarga masiva desde inventario',
                                 );
+
+                            // Si la recarga fue exitosa, descontar de los productos crudos
+                            if (exito && productosCrudosADescontar.isNotEmpty) {
+                              bool descuentosExitosos = true;
+                              for (final entry in productosCrudosADescontar.entries) {
+                                final productoCrudoId = entry.key;
+                                final cantidadADescontar = entry.value;
+                                
+                                final resultadoDescuento =
+                                    await SupabaseService.descontarInventarioActual(
+                                  sucursalId: widget.sucursal.id,
+                                  productoId: productoCrudoId,
+                                  cantidad: cantidadADescontar,
+                                );
+
+                                if (!resultadoDescuento['exito']) {
+                                  descuentosExitosos = false;
+                                  print(
+                                    'Error descontando ${resultadoDescuento['mensaje']}',
+                                  );
+                                } else {
+                                  final productoCrudo = _productos.firstWhere(
+                                    (p) => p.id == productoCrudoId,
+                                  );
+                                  print(
+                                    '✓ Descontadas $cantidadADescontar unidades de ${productoCrudo.nombre}',
+                                  );
+                                }
+                              }
+
+                              if (!descuentosExitosos) {
+                                // Mostrar advertencia pero no fallar completamente
+                                print(
+                                  'Advertencia: Algunos descuentos de productos crudos fallaron',
+                                );
+                              }
+                            }
 
                             // Cerrar loading
                             Navigator.pop(context);

@@ -38,6 +38,9 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
     'La ñapa',
     'Reinaldo',
     'Lavadero',
+    'Oscar',
+    'Mutis',
+    'Patria',
   ];
 
   List<Producto> _productos = [];
@@ -87,11 +90,17 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
       // - categoria_id = 1 o 4: nombre contiene "crudo" y unidad_medida = "bandeja" (congelados)
       // - categoria_id = 5: sin restricciones adicionales
       // - También incluir productos que contengan "frito" en el nombre
+      // - EXCLUIR productos cuyo nombre contenga "x10" o "x 10"
       final productosFiltrados =
           productos.where((producto) {
             final categoriaId = producto.categoria?.id;
             final nombre = producto.nombre.toLowerCase();
             final unidadMedida = producto.unidadMedida.toLowerCase();
+
+            // Excluir productos x10 por nombre
+            if (nombre.contains('x10') || nombre.contains('x 10')) {
+              return false;
+            }
 
             // Si es categoría 5, se incluye sin restricciones
             if (categoriaId == 5) {

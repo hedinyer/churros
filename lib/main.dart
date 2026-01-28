@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -14,46 +16,172 @@ import 'models/user.dart';
 import 'models/sucursal.dart';
 
 void main() async {
+  // Configurar manejo de errores globales
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (kReleaseMode) {
+      // En release, también loguear a consola
+      debugPrint('ERROR: ${details.exception}');
+      debugPrint('Stack: ${details.stack}');
+    }
+  };
+
+  // Manejar errores de zona (async errors)
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('ZONE ERROR: $error');
+    debugPrint('Stack: $stack');
+    return true;
+  };
+
+  // Configurar ErrorWidget para mostrar errores visualmente
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'Error al iniciar la aplicación',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  kDebugMode
+                      ? details.toString()
+                      : 'Por favor, reinicia la aplicación',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  };
+
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar datos de localización para intl
   try {
-    await initializeDateFormatting('es', null);
-  } catch (e) {
-    print('Error inicializando locale español: $e');
-    // Intentar inicializar locale por defecto
+    // Inicializar datos de localización para intl
     try {
-      await initializeDateFormatting('es_ES', null);
-    } catch (e2) {
-      print('Error inicializando locale es_ES: $e2');
+      await initializeDateFormatting('es', null);
+    } catch (e) {
+      debugPrint('Error inicializando locale español: $e');
+      // Intentar inicializar locale por defecto
+      try {
+        await initializeDateFormatting('es_ES', null);
+      } catch (e2) {
+        debugPrint('Error inicializando locale es_ES: $e2');
+      }
     }
+
+    // Inicializar Supabase y base de datos local
+    try {
+      await SupabaseService.initialize();
+      debugPrint('✅ Supabase inicializado correctamente');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error inicializando Supabase: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Continuar aunque falle, la app puede funcionar offline
+    }
+
+    // Inicializar servicio de notificaciones (no crítico)
+    try {
+      await NotificationService.initialize();
+      debugPrint('✅ Servicio de notificaciones inicializado');
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ Error inicializando notificaciones: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Continuar aunque falle
+    }
+
+    // Load persisted session (factory vs non-factory)
+    try {
+      await FactorySessionService.ensureInitialized();
+      debugPrint('✅ FactorySessionService inicializado');
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ Error inicializando FactorySessionService: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Continuar aunque falle
+    }
+
+    // Global listener: noisy notifications while user is inside Factory screens (no crítico)
+    try {
+      await FactoryRealtimeOrdersListener.start();
+      debugPrint('✅ FactoryRealtimeOrdersListener iniciado');
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ Error iniciando FactoryRealtimeOrdersListener: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Continuar aunque falle
+    }
+
+    // Sincronizar usuarios y sucursales en background (no bloquea el inicio de la app)
+    SupabaseService.syncUsersToLocal().catchError((e) {
+      debugPrint('⚠️ Error en sincronización inicial de usuarios: $e');
+    });
+    SupabaseService.syncSucursalesToLocal().catchError((e) {
+      debugPrint('⚠️ Error en sincronización inicial de sucursales: $e');
+    });
+
+    debugPrint('✅ Inicialización completada, iniciando app...');
+    runApp(const ChurrosApp());
+  } catch (e, stackTrace) {
+    debugPrint('❌ ERROR CRÍTICO en main(): $e');
+    debugPrint('Stack trace: $stackTrace');
+
+    // Aún así intentar iniciar la app con un error widget
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text(
+                  'Error crítico al iniciar',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    kDebugMode
+                        ? e.toString()
+                        : 'Por favor, reinstala la aplicación',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
-
-  // Inicializar Supabase y base de datos local
-  await SupabaseService.initialize();
-
-  // Inicializar servicio de notificaciones
-  await NotificationService.initialize();
-
-  // Load persisted session (factory vs non-factory)
-  await FactorySessionService.ensureInitialized();
-
-  // Global listener: noisy notifications while user is inside Factory screens
-  await FactoryRealtimeOrdersListener.start();
-
-  // Sincronizar usuarios y sucursales en background (no bloquea el inicio de la app)
-  SupabaseService.syncUsersToLocal().catchError((e) {
-    print('Error en sincronización inicial de usuarios: $e');
-  });
-  SupabaseService.syncSucursalesToLocal().catchError((e) {
-    print('Error en sincronización inicial de sucursales: $e');
-  });
-
-  runApp(const ChurrosApp());
 }
 
 class ChurrosApp extends StatelessWidget {
   const ChurrosApp({super.key});
+
+  // Helper para obtener textTheme con manejo de errores
+  TextTheme _getTextTheme([TextTheme? base]) {
+    try {
+      return GoogleFonts.workSansTextTheme(base);
+    } catch (e) {
+      debugPrint('⚠️ Error cargando Google Fonts: $e');
+      // Retornar textTheme por defecto si falla
+      return base ?? const TextTheme();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +196,7 @@ class ChurrosApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: const Color(0xFFF8F7F6),
-        textTheme: GoogleFonts.workSansTextTheme(),
+        textTheme: _getTextTheme(),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
@@ -77,7 +205,7 @@ class ChurrosApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         scaffoldBackgroundColor: const Color(0xFF221810),
-        textTheme: GoogleFonts.workSansTextTheme(ThemeData.dark().textTheme),
+        textTheme: _getTextTheme(ThemeData.dark().textTheme),
       ),
       themeMode: ThemeMode.system,
       home: const SplashScreen(),

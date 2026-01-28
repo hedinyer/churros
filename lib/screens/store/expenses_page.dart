@@ -330,7 +330,15 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   double _getTotalPagos() {
-    return _pedidosClientes.fold(0.0, (sum, pedido) => sum + pedido.total);
+    // Excluir pedidos fiados del total
+    return _pedidosClientes.fold(0.0, (sum, pedido) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (esFiado) {
+        return sum;
+      }
+      return sum + pedido.total;
+    });
   }
 
   double _getTotalGastosVarios() {
@@ -340,12 +348,35 @@ class _ExpensesPageState extends State<ExpensesPage> {
     });
   }
 
+  double _getTotalDomicilios() {
+    // Sumar domicilios de pedidos NO fiados
+    return _pedidosClientes.fold(0.0, (sum, pedido) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (esFiado) {
+        return sum;
+      }
+      final domicilio = pedido.domicilio ?? 0.0;
+      return sum + domicilio;
+    });
+  }
+
+  double _getTotalGeneral() {
+    // Total del día = pagos (sin fiado) + domicilios - gastos varios
+    return _getTotalPagos() + _getTotalDomicilios() - _getTotalGastosVarios();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = const Color(0xFFEC6D13);
     final mediaQuery = MediaQuery.of(context);
     final isSmallScreen = mediaQuery.size.width < 600;
+
+    final totalPagos = _getTotalPagos();
+    final totalDomicilios = _getTotalDomicilios();
+    final totalGastosVarios = _getTotalGastosVarios();
+    final totalGeneral = _getTotalGeneral();
 
     return Scaffold(
       backgroundColor:
@@ -496,6 +527,152 @@ class _ExpensesPageState extends State<ExpensesPage> {
         backgroundColor: primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),
+      bottomNavigationBar: Container(
+        padding: EdgeInsets.only(
+          left: isSmallScreen ? 16 : 20,
+          right: isSmallScreen ? 16 : 20,
+          top: 12,
+          bottom: 12 + mediaQuery.padding.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2D211A) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.1),
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pagos (sin fiado)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? const Color(0xFFA8A29E)
+                              : const Color(0xFF78716C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatCurrency(totalPagos),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Domicilios',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? const Color(0xFFA8A29E)
+                              : const Color(0xFF78716C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatCurrency(totalDomicilios),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Gastos Varios',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? const Color(0xFFA8A29E)
+                              : const Color(0xFF78716C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatCurrency(totalGastosVarios),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'TOTAL DEL DÍA',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? Colors.white
+                          : const Color(0xFF1B130D),
+                    ),
+                  ),
+                  Text(
+                    _formatCurrency(totalGeneral),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -608,6 +785,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
     required PedidoCliente pedido,
     required Color primaryColor,
   }) {
+    final observaciones = pedido.observaciones ?? '';
+    final esFiado = observaciones.toUpperCase().contains('FIADO');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(18),
@@ -662,13 +842,43 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   ],
                 ),
               ),
-              Text(
-                _formatCurrency(pedido.total),
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _formatCurrency(pedido.total),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                  if (esFiado)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.red.withOpacity(0.6),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Text(
+                        'FIADO',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -694,6 +904,20 @@ class _ExpensesPageState extends State<ExpensesPage> {
               ),
             ],
           ),
+          if (observaciones.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                observaciones,
+                style: TextStyle(
+                  fontSize: 11,
+                  color:
+                      isDark
+                          ? const Color(0xFFA8A29E)
+                          : const Color(0xFF78716C),
+                ),
+              ),
+            ),
         ],
       ),
     );

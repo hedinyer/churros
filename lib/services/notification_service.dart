@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 enum NotificationSound {
@@ -77,8 +78,10 @@ class NotificationService {
           _channelFactorySentId,
           'Pedido enviado',
           description: 'Notificación cuando un pedido a fábrica es enviado',
-          importance: Importance.high,
+          importance: Importance.max, // Máxima importancia para asegurar que se muestre
           sound: RawResourceAndroidNotificationSound('pedido_enviado'),
+          enableVibration: true,
+          playSound: true,
         ),
       );
 
@@ -87,8 +90,10 @@ class NotificationService {
           _channelFactoryDeliveredId,
           'Pedido entregado',
           description: 'Notificación cuando un pedido a fábrica es entregado',
-          importance: Importance.high,
+          importance: Importance.max, // Máxima importancia para asegurar que se muestre
           sound: RawResourceAndroidNotificationSound('pedido_entregado'),
+          enableVibration: true,
+          playSound: true,
         ),
       );
     }
@@ -126,6 +131,8 @@ class NotificationService {
       await initialize();
     }
 
+    print('📱 Preparando notificación: $title - $body (ID: $id, Sound: $sound)');
+
     final (androidChannelId, androidChannelName, androidSound, iosSound, androidIcon) =
         switch (sound) {
           NotificationSound.newOrder => (
@@ -162,13 +169,17 @@ class NotificationService {
       androidChannelId,
       androidChannelName,
       channelDescription: 'Notificaciones de pedidos',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max, // Cambiar a max para asegurar que se muestre
+      priority: Priority.max, // Cambiar a max para alta prioridad
       showWhen: true,
       enableVibration: true,
       playSound: true,
       icon: androidIcon,
       sound: androidSound,
+      enableLights: true,
+      ledColor: const Color(0xFFEC6D13),
+      ledOnMs: 1000,
+      ledOffMs: 500,
     );
 
     final iosDetails = DarwinNotificationDetails(
@@ -176,6 +187,7 @@ class NotificationService {
       presentBadge: true,
       presentSound: true,
       sound: iosSound,
+      interruptionLevel: InterruptionLevel.timeSensitive, // iOS: notificación crítica
     );
 
     final notificationDetails = NotificationDetails(
@@ -183,13 +195,20 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    await _notifications.show(
-      id,
-      title,
-      body,
-      notificationDetails,
-      payload: payload,
-    );
+    try {
+      await _notifications.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
+      print('✅ Notificación mostrada exitosamente (ID: $id)');
+    } catch (e) {
+      print('❌ Error mostrando notificación: $e');
+      print('Stack trace: ${StackTrace.current}');
+      rethrow;
+    }
   }
 
   /// Muestra una notificación de nuevo pedido de puntos
@@ -257,16 +276,30 @@ class NotificationService {
     required String numeroPedido,
     String? sucursalNombre,
   }) async {
+    // Asegurar inicialización
+    if (!_initialized) {
+      await initialize();
+    }
+
     final sucursal = sucursalNombre ?? 'Fábrica';
     final pedido = numeroPedido.isNotEmpty ? ' #$numeroPedido' : '';
 
+    print('🔔 Mostrando notificación: Pedido Enviado - Pedido$pedido desde $sucursal');
+
+    // Usar un ID único basado en el número de pedido para evitar duplicados
+    final notificationId = (numeroPedido.isNotEmpty 
+        ? numeroPedido.hashCode 
+        : DateTime.now().millisecondsSinceEpoch) % 100000;
+
     await showNotification(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
+      id: notificationId,
       title: 'Pedido Enviado',
       body: 'Tu pedido a fábrica$pedido ha sido enviado desde $sucursal',
       payload: 'factory_order_sent',
       sound: NotificationSound.factoryOrderSent,
     );
+
+    print('✅ Notificación de ENVIADO mostrada exitosamente (ID: $notificationId)');
   }
 
   /// Muestra una notificación cuando un pedido a fábrica cambia de Enviado a Entregado
@@ -274,16 +307,30 @@ class NotificationService {
     required String numeroPedido,
     String? sucursalNombre,
   }) async {
+    // Asegurar inicialización
+    if (!_initialized) {
+      await initialize();
+    }
+
     final sucursal = sucursalNombre ?? 'Fábrica';
     final pedido = numeroPedido.isNotEmpty ? ' #$numeroPedido' : '';
 
+    print('🔔 Mostrando notificación: Pedido Entregado - Pedido$pedido desde $sucursal');
+
+    // Usar un ID único basado en el número de pedido para evitar duplicados
+    final notificationId = (numeroPedido.isNotEmpty 
+        ? numeroPedido.hashCode 
+        : DateTime.now().millisecondsSinceEpoch) % 100000;
+
     await showNotification(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
+      id: notificationId,
       title: 'Pedido Entregado',
       body: 'Tu pedido a fábrica$pedido ha sido entregado desde $sucursal',
       payload: 'factory_order_delivered',
       sound: NotificationSound.factoryOrderDelivered,
     );
+
+    print('✅ Notificación de ENTREGADO mostrada exitosamente (ID: $notificationId)');
   }
 
   /// Cancela todas las notificaciones

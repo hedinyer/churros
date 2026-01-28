@@ -49,6 +49,34 @@ class _ProductionPageState extends State<ProductionPage> {
       // Cargar productos
       final productos = await SupabaseService.getProductosActivos();
 
+      // Filtrar productos:
+      // - IDs de producto del 8 al 21
+      // - Nombre que NO contenga la palabra "frito"
+      // - Excluir los que tienen "x10" o "x 10" en el nombre o unidad de medida
+      final productosFiltrados = productos.where((producto) {
+        final nombre = producto.nombre.toLowerCase();
+        final unidadMedida = producto.unidadMedida.toLowerCase().trim();
+        final id = producto.id;
+
+        // Mantener solo IDs entre 8 y 21
+        final idEnRango = id >= 8 && id <= 21;
+
+        // Excluir si el nombre contiene "frito"
+        final nombreContieneFrito = nombre.contains('frito');
+
+        // Excluir si el nombre contiene "x10" o "x 10"
+        final nombreContieneX10 =
+            nombre.contains('x10') || nombre.contains('x 10');
+
+        // Excluir si la unidad de medida es "x10" o "x 10"
+        final unidadEsX10 = unidadMedida == 'x10' || unidadMedida == 'x 10';
+
+        return idEnRango &&
+            !nombreContieneFrito &&
+            !nombreContieneX10 &&
+            !unidadEsX10;
+      }).toList();
+
       // Cargar pedidos de fábrica en preparación
       final todosPedidosFabrica =
           await SupabaseService.getPedidosFabricaRecientesTodasSucursales(
@@ -182,7 +210,7 @@ class _ProductionPageState extends State<ProductionPage> {
       }
 
       setState(() {
-        _productos = productos;
+        _productos = productosFiltrados;
         _pedidosEnPreparacion = pedidosCombinados;
         _productosCompletados = productosCompletados;
         _produccionPorDetalle = produccionPorDetalle;

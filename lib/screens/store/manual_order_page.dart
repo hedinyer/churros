@@ -73,8 +73,14 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
     try {
       final productos = await SupabaseService.getProductosActivos();
+      // Excluir productos cuyo nombre contenga "x10" o "x 10"
+      final productosFiltrados = productos.where((producto) {
+        final nombre = producto.nombre.toLowerCase();
+        return !nombre.contains('x10') && !nombre.contains('x 10');
+      }).toList();
+
       setState(() {
-        _productos = productos;
+        _productos = productosFiltrados;
         _isLoading = false;
       });
     } catch (e) {

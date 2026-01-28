@@ -19,6 +19,8 @@ class _FactoryInventoryProductionPageState
       {}; // productoId -> controller
   bool _isLoading = true;
   bool _isGuardando = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _FactoryInventoryProductionPageState
     for (final controller in _cantidadControllers.values) {
       controller.dispose();
     }
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -46,8 +49,10 @@ class _FactoryInventoryProductionPageState
       // Cargar todos los productos activos
       final productos = await SupabaseService.getProductosActivos();
 
-      // Filtrar productos: churros en tamaño bandeja
-      // - categoria_id = 1 o 4: nombre contiene "crudo" y unidad_medida = "bandeja"
+      // Filtrar productos de fábrica:
+      // - categoria_id = 1 o 4: nombre contiene "crudo"
+      //   y NO contienen "x10" ni "x 10" en el nombre (pueden ser bandeja o cualquier otra unidad)
+      //   (NO se excluyen IDs específicos: 8,10,12,14,16,18,20,21)
       // - categoria_id = 5: sin restricciones adicionales
       final productosFiltrados =
           productos.where((producto) {
@@ -61,15 +66,16 @@ class _FactoryInventoryProductionPageState
             // Para categorías 1 y 4, verificar condiciones adicionales
             if (categoriaId == 1 || categoriaId == 4) {
               final nombre = producto.nombre.toLowerCase();
-              final unidadMedida = producto.unidadMedida.toLowerCase();
 
               // Verificar que el nombre contenga "crudo"
               final contieneCrudo = nombre.contains('crudo');
 
-              // Verificar que la unidad de medida sea "bandeja"
-              final esBandeja = unidadMedida == 'bandeja';
+              // Excluir churros x10 (en cualquier formato "x10" o "x 10")
+              final nombreContieneX10 =
+                  nombre.contains('x10') || nombre.contains('x 10');
 
-              return contieneCrudo && esBandeja;
+              // Incluir cualquier unidad de medida (bandeja, unidad, etc.)
+              return contieneCrudo && !nombreContieneX10;
             }
 
             // Otras categorías no se incluyen
@@ -184,6 +190,20 @@ class _FactoryInventoryProductionPageState
     }
   }
 
+  List<Producto> _getProductosFiltrados() {
+    if (_searchQuery.trim().isEmpty) {
+      return _productos;
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    final palabras = query.split(' ').where((p) => p.isNotEmpty).toList();
+
+    return _productos.where((producto) {
+      final nombre = producto.nombre.toLowerCase();
+      return palabras.every((p) => nombre.contains(p));
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -263,10 +283,10 @@ class _FactoryInventoryProductionPageState
 
             // Main Content
             Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _productos.isEmpty
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  // Estado vacío real: no hay ningún producto cargado
+                  : _productos.isEmpty
                       ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(32.0),
@@ -309,16 +329,100 @@ class _FactoryInventoryProductionPageState
                           ),
                         ),
                       )
+                      // Siempre mostrar la lista + barra de búsqueda, incluso si
+                      // la búsqueda actual no tiene resultados.
                       : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView.builder(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 16 : 20,
-                            vertical: 16,
-                          ),
-                          itemCount: _productos.length,
-                          itemBuilder: (context, index) {
-                            final producto = _productos[index];
+                          onRefresh: _loadData,
+                          child: ListView.builder(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 16 : 20,
+                              vertical: 16,
+                            ),
+                            itemCount: _getProductosFiltrados().length + 1,
+                            itemBuilder: (context, index) {
+                            // Primer elemento: barra de búsqueda
+                            if (index == 0) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(0xFF2D211A)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white.withOpacity(0.08)
+                                          : Colors.black.withOpacity(0.08),
+                                    ),
+                                  ),
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _searchQuery = value;
+                                      });
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Buscar producto...',
+                                      hintStyle: TextStyle(
+                                        color: isDark
+                                            ? const Color(0xFF9A6C4C)
+                                            : const Color(0xFF78716C),
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.search,
+                                        color: isDark
+                                            ? const Color(0xFF9A6C4C)
+                                            : const Color(0xFF78716C),
+                                      ),
+                                      suffixIcon: _searchQuery.isNotEmpty
+                                          ? IconButton(
+                                              icon: Icon(
+                                                Icons.clear,
+                                                color: isDark
+                                                    ? const Color(0xFF9A6C4C)
+                                                    : const Color(0xFF78716C),
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _searchQuery = '';
+                                                  _searchController.clear();
+                                                });
+                                              },
+                                            )
+                                          : null,
+                                      border: InputBorder.none,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final productosFiltrados =
+                                _getProductosFiltrados();
+
+                            // Si no hay productos que coincidan con la búsqueda,
+                            // solo mostramos la barra de búsqueda y un mensaje.
+                            if (productosFiltrados.isEmpty) {
+                              if (index == 0) {
+                                // Ya se construyó la barra de búsqueda arriba.
+                                // No renderizar más ítems.
+                                return const SizedBox.shrink();
+                              }
+                            }
+
+                            final producto = productosFiltrados[index - 1];
                             final cantidadActual =
                                 _inventarioActual[producto.id] ?? 0;
                             final controller =
