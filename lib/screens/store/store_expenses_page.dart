@@ -20,6 +20,7 @@ class StoreExpensesPage extends StatefulWidget {
 
 class _StoreExpensesPageState extends State<StoreExpensesPage> {
   List<Map<String, dynamic>> _gastos = [];
+  List<Map<String, dynamic>> _deudores = [];
   bool _isLoading = true;
   String _filtroTipo =
       'todos'; // 'todos', 'personal', 'pago_pedido', 'pago_ocasional', 'otro'
@@ -40,12 +41,17 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
         sucursalId: widget.sucursal.id,
       );
 
+      final deudores = await SupabaseService.getDeudoresPendientes(
+        widget.sucursal.id,
+      );
+
       setState(() {
         _gastos = gastos;
+        _deudores = deudores;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error cargando gastos: $e');
+      print('Error cargando datos: $e');
       setState(() {
         _isLoading = false;
       });
@@ -463,58 +469,86 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
               ),
             ),
 
-            // Lista de gastos
+            // Lista de deudores y gastos
             Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child:
-                            gastosFiltrados.isEmpty
-                                ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(32.0),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.receipt_long_outlined,
-                                          size: 64,
-                                          color:
-                                              isDark
-                                                  ? const Color(0xFFA8A29E)
-                                                  : const Color(0xFF78716C),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No hay gastos de hoy',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color:
-                                                isDark
-                                                    ? Colors.white
-                                                    : const Color(0xFF1B130D),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                : ListView.builder(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: gastosFiltrados.length,
-                                  itemBuilder: (context, index) {
-                                    final gasto = gastosFiltrados[index];
-                                    return _buildGastoCard(
-                                      isDark: isDark,
-                                      gasto: gasto,
-                                    );
-                                  },
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Sección de Deudores (Fiado)
+                            if (_deudores.isNotEmpty) ...[
+                              Text(
+                                'Ventas a Fiado Pendientes',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1B130D),
                                 ),
+                              ),
+                              const SizedBox(height: 12),
+                              ..._deudores.map((deudor) => _buildDeudorCard(
+                                    isDark: isDark,
+                                    deudor: deudor,
+                                  )),
+                              const SizedBox(height: 24),
+                            ],
+                            // Sección de Gastos
+                            Text(
+                              'Gastos de Hoy',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1B130D),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (gastosFiltrados.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.receipt_long_outlined,
+                                        size: 64,
+                                        color: isDark
+                                            ? const Color(0xFFA8A29E)
+                                            : const Color(0xFF78716C),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No hay gastos de hoy',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF1B130D),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            else
+                              ...gastosFiltrados.map((gasto) => _buildGastoCard(
+                                    isDark: isDark,
+                                    gasto: gasto,
+                                  )),
+                          ],
+                        ),
                       ),
+                    ),
             ),
           ],
         ),
@@ -671,5 +705,274 @@ class _StoreExpensesPageState extends State<StoreExpensesPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildDeudorCard({
+    required bool isDark,
+    required Map<String, dynamic> deudor,
+  }) {
+    final nombreDeudor = deudor['nombre_deudor'] as String? ?? '';
+    final total = (deudor['total'] as num?)?.toDouble() ?? 0.0;
+    final fechaVenta = deudor['fecha_venta'] as String? ?? '';
+    final horaVenta = deudor['hora_venta'] as String? ?? '';
+    final numeroTicket = deudor['numero_ticket'] as String?;
+    final detalles = deudor['detalles'] as List<dynamic>? ?? [];
+    final deudorId = deudor['id'] as int;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(isDark ? 0.2 : 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.orange.withOpacity(0.5),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header con nombre y total
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(isDark ? 0.3 : 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.credit_card,
+                  color: Colors.orange,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nombreDeudor,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF1B130D),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      horaVenta.isNotEmpty
+                          ? '$fechaVenta ${horaVenta.toString().substring(0, horaVenta.toString().length > 5 ? 5 : horaVenta.toString().length)}'
+                          : fechaVenta,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? const Color(0xFFA8A29E)
+                            : const Color(0xFF78716C),
+                      ),
+                    ),
+                    if (numeroTicket != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Ticket: $numeroTicket',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? const Color(0xFFA8A29E)
+                              : const Color(0xFF78716C),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Text(
+                _formatCurrency(total),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Detalles de productos
+          if (detalles.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF2C2018)
+                    : Colors.white.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Detalle:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? const Color(0xFFA8A29E)
+                          : const Color(0xFF78716C),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...detalles.map((detalle) {
+                    final producto = detalle['productos'] as Map<String, dynamic>?;
+                    final nombreProducto =
+                        producto?['nombre'] as String? ?? 'Producto';
+                    final cantidad = detalle['cantidad'] as int? ?? 0;
+                    final precioTotal =
+                        (detalle['precio_total'] as num?)?.toDouble() ?? 0.0;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$nombreProducto x$cantidad',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1B130D),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _formatCurrency(precioTotal),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1B130D),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          // Botón para marcar como pagado
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _marcarComoPagado(deudorId),
+              icon: const Icon(Icons.check_circle, color: Colors.white),
+              label: const Text(
+                'Marcar como Pagado',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _marcarComoPagado(int deudorId) async {
+    // Mostrar diálogo de confirmación
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirmar Pago'),
+          content: const Text(
+            '¿Estás seguro de marcar este fiado como pagado? Esta acción transferirá la venta a la tabla de ventas.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              child: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    // Mostrar loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final exito = await SupabaseService.marcarDeudorComoPagado(
+        deudorId: deudorId,
+        sucursalId: widget.sucursal.id,
+        usuarioId: widget.currentUser.id,
+        metodoPago: 'efectivo',
+      );
+
+      // Cerrar loading
+      if (mounted) Navigator.pop(context);
+
+      if (exito) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Fiado marcado como pagado exitosamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadData();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error al marcar como pagado'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Cerrar loading
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

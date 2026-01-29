@@ -252,6 +252,7 @@ class _QuickSalePageState extends State<QuickSalePage> {
 
     // Mostrar diálogo de confirmación con selector de método de pago
     String? metodoPagoSeleccionado = 'efectivo';
+    final nombreDeudorController = TextEditingController();
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) {
@@ -608,8 +609,148 @@ class _QuickSalePageState extends State<QuickSalePage> {
                               ),
                             ),
                           ),
+                          SizedBox(
+                            height: (12 * dialogTextScale).clamp(8.0, 16.0),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                metodoPagoSeleccionado = 'fiado';
+                              });
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                vertical: (18 * dialogTextScale).clamp(
+                                  14.0,
+                                  22.0,
+                                ),
+                                horizontal: (16 * dialogTextScale).clamp(
+                                  12.0,
+                                  20.0,
+                                ),
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    metodoPagoSeleccionado == 'fiado'
+                                        ? primaryColor
+                                        : (isDark
+                                            ? const Color(0xFF1C1917)
+                                            : const Color(0xFFF8F7F6)),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color:
+                                      metodoPagoSeleccionado == 'fiado'
+                                          ? primaryColor
+                                          : (isDark
+                                              ? const Color(0xFF44403C)
+                                              : const Color(0xFFE7E5E4)),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.credit_card,
+                                    color:
+                                        metodoPagoSeleccionado == 'fiado'
+                                            ? Colors.white
+                                            : (isDark
+                                                ? const Color(0xFFA8A29E)
+                                                : const Color(0xFF78716C)),
+                                    size: (24 * dialogTextScale).clamp(
+                                      20.0,
+                                      28.0,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: (12 * dialogTextScale).clamp(
+                                      8.0,
+                                      16.0,
+                                    ),
+                                  ),
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        'Fiado',
+                                        style: TextStyle(
+                                          fontSize: dialogBodySize,
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              metodoPagoSeleccionado == 'fiado'
+                                                  ? Colors.white
+                                                  : (isDark
+                                                      ? const Color(0xFFA8A29E)
+                                                      : const Color(
+                                                        0xFF78716C,
+                                                      )),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
+                      // Campo para nombre del deudor cuando se selecciona "Fiado"
+                      if (metodoPagoSeleccionado == 'fiado') ...[
+                        SizedBox(height: dialogSpacing),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'NOMBRE DEL DEUDOR',
+                            style: TextStyle(
+                              fontSize: dialogBodySize,
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  isDark ? Colors.white : const Color(0xFF1B130D),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(height: (12 * dialogTextScale).clamp(8.0, 16.0)),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1C1917)
+                                : const Color(0xFFF8F7F6),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: nombreDeudorController,
+                            style: TextStyle(
+                              fontSize: dialogBodySize,
+                              color: isDark ? Colors.white : const Color(0xFF1B130D),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Ingresa el nombre del deudor',
+                              hintStyle: TextStyle(
+                                color: isDark
+                                    ? const Color(0xFF78716C)
+                                    : const Color(0xFF78716C),
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: (16 * dialogTextScale).clamp(12.0, 20.0),
+                                vertical: (18 * dialogTextScale).clamp(14.0, 22.0),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       SizedBox(height: dialogSpacing),
 
                       // Resumen de productos
@@ -756,9 +897,23 @@ class _QuickSalePageState extends State<QuickSalePage> {
                             flex: 2,
                             child: ElevatedButton(
                               onPressed: () {
+                                // Validar que si es fiado, tenga nombre deudor
+                                if (metodoPagoSeleccionado == 'fiado' &&
+                                    (nombreDeudorController.text.trim().isEmpty)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Debes ingresar el nombre del deudor'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  return;
+                                }
                                 Navigator.of(context).pop({
                                   'confirmado': true,
                                   'metodoPago': metodoPagoSeleccionado,
+                                  'nombreDeudor': metodoPagoSeleccionado == 'fiado'
+                                      ? nombreDeudorController.text.trim()
+                                      : null,
                                 });
                               },
                               style: ElevatedButton.styleFrom(
@@ -820,8 +975,12 @@ class _QuickSalePageState extends State<QuickSalePage> {
       },
     );
 
-    if (result == null || result['confirmado'] != true) return;
+    if (result == null || result['confirmado'] != true) {
+      nombreDeudorController.dispose();
+      return;
+    }
     final metodoPago = result['metodoPago'] as String? ?? 'efectivo';
+    final nombreDeudor = result['nombreDeudor'] as String?;
 
     // Mostrar loading
     showDialog(
@@ -836,7 +995,79 @@ class _QuickSalePageState extends State<QuickSalePage> {
         for (var producto in _productos) producto.id: producto,
       };
 
-      // Guardar la venta
+      // Guardar la venta o deudor según el método de pago
+      if (metodoPago == 'fiado') {
+        // Guardar como deudor
+        final deudor = await SupabaseService.guardarDeudor(
+          sucursalId: widget.sucursal.id,
+          usuarioId: widget.currentUser.id,
+          nombreDeudor: nombreDeudor ?? '',
+          productos: _cart,
+          productosMap: productosMap,
+          descuento: 0.0,
+          impuesto: 0.0,
+        );
+
+        // Cerrar loading
+        if (mounted) Navigator.of(context).pop();
+
+        if (deudor != null) {
+          // Limpiar carrito
+          setState(() {
+            _cart.clear();
+          });
+
+          // Actualizar inventario total
+          final inventario = await SupabaseService.getInventarioActual(
+            widget.sucursal.id,
+          );
+          setState(() {
+            _inventario = inventario;
+          });
+
+          // Mostrar éxito y navegar al dashboard
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Venta a fiado registrada exitosamente\nDeudor: ${nombreDeudor ?? ''}',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+
+            // Navegar al dashboard después de un breve delay
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => DashboardPage(
+                          sucursal: widget.sucursal,
+                          currentUser: widget.currentUser,
+                        ),
+                  ),
+                );
+              }
+            });
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Error al registrar la venta a fiado. Intenta nuevamente.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+        nombreDeudorController.dispose();
+        return;
+      }
+
+      // Guardar la venta normal
       final venta = await SupabaseService.guardarVenta(
         sucursalId: widget.sucursal.id,
         usuarioId: widget.currentUser.id,
@@ -911,6 +1142,8 @@ class _QuickSalePageState extends State<QuickSalePage> {
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      nombreDeudorController.dispose();
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/producto.dart';
+import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
 
 class RecurrentOrdersPage extends StatefulWidget {
@@ -44,6 +45,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
   ];
 
   List<Producto> _productos = [];
+  Map<int, Categoria> _categoriasMap = {};
   Map<int, int> _cantidades = {}; // productoId -> cantidad
   Map<int, TextEditingController> _cantidadControllers =
       {}; // productoId -> controller
@@ -57,6 +59,10 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
   bool _isGuardando = false;
   final _direccionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  // Filtro de categorías: -1 = Todas, 0 = Sin categoría, >0 = categoria_id
+  int _selectedCategoriaFilter = -1;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -67,6 +73,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
   @override
   void dispose() {
     _direccionController.dispose();
+    _searchController.dispose();
     for (var controller in _cantidadControllers.values) {
       controller.dispose();
     }
@@ -85,9 +92,11 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
 
     try {
       final productos = await SupabaseService.getProductosActivos();
+      final categorias = await SupabaseService.getCategorias();
+      final categoriasMap = {for (var cat in categorias) cat.id: cat};
 
       // Filtrar productos: churros congelados y fritos
-      // - categoria_id = 1 o 4: nombre contiene "crudo" y unidad_medida = "bandeja" (congelados)
+      // - categoria_id = 1 o 4: nombre contiene "crudo" (todos los crudos, sin importar unidad)
       // - categoria_id = 5: sin restricciones adicionales
       // - También incluir productos que contengan "frito" en el nombre
       // - EXCLUIR productos cuyo nombre contenga "x10" o "x 10"
@@ -95,7 +104,6 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
           productos.where((producto) {
             final categoriaId = producto.categoria?.id;
             final nombre = producto.nombre.toLowerCase();
-            final unidadMedida = producto.unidadMedida.toLowerCase();
 
             // Excluir productos x10 por nombre
             if (nombre.contains('x10') || nombre.contains('x 10')) {
@@ -107,11 +115,10 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
               return true;
             }
 
-            // Para categorías 1 y 4, verificar si es churro crudo (congelado)
+            // Para categorías 1 y 4, incluir todos los productos crudos (sin restricción de unidad)
             if (categoriaId == 1 || categoriaId == 4) {
               final contieneCrudo = nombre.contains('crudo');
-              final esBandeja = unidadMedida == 'bandeja';
-              if (contieneCrudo && esBandeja) {
+              if (contieneCrudo) {
                 return true;
               }
             }
@@ -136,6 +143,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
 
       setState(() {
         _productos = productosFiltrados;
+        _categoriasMap = categoriasMap;
         _cantidadControllers = cantidadControllers;
         _precioControllers = precioControllers;
         _isLoading = false;
@@ -252,6 +260,55 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
 
   String _formatCurrency(double amount) {
     return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
+  }
+
+  List<int?> _getCategoriasDisponiblesEnProductos() {
+    final ids = <int?>{};
+    for (final p in _productos) {
+      ids.add(p.categoria?.id);
+    }
+    final list = ids.toList();
+    // Ordenar: primero sin categoría (null), luego por nombre de categoría
+    list.sort((a, b) {
+      if (a == null && b == null) return 0;
+      if (a == null) return -1;
+      if (b == null) return 1;
+      final nameA = _categoriasMap[a]?.nombre ?? '';
+      final nameB = _categoriasMap[b]?.nombre ?? '';
+      return nameA.compareTo(nameB);
+    });
+    return list;
+  }
+
+  List<Producto> _getProductosFiltrados() {
+    List<Producto> productosFiltrados;
+
+    // Filtrar por categoría
+    if (_selectedCategoriaFilter == -1) {
+      // Mostrar todos
+      productosFiltrados = _productos;
+    } else if (_selectedCategoriaFilter == 0) {
+      // Mostrar solo sin categoría
+      productosFiltrados = _productos.where((p) => p.categoria == null).toList();
+    } else {
+      // Mostrar solo la categoría seleccionada
+      productosFiltrados = _productos
+          .where((p) => p.categoria?.id == _selectedCategoriaFilter)
+          .toList();
+    }
+
+    // Filtrar por búsqueda si hay texto
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.trim().toLowerCase();
+      productosFiltrados = productosFiltrados.where((producto) {
+        final nombre = producto.nombre.toLowerCase();
+        // Buscar por palabras clave (cada palabra del query debe estar en el nombre)
+        final palabrasQuery = query.split(' ').where((p) => p.isNotEmpty).toList();
+        return palabrasQuery.every((palabra) => nombre.contains(palabra));
+      }).toList();
+    }
+
+    return productosFiltrados;
   }
 
   Future<void> _guardarPedido() async {
@@ -773,8 +830,81 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                               ),
                               const SizedBox(height: 16),
 
+                              // Barra de búsqueda
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF2C2018)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? const Color(0xFF44403C)
+                                        : const Color(0xFFE7E5E4),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: TextField(
+                                  controller: _searchController,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _searchQuery = value;
+                                    });
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Buscar producto...',
+                                    hintStyle: TextStyle(
+                                      color: isDark
+                                          ? const Color(0xFF78716C)
+                                          : const Color(0xFF78716C),
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.search,
+                                      color: isDark
+                                          ? const Color(0xFF78716C)
+                                          : const Color(0xFF78716C),
+                                    ),
+                                    suffixIcon: _searchQuery.isNotEmpty
+                                        ? IconButton(
+                                            icon: Icon(
+                                              Icons.clear,
+                                              color: isDark
+                                                  ? const Color(0xFF78716C)
+                                                  : const Color(0xFF78716C),
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _searchQuery = '';
+                                                _searchController.clear();
+                                              });
+                                            },
+                                          )
+                                        : null,
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1B130D),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Filtro de categorías
+                              _buildCategoryFilter(
+                                isDark: isDark,
+                                primaryColor: primaryColor,
+                                isSmallScreen: isSmallScreen,
+                              ),
+                              const SizedBox(height: 16),
+
                               // Lista de Productos
-                              ..._productos.map((producto) {
+                              ..._getProductosFiltrados().map((producto) {
                                 final cantidad = _cantidades[producto.id] ?? 0;
                                 final precio = _getPrecioProducto(producto.id);
                                 final subtotal = precio * cantidad;
@@ -1233,6 +1363,95 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                 : (isDark ? Colors.white : const Color(0xFF1B130D)),
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
+    );
+  }
+
+  Widget _buildCategoryFilter({
+    required bool isDark,
+    required Color primaryColor,
+    required bool isSmallScreen,
+  }) {
+    final categoriasDisponibles = _getCategoriasDisponiblesEnProductos();
+
+    // Si solo hay una "categoría" (o ninguna), no mostramos filtro
+    if (categoriasDisponibles.length <= 1) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filtrar por categoría',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.grey.shade300 : const Color(0xFF9A6C4C),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ChoiceChip(
+                label: const Text('Todos'),
+                selected: _selectedCategoriaFilter == -1,
+                selectedColor: primaryColor.withOpacity(0.15),
+                backgroundColor:
+                    isDark ? const Color(0xFF2C2018) : Colors.white,
+                side: BorderSide(
+                  color: _selectedCategoriaFilter == -1
+                      ? primaryColor
+                      : (isDark
+                          ? const Color(0xFF44403C)
+                          : const Color(0xFFE7E5E4)),
+                ),
+                onSelected: (_) {
+                  setState(() => _selectedCategoriaFilter = -1);
+                },
+              ),
+              const SizedBox(width: 8),
+              ..._getCategoriasDisponiblesEnProductos().map((categoriaId) {
+                final isUncategorized = categoriaId == null;
+                final chipId = isUncategorized ? 0 : categoriaId;
+
+                // Obtener el nombre de la categoría
+                String label;
+                if (isUncategorized) {
+                  label = 'Sin categoría';
+                } else {
+                  final categoria = _categoriasMap[categoriaId];
+                  if (categoria != null) {
+                    label = categoria.nombre;
+                  } else {
+                    label = 'Categoría';
+                  }
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(label),
+                    selected: _selectedCategoriaFilter == chipId,
+                    selectedColor: primaryColor.withOpacity(0.15),
+                    backgroundColor:
+                        isDark ? const Color(0xFF2C2018) : Colors.white,
+                    side: BorderSide(
+                      color: _selectedCategoriaFilter == chipId
+                          ? primaryColor
+                          : (isDark
+                              ? const Color(0xFF44403C)
+                              : const Color(0xFFE7E5E4)),
+                    ),
+                    onSelected: (_) {
+                      setState(() => _selectedCategoriaFilter = chipId);
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -795,6 +795,296 @@ class SupabaseService {
     }
   }
 
+  /// Guarda una venta a fiado (deudor) en lugar de una venta normal
+  static Future<Map<String, dynamic>?> guardarDeudor({
+    required int sucursalId,
+    required int usuarioId,
+    required String nombreDeudor,
+    required Map<int, int> productos, // productoId -> cantidad
+    required Map<int, Producto> productosMap, // productoId -> Producto
+    double descuento = 0.0,
+    double impuesto = 0.0,
+    String? observaciones,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      final now = DateTime.now();
+
+      // Calcular subtotal y total
+      double subtotal = 0.0;
+      final detallesData = <Map<String, dynamic>>[];
+
+      for (final entry in productos.entries) {
+        final producto = productosMap[entry.key];
+        if (producto == null) continue;
+
+        final cantidad = entry.value;
+        final precioUnitario = producto.precio;
+        final precioTotal = precioUnitario * cantidad;
+        subtotal += precioTotal;
+
+        detallesData.add({
+          'producto_id': producto.id,
+          'cantidad': cantidad,
+          'precio_unitario': precioUnitario,
+          'precio_total': precioTotal,
+          'descuento': 0.0,
+        });
+      }
+
+      final total = subtotal - descuento + impuesto;
+
+      // Crear el deudor
+      final deudorData = {
+        'sucursal_id': sucursalId,
+        'usuario_id': usuarioId,
+        'nombre_deudor': nombreDeudor,
+        'fecha_venta': now.toIso8601String().split('T')[0],
+        'hora_venta':
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+        'total': total,
+        'subtotal': subtotal,
+        'descuento': descuento,
+        'impuesto': impuesto,
+        'estado': 'pendiente',
+        'numero_ticket': _generateTicketNumber(sucursalId),
+        'observaciones': observaciones,
+        'sincronizado': hasConnection,
+      };
+
+      // Insertar el deudor
+      final deudorResponse =
+          await client.from('deudores').insert(deudorData).select().single();
+
+      final deudorId = deudorResponse['id'] as int;
+
+      // Insertar los detalles del deudor
+      final detallesConDeudorId =
+          detallesData.map((detalle) {
+            return {...detalle, 'deudor_id': deudorId};
+          }).toList();
+
+      await client.from('deudor_detalles').insert(detallesConDeudorId);
+
+      // Actualizar inventario (restar productos vendidos)
+      final inventarioActual = await getInventarioActual(sucursalId);
+      final nuevoInventario = <int, int>{};
+
+      for (final entry in productos.entries) {
+        final cantidadActual = inventarioActual[entry.key] ?? 0;
+        final cantidadVendida = entry.value;
+        final nuevaCantidad = cantidadActual - cantidadVendida;
+
+        if (nuevaCantidad < 0) {
+          print('Advertencia: Stock insuficiente para producto ${entry.key}');
+          nuevoInventario[entry.key] = 0;
+        } else {
+          nuevoInventario[entry.key] = nuevaCantidad;
+        }
+      }
+
+      // Actualizar inventario actual
+      if (nuevoInventario.isNotEmpty) {
+        final nowStr = DateTime.now().toIso8601String();
+        final inventarioData =
+            nuevoInventario.entries.map((entry) {
+              return {
+                'sucursal_id': sucursalId,
+                'producto_id': entry.key,
+                'cantidad': entry.value,
+                'ultima_actualizacion': nowStr,
+              };
+            }).toList();
+
+        try {
+          await client
+              .from('inventario_actual')
+              .upsert(inventarioData, onConflict: 'sucursal_id,producto_id');
+        } catch (e) {
+          print('Error actualizando inventario después de deudor: $e');
+        }
+      }
+
+      print('Deudor guardado exitosamente: ID $deudorId, Nombre: $nombreDeudor');
+
+      return {
+        'id': deudorId,
+        'nombre_deudor': nombreDeudor,
+        'total': total,
+        'numero_ticket': deudorData['numero_ticket'],
+      };
+    } catch (e) {
+      print('Error guardando deudor: $e');
+      return null;
+    }
+  }
+
+  /// Obtiene el total de deudores (fiado) del día actual para una sucursal
+  static Future<double> getTotalFiadoHoy(int sucursalId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener total de fiado');
+        return 0.0;
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final response = await client
+          .from('deudores')
+          .select('total')
+          .eq('sucursal_id', sucursalId)
+          .eq('fecha_venta', today)
+          .eq('estado', 'pendiente'); // Solo contar los pendientes
+
+      final totalFiado = response.fold<double>(
+        0.0,
+        (sum, deudor) => sum + ((deudor['total'] as num).toDouble()),
+      );
+
+      return totalFiado;
+    } catch (e) {
+      print('Error obteniendo total de fiado: $e');
+      return 0.0;
+    }
+  }
+
+  /// Obtiene todos los deudores pendientes de una sucursal con sus detalles
+  static Future<List<Map<String, dynamic>>> getDeudoresPendientes(
+    int sucursalId,
+  ) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener deudores pendientes');
+        return [];
+      }
+
+      // Obtener deudores pendientes
+      final deudoresResponse = await client
+          .from('deudores')
+          .select()
+          .eq('sucursal_id', sucursalId)
+          .eq('estado', 'pendiente')
+          .order('fecha_venta', ascending: false)
+          .order('hora_venta', ascending: false);
+
+      final deudores = <Map<String, dynamic>>[];
+
+      for (final deudor in deudoresResponse) {
+        final deudorId = deudor['id'] as int;
+
+        // Obtener detalles del deudor
+        final detallesResponse = await client
+            .from('deudor_detalles')
+            .select('*, productos(*)')
+            .eq('deudor_id', deudorId);
+
+        deudores.add({
+          ...deudor,
+          'detalles': detallesResponse,
+        });
+      }
+
+      return deudores;
+    } catch (e) {
+      print('Error obteniendo deudores pendientes: $e');
+      return [];
+    }
+  }
+
+  /// Marca un deudor como pagado y transfiere la información a la tabla de ventas
+  static Future<bool> marcarDeudorComoPagado({
+    required int deudorId,
+    required int sucursalId,
+    required int usuarioId,
+    String metodoPago = 'efectivo',
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para marcar deudor como pagado');
+        return false;
+      }
+
+      // Obtener el deudor con sus detalles
+      final deudorResponse = await client
+          .from('deudores')
+          .select()
+          .eq('id', deudorId)
+          .eq('estado', 'pendiente')
+          .maybeSingle();
+
+      if (deudorResponse == null) {
+        print('Deudor no encontrado o ya no está pendiente');
+        return false;
+      }
+
+      final detallesResponse = await client
+          .from('deudor_detalles')
+          .select('*, productos(*)')
+          .eq('deudor_id', deudorId);
+
+      final fechaVenta = deudorResponse['fecha_venta'] as String;
+      final horaVenta = deudorResponse['hora_venta'] as String;
+      final total = (deudorResponse['total'] as num).toDouble();
+      final subtotal = (deudorResponse['subtotal'] as num).toDouble();
+      final descuento = (deudorResponse['descuento'] as num).toDouble();
+      final impuesto = (deudorResponse['impuesto'] as num).toDouble();
+      final observaciones = deudorResponse['observaciones'] as String?;
+      final numeroTicket = deudorResponse['numero_ticket'] as String?;
+
+      // Crear la venta en la tabla ventas
+      final ventaData = {
+        'sucursal_id': sucursalId,
+        'usuario_id': usuarioId,
+        'fecha_venta': fechaVenta,
+        'hora_venta': horaVenta,
+        'total': total,
+        'subtotal': subtotal,
+        'descuento': descuento,
+        'impuesto': impuesto,
+        'metodo_pago': metodoPago,
+        'estado': 'completada',
+        'numero_ticket': numeroTicket ?? _generateTicketNumber(sucursalId),
+        'observaciones': observaciones != null
+            ? 'Pago de fiado - ${observaciones}'
+            : 'Pago de fiado',
+        'sincronizado': hasConnection,
+      };
+
+      final ventaResponse =
+          await client.from('ventas').insert(ventaData).select().single();
+      final ventaId = ventaResponse['id'] as int;
+
+      // Crear los detalles de venta desde los detalles del deudor
+      final ventaDetallesData = detallesResponse.map((detalle) {
+        return {
+          'venta_id': ventaId,
+          'producto_id': detalle['producto_id'],
+          'cantidad': detalle['cantidad'],
+          'precio_unitario': detalle['precio_unitario'],
+          'precio_total': detalle['precio_total'],
+          'descuento': detalle['descuento'],
+        };
+      }).toList();
+
+      await client.from('venta_detalles').insert(ventaDetallesData);
+
+      // Actualizar el estado del deudor a 'pagado'
+      await client
+          .from('deudores')
+          .update({'estado': 'pagado'})
+          .eq('id', deudorId);
+
+      print('Deudor marcado como pagado y transferido a ventas: ID $deudorId -> Venta ID $ventaId');
+
+      return true;
+    } catch (e) {
+      print('Error marcando deudor como pagado: $e');
+      return false;
+    }
+  }
+
   /// Obtiene las ventas del día actual para una sucursal
   static Future<List<Venta>> getVentasHoy(int sucursalId) async {
     try {
@@ -831,7 +1121,13 @@ class SupabaseService {
       final hasConnection = await _checkConnection();
       if (!hasConnection) {
         print('No hay conexión para obtener resumen de ventas');
-        return {'total': 0.0, 'tickets': 0, 'porcentaje_vs_ayer': 0.0};
+        return {
+          'total': 0.0,
+          'total_efectivo': 0.0,
+          'total_transferencia': 0.0,
+          'tickets': 0,
+          'porcentaje_vs_ayer': 0.0,
+        };
       }
 
       final today = DateTime.now().toIso8601String().split('T')[0];
@@ -841,10 +1137,10 @@ class SupabaseService {
               .toIso8601String()
               .split('T')[0];
 
-      // Obtener ventas de hoy
+      // Obtener ventas de hoy con método de pago
       final ventasHoy = await client
           .from('ventas')
-          .select('total')
+          .select('total, metodo_pago')
           .eq('sucursal_id', sucursalId)
           .eq('fecha_venta', today)
           .eq('estado', 'completada');
@@ -857,11 +1153,23 @@ class SupabaseService {
           .eq('fecha_venta', yesterday)
           .eq('estado', 'completada');
 
-      // Calcular totales
-      final totalHoy = ventasHoy.fold<double>(
-        0.0,
-        (sum, venta) => sum + ((venta['total'] as num).toDouble()),
-      );
+      // Calcular totales separados por método de pago
+      double totalEfectivo = 0.0;
+      double totalTransferencia = 0.0;
+      double totalHoy = 0.0;
+
+      for (final venta in ventasHoy) {
+        final total = (venta['total'] as num).toDouble();
+        final metodoPago = (venta['metodo_pago'] as String? ?? 'efectivo').toLowerCase();
+        totalHoy += total;
+
+        if (metodoPago == 'transferencia' || metodoPago == 'transfer' || metodoPago == 'nequi' || metodoPago == 'daviplata') {
+          totalTransferencia += total;
+        } else {
+          // Por defecto, todo lo que no sea transferencia es efectivo
+          totalEfectivo += total;
+        }
+      }
 
       final totalAyer = ventasAyer.fold<double>(
         0.0,
@@ -878,12 +1186,20 @@ class SupabaseService {
 
       return {
         'total': totalHoy,
+        'total_efectivo': totalEfectivo,
+        'total_transferencia': totalTransferencia,
         'tickets': ventasHoy.length,
         'porcentaje_vs_ayer': porcentajeCambio,
       };
     } catch (e) {
       print('Error obteniendo resumen de ventas: $e');
-      return {'total': 0.0, 'tickets': 0, 'porcentaje_vs_ayer': 0.0};
+      return {
+        'total': 0.0,
+        'total_efectivo': 0.0,
+        'total_transferencia': 0.0,
+        'tickets': 0,
+        'porcentaje_vs_ayer': 0.0,
+      };
     }
   }
 
@@ -1312,14 +1628,34 @@ class SupabaseService {
                 inventarioActualData,
                 onConflict: 'sucursal_id,producto_id',
               );
-          print(
-            'Cierre guardado exitosamente: ID $cierreId, ${existenciaFinal.length} productos',
-          );
         } catch (e) {
           print('Error actualizando inventario actual después de cierre: $e');
           // Aún así consideramos éxito porque el cierre se guardó
         }
       }
+
+      // Aumentar inventario de fábrica con las devoluciones de productos crudos específicos
+      // IDs: 8, 10, 12, 14, 16, 18
+      const productoIdsCrudo = {8, 10, 12, 14, 16, 18};
+      for (final productoId in productoIdsCrudo) {
+        final cantidadDevoluciones = sobrantes[productoId] ?? 0;
+        if (cantidadDevoluciones > 0) {
+          try {
+            await aumentarInventarioFabrica(
+              productoId: productoId,
+              cantidad: cantidadDevoluciones,
+            );
+          } catch (e) {
+            print(
+              'Error aumentando inventario de fábrica para producto $productoId con devoluciones $cantidadDevoluciones: $e',
+            );
+          }
+        }
+      }
+
+      print(
+        'Cierre guardado exitosamente: ID $cierreId, ${existenciaFinal.length} productos',
+      );
 
       return true;
     } catch (e) {

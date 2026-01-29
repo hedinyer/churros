@@ -28,8 +28,14 @@ class _DayClosingPageState extends State<DayClosingPage> {
   Map<int, int> _inventarioInicial = {}; // productoId -> cantidad inicial
   Map<int, int> _inventarioActual = {}; // productoId -> cantidad actual
   Map<int, int> _existenciaFinal = {}; // productoId -> existencia final
+  // En BD: inventario_cierre.cantidad_sobrantes
+  // En la app: "Devoluciones" (solo para ciertos productos)
+  Map<int, int> _devoluciones = {}; // productoId -> devoluciones
   Map<int, int> _vencido = {}; // productoId -> vencido/mal estado
   double _totalVentasHoy = 0.0;
+  double _totalEfectivo = 0.0;
+  double _totalTransferencia = 0.0;
+  double _totalFiado = 0.0;
   double _totalGastosHoy = 0.0;
   int _totalDesperdicio = 0;
   int? _aperturaId;
@@ -37,6 +43,15 @@ class _DayClosingPageState extends State<DayClosingPage> {
   int _selectedCategoriaFilter = -1;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  static const Set<int> _productoIdsConDevoluciones = {
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+  };
 
   @override
   void initState() {
@@ -81,6 +96,11 @@ class _DayClosingPageState extends State<DayClosingPage> {
         widget.sucursal.id,
       );
 
+      // Cargar total de fiado del día
+      final totalFiado = await SupabaseService.getTotalFiadoHoy(
+        widget.sucursal.id,
+      );
+
       // Cargar gastos del día
       final gastos = await SupabaseService.getGastosPuntoVenta(
         sucursalId: widget.sucursal.id,
@@ -93,11 +113,15 @@ class _DayClosingPageState extends State<DayClosingPage> {
       // Inicializar valores
       final existenciaFinal = <int, int>{};
       final vencido = <int, int>{};
+      final devoluciones = <int, int>{};
 
       for (final producto in productos) {
         final actual = inventarioActual[producto.id] ?? 0;
         existenciaFinal[producto.id] = actual;
         vencido[producto.id] = 0;
+        if (_productoIdsConDevoluciones.contains(producto.id)) {
+          devoluciones[producto.id] = 0;
+        }
       }
 
       setState(() {
@@ -113,7 +137,11 @@ class _DayClosingPageState extends State<DayClosingPage> {
         _inventarioActual = inventarioActual;
         _existenciaFinal = existenciaFinal;
         _vencido = vencido;
+        _devoluciones = devoluciones;
         _totalVentasHoy = (resumenVentas['total'] as num).toDouble();
+        _totalEfectivo = (resumenVentas['total_efectivo'] as num?)?.toDouble() ?? 0.0;
+        _totalTransferencia = (resumenVentas['total_transferencia'] as num?)?.toDouble() ?? 0.0;
+        _totalFiado = totalFiado;
         _totalGastosHoy = totalGastos;
         _aperturaId = apertura?.id;
         _isLoading = false;
@@ -526,165 +554,115 @@ class _DayClosingPageState extends State<DayClosingPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Summary Stats Cards
+                        // Summary Stats Cards - Grid 2xN
                         Padding(
                           padding: EdgeInsets.all(spacingMedium),
-                          child: Row(
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: Container(
-                                  padding: EdgeInsets.all(spacingMedium),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        isDark
-                                            ? const Color(0xFF2C2018)
-                                            : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color:
-                                          isDark
-                                              ? const Color(0xFF44403C)
-                                              : const Color(0xFFE7E5E4),
+                              // Fila 1: Efectivo, Transferencia
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      icon: Icons.money,
+                                      title: 'EFECTIVO',
+                                      value: NumberFormat.currency(
+                                        symbol: '\$',
+                                        decimalDigits: 0,
+                                      ).format(_totalEfectivo),
+                                      color: Colors.green,
+                                      isDark: isDark,
+                                      textScaleFactor: textScaleFactor,
+                                      smallFontSize: smallFontSize,
+                                      largeFontSize: largeFontSize,
+                                      spacingSmall: spacingSmall,
+                                      spacingMedium: spacingMedium,
                                     ),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.payments,
-                                            size: (20 * textScaleFactor).clamp(
-                                              18.0,
-                                              24.0,
-                                            ),
-                                            color:
-                                                isDark
-                                                    ? const Color(0xFF9A6C4C)
-                                                    : const Color(0xFF9A6C4C),
-                                          ),
-                                          SizedBox(width: spacingSmall / 2),
-                                          Flexible(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                'TOTAL',
-                                                style: TextStyle(
-                                                  fontSize: smallFontSize * 0.8,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 1.2,
-                                                  color:
-                                                      isDark
-                                                          ? const Color(
-                                                            0xFF9A6C4C,
-                                                          )
-                                                          : const Color(
-                                                            0xFF9A6C4C,
-                                                          ),
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: spacingSmall),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          NumberFormat.currency(
-                                            symbol: '\$',
-                                            decimalDigits: 0,
-                                          ).format(
-                                            _totalVentasHoy - _totalGastosHoy,
-                                          ),
-                                          style: TextStyle(
-                                            fontSize: largeFontSize,
-                                            fontWeight: FontWeight.bold,
-                                            color:
-                                                isDark
-                                                    ? Colors.white
-                                                    : const Color(0xFF1B130D),
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
+                                  SizedBox(width: spacingMedium),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      icon: Icons.account_balance_wallet,
+                                      title: 'TRANSFERENCIA',
+                                      value: NumberFormat.currency(
+                                        symbol: '\$',
+                                        decimalDigits: 0,
+                                      ).format(_totalTransferencia),
+                                      color: Colors.blue,
+                                      isDark: isDark,
+                                      textScaleFactor: textScaleFactor,
+                                      smallFontSize: smallFontSize,
+                                      largeFontSize: largeFontSize,
+                                      spacingSmall: spacingSmall,
+                                      spacingMedium: spacingMedium,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                              SizedBox(width: spacingMedium),
-                              Expanded(
-                                child: Container(
-                                  padding: EdgeInsets.all(spacingMedium),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.red.shade100,
+                              SizedBox(height: spacingMedium),
+                              // Fila 2: Fiado, Total Caja
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      icon: Icons.credit_card,
+                                      title: 'FIADO',
+                                      value: NumberFormat.currency(
+                                        symbol: '\$',
+                                        decimalDigits: 0,
+                                      ).format(_totalFiado),
+                                      color: Colors.orange,
+                                      isDark: isDark,
+                                      textScaleFactor: textScaleFactor,
+                                      smallFontSize: smallFontSize,
+                                      largeFontSize: largeFontSize,
+                                      spacingSmall: spacingSmall,
+                                      spacingMedium: spacingMedium,
                                     ),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.delete,
-                                            size: (20 * textScaleFactor).clamp(
-                                              18.0,
-                                              24.0,
-                                            ),
-                                            color: Colors.red.shade600,
-                                          ),
-                                          SizedBox(width: spacingSmall / 2),
-                                          Flexible(
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                'DESPERDICIO',
-                                                style: TextStyle(
-                                                  fontSize: smallFontSize * 0.8,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 1.2,
-                                                  color: Colors.red.shade600,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: spacingSmall),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          '$_totalDesperdicio Unid.',
-                                          style: TextStyle(
-                                            fontSize: largeFontSize,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red.shade700,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
+                                  SizedBox(width: spacingMedium),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      icon: Icons.payments,
+                                      title: 'TOTAL CAJA',
+                                      value: NumberFormat.currency(
+                                        symbol: '\$',
+                                        decimalDigits: 0,
+                                      ).format(_totalEfectivo - _totalGastosHoy),
+                                      color: null, // Usa el color por defecto
+                                      isDark: isDark,
+                                      textScaleFactor: textScaleFactor,
+                                      smallFontSize: smallFontSize,
+                                      largeFontSize: largeFontSize,
+                                      spacingSmall: spacingSmall,
+                                      spacingMedium: spacingMedium,
+                                    ),
                                   ),
-                                ),
+                                ],
+                              ),
+                              SizedBox(height: spacingMedium),
+                              // Fila 3: Desperdicio (centrado, ocupa ambas columnas o solo una)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      icon: Icons.delete,
+                                      title: 'DESPERDICIO',
+                                      value: '$_totalDesperdicio Unid.',
+                                      color: Colors.red,
+                                      isDark: isDark,
+                                      textScaleFactor: textScaleFactor,
+                                      smallFontSize: smallFontSize,
+                                      largeFontSize: largeFontSize,
+                                      spacingSmall: spacingSmall,
+                                      spacingMedium: spacingMedium,
+                                    ),
+                                  ),
+                                  SizedBox(width: spacingMedium),
+                                  Expanded(
+                                    child: SizedBox.shrink(), // Espacio vacío para mantener el grid
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1039,6 +1017,95 @@ class _DayClosingPageState extends State<DayClosingPage> {
     );
   }
 
+  Widget _buildStatCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    MaterialColor? color,
+    required bool isDark,
+    required double textScaleFactor,
+    required double smallFontSize,
+    required double largeFontSize,
+    required double spacingSmall,
+    required double spacingMedium,
+  }) {
+    final cardColor = color != null
+        ? (isDark ? color.shade900.withOpacity(0.3) : color.shade50)
+        : (isDark ? const Color(0xFF2C2018) : Colors.white);
+    final borderColor = color != null
+        ? (isDark ? color.shade700.withOpacity(0.3) : color.shade100)
+        : (isDark ? const Color(0xFF44403C) : const Color(0xFFE7E5E4));
+    final iconColor = color != null
+        ? color.shade700
+        : (isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C));
+    final titleColor = color != null
+        ? color.shade700
+        : (isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C));
+    final valueColor = color != null
+        ? color.shade800
+        : (isDark ? Colors.white : const Color(0xFF1B130D));
+
+    return Container(
+      padding: EdgeInsets.all(spacingMedium),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: borderColor,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: (20 * textScaleFactor).clamp(18.0, 24.0),
+                color: iconColor,
+              ),
+              SizedBox(width: spacingSmall / 2),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: smallFontSize * 0.8,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: titleColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: spacingSmall),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: largeFontSize,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProductCard({
     required Producto producto,
     required bool isDark,
@@ -1058,6 +1125,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
     final existenciaActual = _inventarioActual[producto.id] ?? 0;
     final existenciaFinal = _existenciaFinal[producto.id] ?? 0;
     final vencido = _vencido[producto.id] ?? 0;
+    final devoluciones = _devoluciones[producto.id] ?? 0;
+    final tieneDevoluciones = _productoIdsConDevoluciones.contains(producto.id);
 
     final iconSize =
         (isVerySmallScreen ? 40.0 : 48.0) * textScaleFactor.clamp(0.9, 1.1);
@@ -1175,10 +1244,11 @@ class _DayClosingPageState extends State<DayClosingPage> {
                   onChanged: (newValue) {
                     setState(() {
                       // Validar que la existencia final no sea menor a 0
-                      // y que la suma de existencia final + vencidos no exceda la existencia actual
+                      // y que la suma de existencia final + vencidos + devoluciones no exceda la existencia actual
                       final vencidoActual = _vencido[producto.id] ?? 0;
+                      final devolucionesActual = _devoluciones[producto.id] ?? 0;
                       final maxExistenciaFinal =
-                          existenciaActual - vencidoActual;
+                          existenciaActual - vencidoActual - devolucionesActual;
 
                       final nuevaExistenciaFinal = newValue.clamp(
                         0,
@@ -1191,13 +1261,85 @@ class _DayClosingPageState extends State<DayClosingPage> {
                   primaryColor: primaryColor,
                   textScaleFactor: textScaleFactor,
                   bodyFontSize: bodyFontSize,
-                  maxValue: existenciaActual - vencido,
+                  maxValue: existenciaActual - vencido - devoluciones,
                 ),
               ],
             ),
           ),
 
           SizedBox(height: spacingMedium),
+
+          // Devoluciones (solo algunos productos)
+          if (tieneDevoluciones) ...[
+            Container(
+              padding: EdgeInsets.all(
+                (8 * textScaleFactor).clamp(6.0, 12.0),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Devoluciones',
+                      style: TextStyle(
+                        fontSize: smallFontSize,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue.shade700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  SizedBox(height: spacingSmall),
+                  _buildSmallStepperInput(
+                    value: devoluciones,
+                    onChanged: (newValue) {
+                      setState(() {
+                        final oldDevoluciones = _devoluciones[producto.id] ?? 0;
+                        final diferencia = newValue - oldDevoluciones;
+
+                        final vencidoActual = _vencido[producto.id] ?? 0;
+                        final existenciaFinalActual =
+                            _existenciaFinal[producto.id] ?? existenciaActual;
+
+                        // Validar que devoluciones no exceda la existencia actual disponible
+                        final maxDevoluciones = (existenciaActual - vencidoActual)
+                            .clamp(0, existenciaActual);
+                        final devolucionesClamped =
+                            newValue.clamp(0, maxDevoluciones);
+
+                        _devoluciones[producto.id] = devolucionesClamped;
+
+                        // Ajustar existencia final: si aumentan devoluciones, disminuye existencia final
+                        // si disminuyen devoluciones, puede aumentar existencia final (pero sin pasarse del máximo)
+                        final maxExistenciaFinal =
+                            (existenciaActual - vencidoActual - devolucionesClamped)
+                                .clamp(0, existenciaActual);
+                        final nuevaExistenciaFinal =
+                            (existenciaFinalActual - diferencia)
+                                .clamp(0, maxExistenciaFinal);
+                        _existenciaFinal[producto.id] = nuevaExistenciaFinal;
+                      });
+                    },
+                    isDark: isDark,
+                    color: Colors.blue,
+                    textScaleFactor: textScaleFactor,
+                    smallFontSize: smallFontSize,
+                    maxValue: (existenciaActual - vencido).clamp(0, existenciaActual),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: spacingMedium),
+          ],
 
           // Vencido
           Container(
@@ -1234,18 +1376,18 @@ class _DayClosingPageState extends State<DayClosingPage> {
                     setState(() {
                       final oldVencido = _vencido[producto.id] ?? 0;
                       final diferencia = newValue - oldVencido;
+                      final devolucionesActual = _devoluciones[producto.id] ?? 0;
                       final existenciaFinalActual =
                           _existenciaFinal[producto.id] ??
                           existenciaActual;
 
                       // Validar que los vencidos no excedan la existencia actual
-                      if (newValue > existenciaActual) {
-                        // Limitar vencidos al máximo permitido
-                        final maxVencido = existenciaActual;
-                        _vencido[producto.id] = maxVencido.clamp(
-                          0,
-                          existenciaActual,
-                        );
+                      final maxVencido =
+                          (existenciaActual - devolucionesActual)
+                              .clamp(0, existenciaActual);
+                      if (newValue > maxVencido) {
+                        // Limitar vencidos al máximo permitido (considerando devoluciones)
+                        _vencido[producto.id] = maxVencido;
                         _calcularDesperdicio();
                         return;
                       }
@@ -1258,7 +1400,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
                       final nuevaExistenciaFinal =
                           (existenciaFinalActual - diferencia).clamp(
                         0,
-                        existenciaActual,
+                        (existenciaActual - newValue - devolucionesActual)
+                            .clamp(0, existenciaActual),
                       );
                       _existenciaFinal[producto.id] = nuevaExistenciaFinal;
                     });
@@ -1267,7 +1410,10 @@ class _DayClosingPageState extends State<DayClosingPage> {
                   color: Colors.red,
                   textScaleFactor: textScaleFactor,
                   smallFontSize: smallFontSize,
-                  maxValue: existenciaActual,
+                  maxValue: (existenciaActual - devoluciones).clamp(
+                    0,
+                    existenciaActual,
+                  ),
                 ),
               ],
             ),
@@ -1391,8 +1537,9 @@ class _DayClosingPageState extends State<DayClosingPage> {
   }) {
     final height = (32.0 * textScaleFactor).clamp(28.0, 40.0);
     final buttonWidth = (24.0 * textScaleFactor).clamp(20.0, 32.0);
-    final textWidth = (32.0 * textScaleFactor).clamp(28.0, 40.0);
+    final textWidth = (40.0 * textScaleFactor).clamp(32.0, 52.0);
     final maxAllowed = maxValue ?? double.infinity.toInt();
+    final textController = TextEditingController(text: value.toString());
 
     return Container(
       height: height,
@@ -1427,19 +1574,41 @@ class _DayClosingPageState extends State<DayClosingPage> {
               ),
             ),
           ),
-          Container(
+          SizedBox(
             width: textWidth,
             height: height,
-            alignment: Alignment.center,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value.toString(),
+            child: Center(
+              child: TextField(
+                controller: textController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: smallFontSize,
                   fontWeight: FontWeight.w600,
                   color: color.shade600,
                 ),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 4),
+                  border: InputBorder.none,
+                ),
+                onChanged: (text) {
+                  int? parsed = int.tryParse(text);
+                  if (parsed == null) {
+                    // Restaurar valor anterior si la entrada no es válida
+                    textController.text = value.toString();
+                    return;
+                  }
+
+                  if (parsed < 0) parsed = 0;
+                  if (parsed > maxAllowed) parsed = maxAllowed;
+
+                  if (parsed != value) {
+                    onChanged(parsed);
+                  } else {
+                    textController.text = parsed.toString();
+                  }
+                },
               ),
             ),
           ),
@@ -1562,18 +1731,73 @@ class _DayClosingPageState extends State<DayClosingPage> {
                 SizedBox(height: spacingSmall),
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Total Caja: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalVentasHoy - _totalGastosHoy)}',
-                    style: TextStyle(
-                      fontSize: bodyFontSize * 1.1,
-                      fontWeight: FontWeight.bold,
-                      color:
-                          isDark
-                              ? Colors.grey.shade300
-                              : const Color(0xFF1B130D),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Efectivo: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalEfectivo)}',
+                        style: TextStyle(
+                          fontSize: bodyFontSize,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isDark
+                                  ? Colors.grey.shade300
+                                  : const Color(0xFF1B130D),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: spacingSmall / 2),
+                      Text(
+                        'Transferencia: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalTransferencia)}',
+                        style: TextStyle(
+                          fontSize: bodyFontSize,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isDark
+                                  ? Colors.grey.shade300
+                                  : const Color(0xFF1B130D),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: spacingSmall / 2),
+                      Text(
+                        'Fiado: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalFiado)}',
+                        style: TextStyle(
+                          fontSize: bodyFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: spacingSmall / 2),
+                      Text(
+                        'Gastos: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalGastosHoy)}',
+                        style: TextStyle(
+                          fontSize: bodyFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: spacingSmall),
+                      Text(
+                        'Total Caja: ${NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(_totalEfectivo - _totalGastosHoy)}',
+                        style: TextStyle(
+                          fontSize: bodyFontSize * 1.1,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark
+                                  ? Colors.grey.shade300
+                                  : const Color(0xFF1B130D),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: spacingMedium * 1.5),
@@ -1607,7 +1831,8 @@ class _DayClosingPageState extends State<DayClosingPage> {
                           aperturaId: _aperturaId!,
                           usuarioCierreId: widget.currentUser.id,
                           existenciaFinal: _existenciaFinal,
-                          sobrantes: <int, int>{}, // Ya no se usa sobrantes
+                          // inventario_cierre.cantidad_sobrantes (en la app: "Devoluciones")
+                          sobrantes: _devoluciones,
                           vencido: _vencido,
                           totalVentas: _totalVentasHoy,
                           observaciones: 'Cierre del día completado',
