@@ -1,5 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
 import 'local_database_service.dart';
+import 'sync_queue_service.dart';
 import '../models/sucursal.dart';
 import '../models/categoria.dart';
 import '../models/producto.dart';
@@ -20,6 +23,20 @@ class SupabaseService {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
     // Inicializar la base de datos local
     await LocalDatabaseService.database;
+    // Inicializar timezone data
+    tz.initializeTimeZones();
+  }
+
+  /// Obtiene la fecha y hora actual en la zona horaria de Colombia (America/Bogota)
+  static DateTime getColombiaDateTime() {
+    try {
+      final bogota = tz.getLocation('America/Bogota');
+      return tz.TZDateTime.now(bogota);
+    } catch (e) {
+      print('Error obteniendo hora de Colombia, usando hora local: $e');
+      // Si falla, usar hora local como fallback
+      return DateTime.now();
+    }
   }
 
   static SupabaseClient get client => Supabase.instance.client;
@@ -1439,15 +1456,6 @@ class SupabaseService {
     String? observaciones,
   }) async {
     try {
-      final hasConnection = await _checkConnection();
-      if (!hasConnection) {
-        return {
-          'exito': false,
-          'mensaje':
-              'No hay conexión para guardar recarga atómica (se requiere conexión)',
-        };
-      }
-
       if (productosRecarga.isEmpty) {
         return {'exito': false, 'mensaje': 'No hay productos para recargar'};
       }
@@ -1462,17 +1470,44 @@ class SupabaseService {
         return {'producto_id': e.key, 'cantidad': e.value};
       }).toList();
 
-      final response = await client.rpc(
-        'guardar_recarga_inventario_y_descontar_crudos',
-        params: {
+      final rpcParams = {
           'p_sucursal_id': sucursalId,
           'p_usuario_id': usuarioId,
           'p_observaciones': observaciones,
           'p_productos_recarga': productosRecargaJson,
           'p_crudos_a_descontar': crudosDescontarJson,
+      };
+
+      // Usar executeOrQueue para asegurar que se guarde incluso con conexión lenta
+      final result = await SyncQueueService.executeOrQueue(
+        operationType: 'rpc',
+        tableName: 'guardar_recarga_inventario_y_descontar_crudos',
+        data: rpcParams,
+        directOperation: () async {
+          return await client.rpc(
+            'guardar_recarga_inventario_y_descontar_crudos',
+            params: rpcParams,
+      );
         },
       );
 
+      if (!result['success']) {
+        return {
+          'exito': false,
+          'mensaje': result['error'] ?? 'Error desconocido',
+        };
+      }
+
+      if (result['queued'] == true) {
+        return {
+          'exito': true,
+          'mensaje': 'Recarga agregada a cola de sincronización. Se guardará cuando haya conexión.',
+          'queued': true,
+          'queueId': result['queueId'],
+        };
+      }
+
+      final response = result['result'];
       final recargaId = (response as num?)?.toInt();
       if (recargaId == null) {
         return {
@@ -2091,11 +2126,11 @@ class SupabaseService {
         // Obtener inventarios
         final inventarioFabrica = await getInventarioFabricaCompleto();
         
-        // Obtener inventario actual de sucursal 5
+        // Obtener inventario actual de sucursal 6
         final inventarioActualResponse = await client
             .from('inventario_actual')
             .select('producto_id, cantidad')
-            .eq('sucursal_id', 5);
+            .eq('sucursal_id', 6);
         final inventarioActual = <int, int>{};
         for (final item in inventarioActualResponse) {
           inventarioActual[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
@@ -2114,7 +2149,7 @@ class SupabaseService {
           final nombreProducto = producto.nombre.toLowerCase();
           int cantidadDisponible;
 
-          // Si contiene "frito" → validar inventario_actual (sucursal_id = 5)
+          // Si contiene "frito" → validar inventario_actual (sucursal_id = 6)
           if (nombreProducto.contains('frito')) {
             cantidadDisponible = inventarioActual[productoId] ?? 0;
           }
@@ -2606,6 +2641,18 @@ required int productoId,
     );
   }
 
+  /// Descuenta cantidad del inventario de fábrica (método público)
+  /// Retorna un Map con 'exito' (bool) y 'mensaje' (String)
+  static Future<Map<String, dynamic>> descontarInventarioFabrica({
+    required int productoId,
+    required int cantidad,
+  }) async {
+    return await _descontarInventarioFabrica(
+      productoId: productoId,
+      cantidad: cantidad,
+    );
+  }
+
   /// Obtiene el resumen general de la fábrica
   static Future<Map<String, dynamic>> getResumenFabrica() async {
     try {
@@ -2983,10 +3030,10 @@ required int productoId,
             final nombreProducto = producto.nombre.toLowerCase();
             Map<String, dynamic> resultado;
 
-            // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 5)
+            // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 6)
             if (nombreProducto.contains('frito')) {
               resultado = await _descontarInventarioActual(
-                sucursalId: 5,
+                sucursalId: 6,
                 productoId: productoId,
                 cantidad: cantidad,
               );
@@ -3335,6 +3382,7 @@ required int productoId,
   /// Obtiene pedidos recurrentes con estado "enviado" o "entregado"
   static Future<List<PedidoCliente>> getPedidosRecurrentesParaDespacho({
     int limit = 100,
+    String? estadoFiltro, // Opcional: si se especifica, filtra por ese estado
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -3345,14 +3393,28 @@ required int productoId,
 
       final today = DateTime.now().toIso8601String().split('T')[0];
 
-      // Obtener los pedidos recurrentes de hoy con estado enviado o entregado
-      final pedidosResponse = await client
+      // Construir la consulta base
+      PostgrestFilterBuilder query = client
           .from('pedidos_recurrentes')
           .select()
-          .eq('fecha_pedido', today)
-          .or('estado.eq.enviado,estado.eq.entregado')
+          .eq('fecha_pedido', today);
+
+      // Si se especifica estadoFiltro, usar ese estado; si no, traer "enviado" y "entregado"
+      if (estadoFiltro != null) {
+        query = query.eq('estado', estadoFiltro);
+      } else {
+        query = query.or('estado.eq.enviado,estado.eq.entregado');
+      }
+
+      // Obtener los pedidos recurrentes con los estados especificados
+      final pedidosResponse = await query
           .order('created_at', ascending: false)
           .limit(limit);
+
+      print('🔍 Pedidos recurrentes encontrados en BD: ${pedidosResponse.length}');
+      if (pedidosResponse.isNotEmpty) {
+        print('🔍 Primer pedido estado: ${pedidosResponse[0]['estado']}, fecha: ${pedidosResponse[0]['fecha_pedido']}');
+      }
 
       if (pedidosResponse.isEmpty) return [];
 
@@ -3388,17 +3450,24 @@ required int productoId,
           );
         }).toList();
 
-        pedidos.add(
-          PedidoCliente.fromJson(
-            pedidoJson,
-            detalles: detalles,
-          ),
+        final pedido = PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detalles,
         );
+        
+        // Debug: verificar estado después de parsear
+        if (pedidos.isEmpty) {
+          print('🔍 Primer pedido recurrente parseado - ID: ${pedido.id}, estado: ${pedido.estado}, fecha: ${pedido.fechaPedido}');
+        }
+        
+        pedidos.add(pedido);
       }
 
+      print('🔍 Total pedidos recurrentes parseados: ${pedidos.length}');
       return pedidos;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Error obteniendo pedidos recurrentes para despacho: $e');
+      print('Stack trace: $stackTrace');
       return [];
     }
   }
@@ -3432,7 +3501,7 @@ required int productoId,
   }) async {
     try {
       final hasConnection = await _checkConnection();
-      final now = DateTime.now();
+      final now = getColombiaDateTime();
 
       // Obtener productos para calcular precios
       final productosActivos = await getProductosActivos();

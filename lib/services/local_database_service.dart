@@ -1,12 +1,14 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class LocalDatabaseService {
   static Database? _database;
   static const String _databaseName = 'churros_local.db';
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
   static const String _tableName = 'users';
   static const String _sucursalesTableName = 'sucursales';
+  static const String _syncQueueTableName = 'sync_queue';
 
   /// Obtiene la instancia de la base de datos
   static Future<Database> get database async {
@@ -53,6 +55,19 @@ class LocalDatabaseService {
         UNIQUE(id)
       )
     ''');
+    
+    await db.execute('''
+      CREATE TABLE $_syncQueueTableName (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        operation_type TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        data TEXT NOT NULL,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        last_attempt TEXT,
+        status TEXT NOT NULL DEFAULT 'pending'
+      )
+    ''');
   }
 
   /// Maneja las migraciones de la base de datos
@@ -77,6 +92,21 @@ class LocalDatabaseService {
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
           UNIQUE(id)
+        )
+      ''');
+    }
+    if (oldVersion < 5) {
+      // Crear tabla de cola de sincronización
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $_syncQueueTableName (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          operation_type TEXT NOT NULL,
+          table_name TEXT NOT NULL,
+          data TEXT NOT NULL,
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          last_attempt TEXT,
+          status TEXT NOT NULL DEFAULT 'pending'
         )
       ''');
     }
@@ -316,6 +346,109 @@ class LocalDatabaseService {
     } catch (e) {
       print('Error sincronizando sucursales desde Supabase: $e');
       rethrow;
+    }
+  }
+
+  /// Agrega una operación a la cola de sincronización
+  static Future<int> addToSyncQueue({
+    required String operationType, // 'insert', 'update', 'delete', 'rpc'
+    required String tableName,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+      final id = await db.insert(
+        _syncQueueTableName,
+        {
+          'operation_type': operationType,
+          'table_name': tableName,
+          'data': jsonEncode(data), // Serializar como JSON
+          'retry_count': 0,
+          'created_at': now,
+          'last_attempt': null,
+          'status': 'pending',
+        },
+      );
+      print('✅ Operación agregada a cola de sincronización: $operationType en $tableName (ID: $id)');
+      return id;
+    } catch (e) {
+      print('❌ Error agregando a cola de sincronización: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtiene todas las operaciones pendientes de la cola
+  static Future<List<Map<String, dynamic>>> getPendingSyncOperations({
+    int limit = 50,
+  }) async {
+    try {
+      final db = await database;
+      final results = await db.query(
+        _syncQueueTableName,
+        where: 'status = ?',
+        whereArgs: ['pending'],
+        orderBy: 'created_at ASC',
+        limit: limit,
+      );
+      
+      // Deserializar el campo data de JSON
+      return results.map((row) {
+        final data = row['data'] as String;
+        return {
+          ...row,
+          'data': jsonDecode(data),
+        };
+      }).toList();
+    } catch (e) {
+      print('Error obteniendo operaciones pendientes: $e');
+      return [];
+    }
+  }
+
+  /// Marca una operación como completada
+  static Future<void> markSyncOperationCompleted(int queueId) async {
+    try {
+      final db = await database;
+      await db.delete(
+        _syncQueueTableName,
+        where: 'id = ?',
+        whereArgs: [queueId],
+      );
+      print('✅ Operación de sincronización completada (ID: $queueId)');
+    } catch (e) {
+      print('Error marcando operación como completada: $e');
+    }
+  }
+
+  /// Incrementa el contador de reintentos y actualiza el último intento
+  static Future<void> incrementSyncRetry(int queueId) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+      final operation = await db.query(
+        _syncQueueTableName,
+        where: 'id = ?',
+        whereArgs: [queueId],
+        limit: 1,
+      );
+      
+      if (operation.isNotEmpty) {
+        final retryCount = (operation.first['retry_count'] as int) + 1;
+        await db.update(
+          _syncQueueTableName,
+          {
+            'retry_count': retryCount,
+            'last_attempt': now,
+            'status': retryCount >= 10 ? 'failed' : 'pending', // Marcar como fallida después de 10 intentos
+          },
+          where: 'id = ?',
+          whereArgs: [queueId],
+        );
+        print('⚠️ Reintento incrementado para operación $queueId (intentos: $retryCount)');
+      }
+    } catch (e) {
+      print('Error incrementando reintentos: $e');
     }
   }
 

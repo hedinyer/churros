@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io' show Platform;
 
 enum NotificationSound {
   defaultSound,
@@ -98,15 +100,83 @@ class NotificationService {
       );
     }
 
-    // Solicitar permisos en Android 13+
-    if (await _notifications
+    // Solicitar permisos de notificaciones de forma robusta
+    await _requestNotificationPermissions();
+    
+    _initialized = true;
+  }
+
+  /// Solicita permisos de notificaciones de forma robusta para todos los dispositivos Android
+  static Future<bool> _requestNotificationPermissions() async {
+    try {
+      // Para Android 13+ (API 33+), usar permission_handler
+      if (Platform.isAndroid) {
+        final status = await Permission.notification.status;
+        
+        if (status.isDenied || status.isPermanentlyDenied) {
+          print('📱 Solicitando permiso de notificaciones...');
+          
+          // Solicitar permiso usando permission_handler (más confiable)
+          final result = await Permission.notification.request();
+          
+          if (result.isGranted) {
+            print('✅ Permiso de notificaciones concedido');
+            return true;
+          } else if (result.isPermanentlyDenied) {
+            print('⚠️ Permiso de notificaciones denegado permanentemente');
+            // Opcional: abrir configuración de la app
+            // await openAppSettings();
+            return false;
+          } else {
+            print('⚠️ Permiso de notificaciones denegado');
+            return false;
+          }
+        } else if (status.isGranted) {
+          print('✅ Permiso de notificaciones ya concedido');
+          return true;
+        }
+      }
+      
+      // Para iOS, el permiso se solicita automáticamente con DarwinInitializationSettings
+      // Para Android < 13, los permisos están en el manifest
+      return true;
+    } catch (e) {
+      print('❌ Error solicitando permisos de notificaciones: $e');
+      // Intentar método alternativo del plugin
+      try {
+        final androidPlugin = _notifications
             .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
-            ?.requestNotificationsPermission() ??
-        false) {
-      _initialized = true;
-    } else {
-      _initialized = true;
+                AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          final granted = await androidPlugin.requestNotificationsPermission();
+          return granted ?? false;
+        }
+      } catch (e2) {
+        print('❌ Error en método alternativo de permisos: $e2');
+      }
+      return false;
+    }
+  }
+
+  /// Verifica si los permisos de notificaciones están concedidos
+  static Future<bool> areNotificationsEnabled() async {
+    try {
+      if (Platform.isAndroid) {
+        final status = await Permission.notification.status;
+        return status.isGranted;
+      }
+      // Para iOS, verificar con el plugin
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final granted = await androidPlugin.areNotificationsEnabled();
+        return granted ?? false;
+      }
+      return true; // Asumir que está habilitado si no se puede verificar
+    } catch (e) {
+      print('Error verificando permisos de notificaciones: $e');
+      return false;
     }
   }
 

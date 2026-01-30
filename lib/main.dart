@@ -9,6 +9,7 @@ import 'services/notification_service.dart';
 import 'services/app_keys.dart';
 import 'services/factory_realtime_orders_listener.dart';
 import 'services/factory_session_service.dart';
+import 'services/sync_queue_service.dart';
 import 'screens/store/dashboard_page.dart';
 import 'screens/factory/factory_dashboard_page.dart';
 import 'screens/store/deliveries_page.dart';
@@ -97,6 +98,16 @@ void main() async {
       debugPrint('✅ Servicio de notificaciones inicializado');
     } catch (e, stackTrace) {
       debugPrint('⚠️ Error inicializando notificaciones: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // Continuar aunque falle
+    }
+
+    // Inicializar servicio de cola de sincronización
+    try {
+      await SyncQueueService.initialize();
+      debugPrint('✅ SyncQueueService inicializado');
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ Error inicializando SyncQueueService: $e');
       debugPrint('Stack trace: $stackTrace');
       // Continuar aunque falle
     }

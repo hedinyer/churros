@@ -439,7 +439,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
           .then((_) => true)
           .catchError((_) => false);
 
-      final now = DateTime.now();
+      final now = SupabaseService.getColombiaDateTime();
 
       // Obtener productos para validar
       final productosActivos = await SupabaseService.getProductosActivos();

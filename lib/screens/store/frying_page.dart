@@ -6,21 +6,21 @@ import '../../models/producto.dart';
 import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
 
-class InventoryControlPage extends StatefulWidget {
+class FryingPage extends StatefulWidget {
   final Sucursal sucursal;
   final AppUser currentUser;
 
-  const InventoryControlPage({
+  const FryingPage({
     super.key,
     required this.sucursal,
     required this.currentUser,
   });
 
   @override
-  State<InventoryControlPage> createState() => _InventoryControlPageState();
+  State<FryingPage> createState() => _FryingPageState();
 }
 
-class _InventoryControlPageState extends State<InventoryControlPage> {
+class _FryingPageState extends State<FryingPage> {
   bool _isLoading = true;
   List<Producto> _productos = [];
   Map<int, Categoria> _categoriasMap = {};
@@ -29,10 +29,10 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
   Map<int, int> _inventarioInicial = {}; // productoId -> cantidad inicial
   Map<int, int> _ventasHoy = {}; // productoId -> cantidad vendida
   Map<int, int> _inventarioActual = {}; // productoId -> cantidad actual
-  final Set<int> _productosParaRecargar =
-      {}; // productoId -> productos seleccionados para recarga
-  final Map<int, int> _cantidadesRecarga =
-      {}; // productoId -> cantidad a recargar
+  final Set<int> _productosParaAgregar =
+      {}; // productoId -> productos seleccionados para agregar
+  final Map<int, int> _cantidadesAgregar =
+      {}; // productoId -> cantidad a agregar
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -75,21 +75,10 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
       );
 
       setState(() {
-        // Filtrar productos: excluir los que tienen "x10" o "x 10" en el nombre o unidad de medida, y los que tienen "frito" en el nombre
+        // Filtrar productos: solo los que tienen "frito" en el nombre
         final productosFiltrados = productos.where((producto) {
           final nombre = producto.nombre.toLowerCase();
-          final unidadMedida = producto.unidadMedida.toLowerCase().trim();
-          
-          // Excluir si el nombre contiene "x10" o "x 10"
-          final nombreContieneX10 = nombre.contains('x10') || nombre.contains('x 10');
-          
-          // Excluir si la unidad de medida es "x10" o "x 10"
-          final unidadEsX10 = unidadMedida == 'x10' || unidadMedida == 'x 10';
-          
-          // Excluir si el nombre contiene "frito"
-          final nombreContieneFrito = nombre.contains('frito');
-          
-          return !nombreContieneX10 && !unidadEsX10 && !nombreContieneFrito;
+          return nombre.contains('frito');
         }).toList();
 
         // Ordenar productos por inventario actual descendente (mayor a menor)
@@ -105,7 +94,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error cargando datos de inventario: $e');
+      print('Error cargando datos de productos fritos: $e');
       setState(() {
         _isLoading = false;
       });
@@ -137,7 +126,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
     switch (estado) {
       case 'CRÍTICO':
         return Colors.red;
-      case 'Poco Stock':
+      case 'POCO STOCK':
         return const Color(0xFFEC6D13); // primary color
       default:
         return const Color(0xFF1B130D);
@@ -217,29 +206,52 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
     return productosFiltrados;
   }
 
-  /// Encuentra el producto crudo correspondiente a un producto frito
-  /// Retorna null si no se encuentra o si el producto no es frito
-  Producto? _findProductoCrudo(Producto productoFrito) {
-    // Verificar si el producto es frito
-    if (!productoFrito.nombre.toUpperCase().contains('FRITO')) {
-      return null;
-    }
-
-    // Reemplazar "FRITO" por "CRUDO" en el nombre
-    final nombreCrudo = productoFrito.nombre
-        .toUpperCase()
-        .replaceAll('FRITO', 'CRUDO');
-
-    // Buscar el producto crudo correspondiente
+  /// Busca el producto crudo correspondiente usando el servicio
+  /// Busca el producto crudo que corresponde al producto frito
+  /// Ejemplo: "Churro mediano jamon frito" -> "Churro mediano jamon crudo"
+  Future<Producto?> _findProductoCrudoAsync(Producto productoFrito) async {
     try {
-      return _productos.firstWhere(
-        (p) => p.nombre.toUpperCase() == nombreCrudo,
-      );
+      // Obtener todos los productos activos para buscar el crudo
+      final todosProductos = await SupabaseService.getProductosActivos();
+      
+      // Método 1: Reemplazar "FRITO" por "CRUDO" en el nombre (búsqueda exacta)
+      final nombreCrudo = productoFrito.nombre
+          .toUpperCase()
+          .replaceAll('FRITO', 'CRUDO');
+      
+      try {
+        final productoEncontrado = todosProductos.firstWhere(
+          (p) => p.nombre.toUpperCase() == nombreCrudo,
+        );
+        print('✓ Producto crudo encontrado: ${productoEncontrado.nombre} para ${productoFrito.nombre}');
+        return productoEncontrado;
+      } catch (e) {
+        // Método 2: Búsqueda flexible - buscar producto que tenga el mismo nombre base pero "crudo" en lugar de "frito"
+        final nombreBase = productoFrito.nombre
+            .toUpperCase()
+            .replaceAll('FRITO', '')
+            .trim();
+        
+        try {
+          final productoEncontrado = todosProductos.firstWhere(
+            (p) {
+              final nombreP = p.nombre.toUpperCase();
+              return nombreP.contains('CRUDO') && 
+                     nombreP.contains(nombreBase) &&
+                     p.categoria?.id == productoFrito.categoria?.id;
+            },
+          );
+          print('✓ Producto crudo encontrado (búsqueda flexible): ${productoEncontrado.nombre} para ${productoFrito.nombre}');
+          return productoEncontrado;
+        } catch (e2) {
+        print(
+            '⚠ No se encontró producto crudo para: ${productoFrito.nombre} (buscando: $nombreCrudo o nombre base: $nombreBase)',
+        );
+        return null;
+        }
+      }
     } catch (e) {
-      // No se encontró el producto crudo
-      print(
-        'No se encontró producto crudo para: ${productoFrito.nombre} (buscando: $nombreCrudo)',
-      );
+      print('Error buscando producto crudo: $e');
       return null;
     }
   }
@@ -340,7 +352,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              'INVENTARIO DEL DÍA',
+                              'FRITAR',
                               style: TextStyle(
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.bold,
@@ -500,7 +512,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                       });
                                     },
                                     decoration: InputDecoration(
-                                      hintText: 'Buscar producto...',
+                                      hintText: 'Buscar producto frito...',
                                       hintStyle: TextStyle(
                                         color: isDark
                                             ? const Color(0xFF78716C)
@@ -689,7 +701,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                     inicial,
                                   );
                                   final isCritical = estado == 'CRÍTICO';
-                                  final isLowStock = estado == 'Poco Stock';
+                                  final isLowStock = estado == 'POCO STOCK';
 
                                   return Container(
                                     margin: EdgeInsets.only(
@@ -898,7 +910,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                       SizedBox(
                                                                         width:
                                                                             spacingSmall /
-                                                                            2,
+                                                                                2,
                                                                       ),
                                                                     FittedBox(
                                                                       fit:
@@ -1191,7 +1203,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                               ),
                                               const SizedBox(height: 16),
 
-                                              // Recargar Button
+                                              // Agregar Button
                                               Container(
                                                 margin: EdgeInsets.only(
                                                   left:
@@ -1203,23 +1215,23 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                 child: ElevatedButton(
                                                   onPressed: () {
                                                     setState(() {
-                                                      if (_productosParaRecargar
+                                                      if (_productosParaAgregar
                                                           .contains(
                                                             producto.id,
                                                           )) {
-                                                        _productosParaRecargar
+                                                        _productosParaAgregar
                                                             .remove(
                                                               producto.id,
                                                             );
                                                       } else {
-                                                        _productosParaRecargar
+                                                        _productosParaAgregar
                                                             .add(producto.id);
                                                       }
                                                     });
                                                   },
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor:
-                                                        _productosParaRecargar
+                                                        _productosParaAgregar
                                                                 .contains(
                                                                   producto.id,
                                                                 )
@@ -1239,7 +1251,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                               0xFFF8F7F6,
                                                             ),
                                                     foregroundColor:
-                                                        _productosParaRecargar
+                                                        _productosParaAgregar
                                                                 .contains(
                                                                   producto.id,
                                                                 )
@@ -1255,7 +1267,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             ),
                                                     elevation:
                                                         (isCritical ||
-                                                                _productosParaRecargar
+                                                                _productosParaAgregar
                                                                     .contains(
                                                                       producto
                                                                           .id,
@@ -1264,7 +1276,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             : 0,
                                                     shadowColor:
                                                         (isCritical ||
-                                                                _productosParaRecargar
+                                                                _productosParaAgregar
                                                                     .contains(
                                                                       producto
                                                                           .id,
@@ -1306,14 +1318,13 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           MainAxisSize.min,
                                                       children: [
                                                         Icon(
-                                                          _productosParaRecargar
+                                                          _productosParaAgregar
                                                                   .contains(
                                                                     producto.id,
                                                                   )
                                                               ? Icons.check
                                                               : isCritical
-                                                              ? Icons
-                                                                  .priority_high
+                                                              ? Icons.priority_high
                                                               : isLowStock
                                                               ? Icons.add_circle
                                                               : Icons.add,
@@ -1328,23 +1339,23 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           width: spacingSmall,
                                                         ),
                                                         Text(
-                                                          _productosParaRecargar
+                                                          _productosParaAgregar
                                                                   .contains(
                                                                     producto.id,
                                                                   )
-                                                              ? 'Agregado para Recargar'
+                                                              ? 'Agregado para Fritar'
                                                               : isCritical
-                                                              ? 'Recargar Urgente'
+                                                              ? 'Fritar Urgente'
                                                               : isLowStock
-                                                              ? 'Recargar Stock'
-                                                              : 'Recargar',
+                                                              ? 'Fritar Stock'
+                                                              : 'Fritar',
                                                           style: TextStyle(
                                                             fontSize:
                                                                 bodyFontSize,
                                                             fontWeight:
                                                                 isCritical ||
                                                                         isLowStock ||
-                                                                        _productosParaRecargar.contains(
+                                                                        _productosParaAgregar.contains(
                                                                           producto
                                                                               .id,
                                                                         )
@@ -1385,8 +1396,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                   ),
                 ],
               ),
-              // Floating Action Button - Recargar productos seleccionados
-              if (_productosParaRecargar.isNotEmpty)
+              // Floating Action Button - Agregar productos seleccionados
+              if (_productosParaAgregar.isNotEmpty)
                 Positioned(
                   bottom:
                       (24 * textScaleFactor).clamp(16.0, 32.0) +
@@ -1394,10 +1405,10 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                   right: (24 * textScaleFactor).clamp(16.0, 32.0),
                   child: OutlinedButton(
                     onPressed: () async {
-                        // Inicializar cantidades de recarga con valores por defecto
-                        _cantidadesRecarga.clear();
-                        for (final productoId in _productosParaRecargar) {
-                          _cantidadesRecarga[productoId] =
+                        // Inicializar cantidades de agregar con valores por defecto
+                        _cantidadesAgregar.clear();
+                        for (final productoId in _productosParaAgregar) {
+                          _cantidadesAgregar[productoId] =
                               1; // valor por defecto
                         }
 
@@ -1502,7 +1513,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                               child: Row(
                                                 children: [
                                                   Icon(
-                                                    Icons.inventory_2,
+                                                    Icons.restaurant,
                                                     color: primaryColor,
                                                     size: (24 * dialogTextScale)
                                                         .clamp(20.0, 28.0),
@@ -1516,7 +1527,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       alignment:
                                                           Alignment.centerLeft,
                                                       child: Text(
-                                                        'Confirmar Recarga',
+                                                        'Confirmar Fritado',
                                                         style: TextStyle(
                                                           fontSize:
                                                               dialogTitleSize,
@@ -1556,7 +1567,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       alignment:
                                                           Alignment.centerLeft,
                                                       child: Text(
-                                                        '${_productosParaRecargar.length} producto(s) seleccionado(s)',
+                                                        '${_productosParaAgregar.length} producto(s) seleccionado(s)',
                                                         style: TextStyle(
                                                           fontSize:
                                                               dialogSmallSize,
@@ -1581,7 +1592,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                       height: dialogSpacing,
                                                     ),
                                                     // Lista de productos con cantidades
-                                                    ..._productosParaRecargar.map<
+                                                    ..._productosParaAgregar.map<
                                                       Widget
                                                     >((productoId) {
                                                       final producto =
@@ -1594,8 +1605,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                           _getCantidadDisponible(
                                                             productoId,
                                                           );
-                                                      final cantidadRecarga =
-                                                          _cantidadesRecarga[productoId] ??
+                                                      final cantidadAgregar =
+                                                          _cantidadesAgregar[productoId] ??
                                                           1;
 
                                                       return Container(
@@ -1788,7 +1799,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                       ),
                                                                   child: TextFormField(
                                                                     initialValue:
-                                                                        cantidadRecarga
+                                                                        cantidadAgregar
                                                                             .toString(),
                                                                     keyboardType:
                                                                         TextInputType
@@ -1884,7 +1895,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                       if (cantidad >
                                                                           0) {
                                                                         setState(() {
-                                                                          _cantidadesRecarga[productoId] =
+                                                                          _cantidadesAgregar[productoId] =
                                                                               cantidad;
                                                                         });
                                                                       }
@@ -1925,7 +1936,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                                       BoxFit
                                                                           .scaleDown,
                                                                   child: Text(
-                                                                    'Final: ${disponible + cantidadRecarga}',
+                                                                    'Final: ${disponible + cantidadAgregar}',
                                                                     style: TextStyle(
                                                                       fontSize:
                                                                           dialogSmallSize,
@@ -1991,7 +2002,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                             ),
                                                           ),
                                                           Text(
-                                                            '${_cantidadesRecarga.values.fold(0, (sum, cantidad) => sum + cantidad)}',
+                                                            '${_cantidadesAgregar.values.fold(0, (sum, cantidad) => sum + cantidad)}',
                                                             style: TextStyle(
                                                               fontSize: 18,
                                                               fontWeight:
@@ -2167,7 +2178,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                         children: [
                                           CircularProgressIndicator(),
                                           SizedBox(height: 16),
-                                          Text('Guardando recarga...'),
+                                          Text('Guardando fritado...'),
                                         ],
                                       ),
                                     ),
@@ -2178,28 +2189,42 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                           try {
                             // Preparar datos de recarga (solo productos con valores positivos)
                             final productosRecarga = <int, int>{};
-                            final productosCrudosADescontar = <int, int>{}; // productoId -> cantidad a descontar
+                            final productosCrudosADescontar = <int, int>{}; // productoId (crudo) -> cantidad a descontar
 
                             // Validar que haya suficiente stock CRUDO para los productos fritos seleccionados
                             final erroresStock = <String>[];
 
-                            for (final productoId in _productosParaRecargar) {
+                            // Obtener inventario actual completo para validar stock crudo
+                            final inventarioCompleto = await SupabaseService.getInventarioActual(
+                              widget.sucursal.id,
+                            );
+
+                            for (final productoId in _productosParaAgregar) {
                               final producto = _productos.firstWhere(
                                 (p) => p.id == productoId,
                               );
                               final cantidadSolicitada =
-                                  _cantidadesRecarga[productoId] ?? 1;
-                              final productoCrudo = _findProductoCrudo(producto);
+                                  _cantidadesAgregar[productoId] ?? 1;
+                              final productoCrudo = await _findProductoCrudoAsync(producto);
 
                               if (productoCrudo != null) {
+                                // Obtener stock crudo disponible del inventario completo
                                 final stockCrudoDisponible =
-                                    _getCantidadDisponible(productoCrudo.id);
+                                    inventarioCompleto[productoCrudo.id] ?? 0;
 
                                 if (cantidadSolicitada > stockCrudoDisponible) {
                                   erroresStock.add(
                                     '${producto.nombre}: solicita $cantidadSolicitada, stock crudo disponible de ${productoCrudo.nombre}: $stockCrudoDisponible',
                                   );
+                                } else {
+                                  // Preparar el descuento del producto crudo
+                                  productosCrudosADescontar[productoCrudo.id] =
+                                      (productosCrudosADescontar[productoCrudo.id] ?? 0) + cantidadSolicitada;
                                 }
+                              } else {
+                                erroresStock.add(
+                                  '${producto.nombre}: no se encontró producto crudo correspondiente',
+                                );
                               }
                             }
 
@@ -2210,7 +2235,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      'No hay suficiente stock CRUDO para algunos productos fritos:\n${erroresStock.join('\n')}',
+                                      'No hay suficiente stock CRUDO para algunos productos:\n${erroresStock.join('\n')}',
                                     ),
                                     backgroundColor: Colors.red,
                                     duration: const Duration(seconds: 5),
@@ -2220,30 +2245,13 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                               return;
                             }
 
-                            for (final productoId in _productosParaRecargar) {
+                            for (final productoId in _productosParaAgregar) {
                               final cantidad =
-                                  _cantidadesRecarga[productoId] ?? 1;
+                                  _cantidadesAgregar[productoId] ?? 1;
                               productosRecarga[productoId] = cantidad;
-
-                              // Si el producto es frito, preparar descuento del producto crudo correspondiente
-                              final producto = _productos.firstWhere(
-                                (p) => p.id == productoId,
-                              );
-                              final productoCrudo = _findProductoCrudo(producto);
-
-                              if (productoCrudo != null) {
-                                // Guardar el descuento para hacerlo después de la recarga
-                                productosCrudosADescontar[productoCrudo.id] =
-                                    (productosCrudosADescontar[productoCrudo.id] ?? 0) + cantidad;
-
-                                print(
-                                  'Preparando descuento de $cantidad unidades de ${productoCrudo.nombre} por recarga de ${producto.nombre}',
-                                );
-                              }
                             }
 
                             // Guardar recarga y descuentos de CRUDOS de forma ATÓMICA en el servidor
-                            // (evita inconsistencias por mala conexión o concurrencia).
                             final resultadoAtomico =
                                 await SupabaseService
                                     .guardarRecargaInventarioConDescuentoCrudos(
@@ -2252,7 +2260,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                       productosRecarga: productosRecarga,
                                       crudosADescontar: productosCrudosADescontar,
                                       observaciones:
-                                          'Recarga masiva desde inventario',
+                                          'Fritado desde control de fritado',
                                     );
 
                             final exito =
@@ -2265,15 +2273,15 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                             Navigator.pop(context);
 
                             if (exito) {
-                              final totalUnidades = _cantidadesRecarga.values
+                              final totalUnidades = _cantidadesAgregar.values
                                   .fold(0, (sum, cantidad) => sum + cantidad);
                               final totalProductos =
-                                  _productosParaRecargar.length;
+                                  _productosParaAgregar.length;
 
                               // Limpiar selección
                               setState(() {
-                                _productosParaRecargar.clear();
-                                _cantidadesRecarga.clear();
+                                _productosParaAgregar.clear();
+                                _cantidadesAgregar.clear();
                               });
 
                               // Recargar datos para actualizar inventario
@@ -2284,7 +2292,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      '✓ Recarga guardada: $totalUnidades unidades en $totalProductos producto(s)',
+                                      '✓ Fritado guardado: $totalUnidades unidades en $totalProductos producto(s). Stock crudo descontado.',
                                     ),
                                     backgroundColor: Colors.green,
                                     duration: const Duration(seconds: 3),
@@ -2297,7 +2305,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      '✗ Error al guardar la recarga: $mensajeAtomico',
+                                      '✗ Error al guardar el fritado: $mensajeAtomico',
                                     ),
                                     backgroundColor: Colors.red,
                                     duration: Duration(seconds: 3),
@@ -2311,7 +2319,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                               Navigator.pop(context);
                             }
 
-                            print('Error guardando recarga: $e');
+                            print('Error guardando fritado: $e');
 
                             // Mostrar error
                             if (context.mounted) {
@@ -2350,14 +2358,14 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.refresh,
+                          Icons.restaurant,
                           size: (18 * textScaleFactor).clamp(16.0, 22.0),
                         ),
                         SizedBox(
                           width: (10 * textScaleFactor).clamp(8.0, 12.0),
                         ),
                         Text(
-                          'Recargar',
+                          'Fritar',
                           style: TextStyle(
                             fontSize: (16 * textScaleFactor).clamp(14.0, 18.0),
                             fontWeight: FontWeight.w700,
@@ -2378,7 +2386,7 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            _productosParaRecargar.length.toString(),
+                            _productosParaAgregar.length.toString(),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: (12 * textScaleFactor).clamp(10.0, 14.0),

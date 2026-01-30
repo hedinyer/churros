@@ -15,6 +15,7 @@ import 'inventory_control_page.dart';
 import 'day_closing_page.dart';
 import '../factory/factory_order_page.dart';
 import 'store_expenses_page.dart';
+import 'frying_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -647,7 +648,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           mainAxisSpacing: 14,
                           childAspectRatio: 1.1,
                           children: [
-                            // Venta Rápida
+                            // 1. Venta Rápida
                             GestureDetector(
                               onTap: () async {
                                 await Navigator.push(
@@ -673,7 +674,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                             ),
 
-                            // Apertura de Punto
+                            // 2. Apertura de Punto
                             _buildActionButton(
                               key: null,
                               context: context,
@@ -700,7 +701,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               },
                             ),
 
-                            // Control de Inventario
+                            // 3. Control de Inventario
                             _buildActionButton(
                               key: null,
                               context: context,
@@ -727,22 +728,22 @@ class _DashboardPageState extends State<DashboardPage> {
                               },
                             ),
 
-                            // Cierre de Día
+                            // 4. Fritar
                             _buildActionButton(
                               key: null,
                               context: context,
                               isDark: isDark,
-                              icon: Icons.lock_clock,
-                              iconColor: Colors.grey,
-                              backgroundColor: Colors.grey,
-                              backgroundIcon: Icons.lock_clock,
-                              title: 'CIERRE\nDE DÍA',
+                              icon: Icons.restaurant,
+                              iconColor: Colors.brown,
+                              backgroundColor: Colors.brown,
+                              backgroundIcon: Icons.restaurant,
+                              title: 'FRITAR',
                               onTap: () async {
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder:
-                                        (context) => DayClosingPage(
+                                        (context) => FryingPage(
                                           sucursal: widget.sucursal,
                                           currentUser: widget.currentUser,
                                         ),
@@ -754,7 +755,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               },
                             ),
 
-                            // Pedido a Fábrica
+                            // 5. Pedido a Fábrica
                             _buildActionButton(
                               key: null,
                               context: context,
@@ -781,7 +782,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               },
                             ),
 
-                            // Gastos
+                            // 6. Gastos
                             _buildActionButton(
                               key: null,
                               context: context,
@@ -803,6 +804,33 @@ class _DashboardPageState extends State<DashboardPage> {
                                   ),
                                 );
                                 // Recargar datos cuando se regrese de la página de gastos
+                                if (mounted) {
+                                  _loadVentasHoy();
+                                }
+                              },
+                            ),
+
+                            // 7. Cierre de Día
+                            _buildActionButton(
+                              key: null,
+                              context: context,
+                              isDark: isDark,
+                              icon: Icons.lock_clock,
+                              iconColor: Colors.grey,
+                              backgroundColor: Colors.grey,
+                              backgroundIcon: Icons.lock_clock,
+                              title: 'CIERRE\nDE DÍA',
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => DayClosingPage(
+                                          sucursal: widget.sucursal,
+                                          currentUser: widget.currentUser,
+                                        ),
+                                  ),
+                                );
                                 if (mounted) {
                                   _loadVentasHoy();
                                 }

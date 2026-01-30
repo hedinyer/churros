@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/pedido_fabrica.dart';
 import '../../models/pedido_cliente.dart';
 import '../../models/producto.dart';
 import '../../services/supabase_service.dart';
+import '../../services/factory_session_service.dart';
+import '../../main.dart';
 
 class DeliveriesPage extends StatefulWidget {
   const DeliveriesPage({super.key});
@@ -15,20 +18,50 @@ class DeliveriesPage extends StatefulWidget {
 class _DeliveriesPageState extends State<DeliveriesPage> {
   List<PedidoFabrica> _pedidosFabrica = [];
   List<PedidoCliente> _pedidosClientes = [];
+  List<PedidoCliente> _pedidosRecurrentes = [];
   List<Producto> _productos = [];
   bool _isLoading = true;
   String _busqueda = '';
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    // Configurar recarga automática cada 30 segundos
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _logout() async {
+    // Resetear flag de sesión de fábrica
+    await FactorySessionService.setFactorySession(false);
+
+    if (!mounted) return;
+
+    // Navegar a la pantalla de Login y limpiar el stack de navegación
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    // No mostrar loading si ya hay datos (para recargas automáticas)
+    if (_pedidosFabrica.isEmpty && _pedidosClientes.isEmpty && _pedidosRecurrentes.isEmpty) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       // Cargar productos
@@ -48,14 +81,24 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       final todosPedidosClientes =
           await SupabaseService.getPedidosClientesParaDespacho(limit: 100);
       final pedidosClientesEnviados =
-          todosPedidosClientes.where((p) => p.estado == 'enviado').toList();
+          todosPedidosClientes.where((p) => p.estado.toUpperCase() == 'ENVIADO').toList();
 
       print('📦 Pedidos de clientes en estado "enviado": ${pedidosClientesEnviados.length}');
+
+      // Cargar pedidos recurrentes en estado "enviado"
+      final pedidosRecurrentesEnviados =
+          await SupabaseService.getPedidosRecurrentesParaDespacho(
+        limit: 100,
+        estadoFiltro: 'enviado',
+      );
+
+      print('📦 Pedidos recurrentes en estado "enviado": ${pedidosRecurrentesEnviados.length}');
 
       setState(() {
         _productos = productos;
         _pedidosFabrica = pedidosFabricaEnviados;
         _pedidosClientes = pedidosClientesEnviados;
+        _pedidosRecurrentes = pedidosRecurrentesEnviados;
         _isLoading = false;
       });
     } catch (e, stackTrace) {
@@ -86,6 +129,19 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     }
     final busquedaLower = _busqueda.toLowerCase();
     return _pedidosClientes.where((pedido) {
+      final numero =
+          (pedido.numeroPedido ?? 'Pedido #${pedido.id}').toLowerCase();
+      final cliente = pedido.clienteNombre.toLowerCase();
+      return numero.contains(busquedaLower) || cliente.contains(busquedaLower);
+    }).toList();
+  }
+
+  List<PedidoCliente> _getPedidosRecurrentesFiltrados() {
+    if (_busqueda.isEmpty) {
+      return _pedidosRecurrentes;
+    }
+    final busquedaLower = _busqueda.toLowerCase();
+    return _pedidosRecurrentes.where((pedido) {
       final numero =
           (pedido.numeroPedido ?? 'Pedido #${pedido.id}').toLowerCase();
       final cliente = pedido.clienteNombre.toLowerCase();
@@ -124,6 +180,11 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       Map<String, dynamic> resultado;
       if (tipo == 'fabrica') {
         resultado = await SupabaseService.actualizarEstadoPedidoFabrica(
+          pedidoId: pedidoId,
+          nuevoEstado: 'entregado',
+        );
+      } else if (tipo == 'recurrente') {
+        resultado = await SupabaseService.actualizarEstadoPedidoRecurrente(
           pedidoId: pedidoId,
           nuevoEstado: 'entregado',
         );
@@ -200,8 +261,9 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
 
     final pedidosFabricaFiltrados = _getPedidosFabricaFiltrados();
     final pedidosClientesFiltrados = _getPedidosClientesFiltrados();
+    final pedidosRecurrentesFiltrados = _getPedidosRecurrentesFiltrados();
     final totalPedidos =
-        pedidosFabricaFiltrados.length + pedidosClientesFiltrados.length;
+        pedidosFabricaFiltrados.length + pedidosClientesFiltrados.length + pedidosRecurrentesFiltrados.length;
 
     return Scaffold(
       backgroundColor:
@@ -241,6 +303,15 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                  ),
+                  IconButton(
+                    onPressed: _logout,
+                    icon: Icon(
+                      Icons.logout,
+                      color:
+                          isDark ? Colors.white : const Color(0xFF1B130D),
+                    ),
+                    tooltip: 'Cerrar sesión',
                   ),
                 ],
               ),
@@ -421,6 +492,32 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                                   pedidoCliente: pedido,
                                 ),
                               ),
+                              const SizedBox(height: 24),
+                            ],
+
+                            // Pedidos Recurrentes
+                            if (pedidosRecurrentesFiltrados.isNotEmpty) ...[
+                              Text(
+                                'Pedidos Recurrentes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ...pedidosRecurrentesFiltrados.map(
+                                (pedido) => _buildPedidoCard(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                  tipo: 'recurrente',
+                                  pedidoFabrica: null,
+                                  pedidoCliente: pedido,
+                                ),
+                              ),
                             ],
                           ],
                         ),
@@ -440,6 +537,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     PedidoCliente? pedidoCliente,
   }) {
     final isFabrica = tipo == 'fabrica';
+    final isRecurrente = tipo == 'recurrente';
     final numeroPedido =
         isFabrica
             ? (pedidoFabrica!.numeroPedido ?? 'Pedido #${pedidoFabrica.id}')
@@ -539,7 +637,9 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                           Row(
                             children: [
                               Icon(
-                                isFabrica ? Icons.storefront : Icons.person,
+                                isFabrica
+                                    ? Icons.storefront
+                                    : (isRecurrente ? Icons.repeat : Icons.person),
                                 size: 16,
                                 color:
                                     isDark
@@ -605,7 +705,9 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        isFabrica ? Icons.storefront : Icons.chat,
+                        isFabrica
+                            ? Icons.storefront
+                            : (isRecurrente ? Icons.repeat : Icons.chat),
                         color: primaryColor,
                         size: 24,
                       ),

@@ -31,6 +31,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   final Map<int, FocusNode> _precioFocusNodes = {}; // productoId -> focusNode
   Map<int, double> _preciosEspeciales =
       {}; // productoId -> precio especial (si aplica)
+  Map<int, int> _inventarioFabrica = {}; // productoId -> cantidad en inventario_fabrica
+  Map<int, int> _inventarioSucursal6 = {}; // productoId -> cantidad en inventario_actual (sucursal_id = 6)
   String _metodoPago = 'efectivo';
   bool _isLoading = true;
   bool _isGuardando = false;
@@ -108,9 +110,24 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         return !nombre.contains('x10') && !nombre.contains('x 10');
       }).toList();
 
+      // Cargar inventarios
+      final inventarioFabrica = await SupabaseService.getInventarioFabricaCompleto();
+      
+      // Cargar inventario de sucursal 6
+      final inventarioSucursal6Response = await SupabaseService.client
+          .from('inventario_actual')
+          .select('producto_id, cantidad')
+          .eq('sucursal_id', 6);
+      final inventarioSucursal6 = <int, int>{};
+      for (final item in inventarioSucursal6Response) {
+        inventarioSucursal6[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
+      }
+
       setState(() {
         _productos = productosFiltrados;
         _categoriasMap = categoriasMap;
+        _inventarioFabrica = inventarioFabrica;
+        _inventarioSucursal6 = inventarioSucursal6;
         // Inicializar controllers de precio con el precio base del producto
         _precioControllers = {
           for (final p in productosFiltrados)
@@ -243,6 +260,44 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     return producto.precio;
   }
 
+  /// Obtiene el inventario disponible para un producto
+  /// Si es crudo: inventario_fabrica
+  /// Si es frito o bebida (categoria_id = 3): inventario_actual (sucursal_id = 6)
+  int _getInventarioDisponible(int productoId) {
+    final producto = _productos.firstWhere(
+      (p) => p.id == productoId,
+      orElse: () => Producto(
+        id: productoId,
+        nombre: 'Producto',
+        precio: 0.0,
+        unidadMedida: 'unidad',
+        activo: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    
+    final nombreProducto = producto.nombre.toLowerCase();
+    final categoriaId = producto.categoria?.id;
+    
+    // Si contiene "frito" → inventario_actual (sucursal_id = 6)
+    if (nombreProducto.contains('frito')) {
+      return _inventarioSucursal6[productoId] ?? 0;
+    }
+    // Si contiene "crudo" → inventario_fabrica
+    else if (nombreProducto.contains('crudo')) {
+      return _inventarioFabrica[productoId] ?? 0;
+    }
+    // Si es bebida (categoria_id = 3) → inventario_actual (sucursal_id = 6)
+    else if (categoriaId == 3) {
+      return _inventarioSucursal6[productoId] ?? 0;
+    }
+    // Por defecto, inventario_fabrica
+    else {
+      return _inventarioFabrica[productoId] ?? 0;
+    }
+  }
+
   void _onPrecioChanged(int productoId, String value) {
     final v = value.trim();
     // Aceptar formatos comunes (1,300 / 1.300 / $1300) limpiando a solo dígitos
@@ -355,6 +410,45 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       return;
     }
 
+    // Validar inventario disponible antes de guardar
+    final productosInsuficientes = <String>[];
+    for (final entry in productosConCantidad) {
+      final productoId = entry.key;
+      final cantidadPedida = entry.value;
+      final inventarioDisponible = _getInventarioDisponible(productoId);
+      
+      if (cantidadPedida > inventarioDisponible) {
+        final producto = _productos.firstWhere(
+          (p) => p.id == productoId,
+          orElse: () => Producto(
+            id: productoId,
+            nombre: 'Producto #$productoId',
+            precio: 0.0,
+            unidadMedida: 'unidad',
+            activo: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+        productosInsuficientes.add(
+          '${producto.nombre}: Disponible $inventarioDisponible, Solicitado $cantidadPedida',
+        );
+      }
+    }
+
+    if (productosInsuficientes.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Inventario insuficiente:\n${productosInsuficientes.join('\n')}',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isGuardando = true;
     });
@@ -368,6 +462,84 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         final productoId = entry.key;
         final precio = _getPrecioProducto(productoId);
         preciosEspeciales[productoId] = precio;
+      }
+
+      // Descontar inventario antes de crear el pedido
+      for (final entry in productosConCantidad) {
+        final productoId = entry.key;
+        final cantidad = entry.value;
+        
+        final producto = _productos.firstWhere(
+          (p) => p.id == productoId,
+          orElse: () => Producto(
+            id: productoId,
+            nombre: 'Producto',
+            precio: 0.0,
+            unidadMedida: 'unidad',
+            activo: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+        
+        final nombreProducto = producto.nombre.toLowerCase();
+        final categoriaId = producto.categoria?.id;
+        Map<String, dynamic> resultado;
+
+        // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 6)
+        if (nombreProducto.contains('frito')) {
+          resultado = await SupabaseService.descontarInventarioActual(
+            sucursalId: 6,
+            productoId: productoId,
+            cantidad: cantidad,
+          );
+        }
+        // Si contiene "crudo" → descontar de inventario_fabrica
+        else if (nombreProducto.contains('crudo')) {
+          resultado = await SupabaseService.descontarInventarioFabrica(
+            productoId: productoId,
+            cantidad: cantidad,
+          );
+        }
+        // Si es bebida (categoria_id = 3) → descontar de inventario_actual (sucursal_id = 6)
+        else if (categoriaId == 3) {
+          resultado = await SupabaseService.descontarInventarioActual(
+            sucursalId: 6,
+            productoId: productoId,
+            cantidad: cantidad,
+          );
+        }
+        // Por defecto, descontar de inventario_fabrica
+        else {
+          resultado = await SupabaseService.descontarInventarioFabrica(
+            productoId: productoId,
+            cantidad: cantidad,
+          );
+        }
+
+        if (!resultado['exito']) {
+          setState(() {
+            _isGuardando = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al descontar inventario: ${resultado['mensaje']}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
+      // Recargar inventarios después del descuento
+      final inventarioFabrica = await SupabaseService.getInventarioFabricaCompleto();
+      final inventarioSucursal6Response = await SupabaseService.client
+          .from('inventario_actual')
+          .select('producto_id, cantidad')
+          .eq('sucursal_id', 6);
+      final inventarioSucursal6 = <int, int>{};
+      for (final item in inventarioSucursal6Response) {
+        inventarioSucursal6[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
       }
 
       final pedido = await SupabaseService.crearPedidoCliente(
@@ -388,6 +560,12 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       );
 
       if (pedido != null && mounted) {
+        // Actualizar inventarios en el estado
+        setState(() {
+          _inventarioFabrica = inventarioFabrica;
+          _inventarioSucursal6 = inventarioSucursal6;
+        });
+
         // Limpiar formulario
         _clienteNombreController.clear();
         _clienteTelefonoController.clear();
@@ -931,114 +1109,26 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      // Fila 1: Nombre del producto y controles de cantidad
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  producto.nombre,
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color:
-                                                        isDark
-                                                            ? Colors.white
-                                                            : const Color(
-                                                              0xFF1B130D,
-                                                            ),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        _formatCurrency(precio),
-                                                        style: TextStyle(
-                                                          fontSize: 14,
-                                                          color:
-                                                              isDark
-                                                                  ? const Color(
-                                                                    0xFF9A6C4C,
-                                                                  )
-                                                                  : const Color(
-                                                                    0xFF9A6C4C,
-                                                                  ),
+                                            child: Text(
+                                              producto.nombre,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color:
+                                                    isDark
+                                                        ? Colors.white
+                                                        : const Color(
+                                                          0xFF1B130D,
                                                         ),
-                                                      ),
-                                                    ),
-                                                    SizedBox(
-                                                      width: 130,
-                                                      child: TextField(
-                                                        key: ValueKey(
-                                                          'manual_price_${producto.id}',
-                                                        ),
-                                                        controller:
-                                                            _getOrCreatePrecioController(
-                                                              producto.id,
-                                                            ),
-                                                        focusNode:
-                                                            _getOrCreatePrecioFocusNode(
-                                                              producto.id,
-                                                            ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        keyboardType:
-                                                            TextInputType.number,
-                                                        inputFormatters: [
-                                                          FilteringTextInputFormatter
-                                                              .digitsOnly,
-                                                        ],
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color:
-                                                              isDark
-                                                                  ? Colors.white
-                                                                  : const Color(
-                                                                    0xFF1B130D,
-                                                                  ),
-                                                        ),
-                                                        decoration: InputDecoration(
-                                                          labelText: 'Precio',
-                                                          prefixText: '\$',
-                                                          border:
-                                                              OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                      10,
-                                                                    ),
-                                                          ),
-                                                          isDense: true,
-                                                          contentPadding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                    horizontal:
-                                                                        10,
-                                                                    vertical:
-                                                                        10,
-                                                                  ),
-                                                        ),
-                                                        onChanged:
-                                                            (v) =>
-                                                                _onPrecioChanged(
-                                                                  producto.id,
-                                                                  v,
-                                                                ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
+                                              ),
                                             ),
                                           ),
+                                          const SizedBox(width: 12),
                                           // Controles de cantidad
                                           Container(
                                             decoration: BoxDecoration(
@@ -1058,6 +1148,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                               ),
                                             ),
                                             child: Row(
+                                              mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 IconButton(
                                                   onPressed:
@@ -1085,7 +1176,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                       const BoxConstraints(),
                                                 ),
                                                 SizedBox(
-                                                  width: 60,
+                                                  width: 50,
                                                   child: TextField(
                                                     key: ValueKey(
                                                       'manual_qty_${producto.id}',
@@ -1143,6 +1234,133 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                                       const BoxConstraints(),
                                                 ),
                                               ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Fila 2: Precio y Stock
+                                      Row(
+                                        children: [
+                                          Text(
+                                            _formatCurrency(precio),
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color:
+                                                  isDark
+                                                      ? const Color(
+                                                        0xFF9A6C4C,
+                                                      )
+                                                      : const Color(
+                                                        0xFF9A6C4C,
+                                                      ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _getInventarioDisponible(producto.id) > 0
+                                                  ? Colors.green.withOpacity(isDark ? 0.2 : 0.1)
+                                                  : Colors.red.withOpacity(isDark ? 0.2 : 0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: _getInventarioDisponible(producto.id) > 0
+                                                    ? Colors.green.withOpacity(0.3)
+                                                    : Colors.red.withOpacity(0.3),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Stock: ${_getInventarioDisponible(producto.id)}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: _getInventarioDisponible(producto.id) > 0
+                                                    ? Colors.green.shade700
+                                                    : Colors.red.shade700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      // Fila 3: Campo de precio especial
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Precio especial:',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color:
+                                                  isDark
+                                                      ? const Color(0xFFA8A29E)
+                                                      : const Color(0xFF78716C),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: TextField(
+                                              key: ValueKey(
+                                                'manual_price_${producto.id}',
+                                              ),
+                                              controller:
+                                                  _getOrCreatePrecioController(
+                                                    producto.id,
+                                                  ),
+                                              focusNode:
+                                                  _getOrCreatePrecioFocusNode(
+                                                    producto.id,
+                                                  ),
+                                              textAlign: TextAlign.left,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter
+                                                    .digitsOnly,
+                                              ],
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight:
+                                                    FontWeight.bold,
+                                                color:
+                                                    isDark
+                                                        ? Colors.white
+                                                        : const Color(
+                                                          0xFF1B130D,
+                                                        ),
+                                              ),
+                                              decoration: InputDecoration(
+                                                hintText: 'Precio base',
+                                                prefixText: '\$ ',
+                                                border:
+                                                    OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius
+                                                          .circular(
+                                                            8,
+                                                          ),
+                                                ),
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal:
+                                                          10,
+                                                      vertical:
+                                                          8,
+                                                    ),
+                                              ),
+                                              onChanged:
+                                                  (v) =>
+                                                      _onPrecioChanged(
+                                                        producto.id,
+                                                        v,
+                                                      ),
                                             ),
                                           ),
                                         ],
