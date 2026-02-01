@@ -2794,6 +2794,271 @@ required int productoId,
     }
   }
 
+  /// Obtiene pedidos de clientes pagados del día actual según fecha_pago (para página de gastos de factory)
+  static Future<List<PedidoCliente>> getPedidosClientesPagados({
+    int limit = 1000,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos pagados');
+        return [];
+      }
+
+      // Obtener los pedidos de clientes pagados del día actual según fecha_pago
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .eq('estado_pago', 'pagado')
+          .eq('fecha_pago', today)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_cliente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          return PedidoClienteDetalle.fromJson(json, producto: producto);
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos pagados: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene todos los pedidos de clientes con pago pendiente (sin importar la fecha)
+  static Future<List<PedidoCliente>> getPedidosClientesPendientes({
+    int limit = 1000,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos pendientes');
+        return [];
+      }
+
+      // Obtener todos los pedidos de clientes con estado='entregado' y estado_pago='pendiente'
+      // (sin filtrar por fecha, se muestran todos hasta que se paguen)
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .eq('estado', 'entregado')
+          .eq('estado_pago', 'pendiente')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_cliente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          return PedidoClienteDetalle.fromJson(json, producto: producto);
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos pendientes: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene todos los pedidos recurrentes con pago pendiente (sin importar la fecha)
+  static Future<List<PedidoCliente>> getPedidosRecurrentesPendientes({
+    int limit = 1000,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos recurrentes pendientes');
+        return [];
+      }
+
+      // Obtener todos los pedidos recurrentes con estado='entregado' y estado_pago='pendiente'
+      // (sin filtrar por fecha, se muestran todos hasta que se paguen)
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .eq('estado', 'entregado')
+          .eq('estado_pago', 'pendiente')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      print('🔍 Pedidos recurrentes pendientes encontrados: ${pedidosResponse.length}');
+      if (pedidosResponse.isNotEmpty) {
+        print('🔍 Primer pedido: ID=${pedidosResponse.first['id']}, estado=${pedidosResponse.first['estado']}, estado_pago=${pedidosResponse.first['estado_pago']}');
+      }
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_recurrente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          // Usar precio_unitario del detalle (que puede ser precio especial)
+          return PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          );
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos recurrentes pendientes: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos recurrentes pagados del día actual según fecha_pago (para página de gastos de factory)
+  static Future<List<PedidoCliente>> getPedidosRecurrentesPagados({
+    int limit = 1000,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener pedidos recurrentes pagados');
+        return [];
+      }
+
+      // Obtener los pedidos recurrentes pagados del día actual según fecha_pago
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .eq('estado_pago', 'pagado')
+          .eq('fecha_pago', today)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Obtener productos para los detalles
+      final productos = await getProductosActivos();
+      final productosMap = {for (var p in productos) p.id: p};
+
+      // Obtener detalles para cada pedido
+      final pedidos = <PedidoCliente>[];
+
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+
+        // Obtener detalles
+        final detallesResponse = await client
+            .from('pedido_recurrente_detalles')
+            .select()
+            .eq('pedido_id', pedidoId);
+
+        final detalles = detallesResponse.map((json) {
+          final productoId = json['producto_id'] as int;
+          final producto = productosMap[productoId];
+          // Usar precio_unitario del detalle (que puede ser precio especial)
+          return PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          );
+        }).toList();
+
+        pedidos.add(
+          PedidoCliente.fromJson(
+            pedidoJson,
+            detalles: detalles,
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error obteniendo pedidos recurrentes pagados: $e');
+      return [];
+    }
+  }
+
   /// Obtiene pedidos recurrentes recientes
   static Future<List<PedidoCliente>> getPedidosRecurrentesRecientes({
     int limit = 100,
@@ -2975,6 +3240,62 @@ required int productoId,
     } catch (e) {
       print('Error actualizando estado del pedido de cliente: $e');
       return {'exito': false, 'mensaje': 'Error: $e'};
+    }
+  }
+
+  /// Marca un pedido de cliente como pagado
+  static Future<bool> marcarPedidoClienteComoPagado({
+    required int pedidoId,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para marcar pedido como pagado');
+        return false;
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      await client
+          .from('pedidos_clientes')
+          .update({
+            'estado_pago': 'pagado',
+            'fecha_pago': today,
+          })
+          .eq('id', pedidoId);
+
+      return true;
+    } catch (e) {
+      print('Error marcando pedido de cliente como pagado: $e');
+      return false;
+    }
+  }
+
+  /// Marca un pedido recurrente como pagado
+  static Future<bool> marcarPedidoRecurrenteComoPagado({
+    required int pedidoId,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para marcar pedido como pagado');
+        return false;
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      await client
+          .from('pedidos_recurrentes')
+          .update({
+            'estado_pago': 'pagado',
+            'fecha_pago': today,
+          })
+          .eq('id', pedidoId);
+
+      return true;
+    } catch (e) {
+      print('Error marcando pedido recurrente como pagado: $e');
+      return false;
     }
   }
 
@@ -3498,6 +3819,7 @@ required int productoId,
     String? observaciones,
     String? metodoPago,
     double? domicilio,
+    bool esFiado = false,
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -3547,6 +3869,19 @@ required int productoId,
         total += domicilio;
       }
 
+      // Determinar estado_pago y fecha_pago según si es fiado
+      final today = now.toIso8601String().split('T')[0];
+      final estadoPago = esFiado ? 'pendiente' : 'pagado';
+      final fechaPago = esFiado ? null : today;
+      
+      // Agregar "FIADO" a las observaciones si es fiado
+      String? observacionesFinal = observaciones;
+      if (esFiado) {
+        observacionesFinal = observaciones == null || observaciones.isEmpty
+            ? 'FIADO'
+            : '$observaciones - FIADO';
+      }
+
       // Crear el pedido
       final pedidoData = <String, dynamic>{
         'cliente_nombre': clienteNombre,
@@ -3559,9 +3894,11 @@ required int productoId,
         'total': total,
         'estado': 'pendiente',
         'numero_pedido': _generatePedidoClienteNumber(hasConnection),
-        'observaciones': observaciones,
+        'observaciones': observacionesFinal,
         'metodo_pago': metodoPago,
         'sincronizado': hasConnection,
+        'estado_pago': estadoPago,
+        'fecha_pago': fechaPago,
       };
 
       // Agregar domicilio si existe

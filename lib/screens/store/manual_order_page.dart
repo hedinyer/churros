@@ -34,6 +34,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   Map<int, int> _inventarioFabrica = {}; // productoId -> cantidad en inventario_fabrica
   Map<int, int> _inventarioSucursal6 = {}; // productoId -> cantidad en inventario_actual (sucursal_id = 6)
   String _metodoPago = 'efectivo';
+  bool _esFiado = false;
   bool _isLoading = true;
   bool _isGuardando = false;
   bool _isOnline = true;
@@ -557,6 +558,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                 : _observacionesController.text.trim(),
         metodoPago: _metodoPago,
         domicilio: domicilio != null && domicilio > 0 ? domicilio : null,
+        esFiado: _esFiado,
       );
 
       if (pedido != null && mounted) {
@@ -576,6 +578,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
           _cantidades.clear();
           _preciosEspeciales.clear();
           _metodoPago = 'efectivo';
+          _esFiado = false;
           _isGuardando = false;
         });
 
@@ -953,6 +956,48 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                     onSelected: (value) {
                                       setState(() {
                                         _metodoPago = value;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Pedido Fiado
+                              Text(
+                                'Pedido Fiado?',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'Sí',
+                                    value: 'si',
+                                    selectedValue: _esFiado ? 'si' : 'no',
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _esFiado = value == 'si';
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'No',
+                                    value: 'no',
+                                    selectedValue: _esFiado ? 'si' : 'no',
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _esFiado = value == 'si';
                                       });
                                     },
                                   ),

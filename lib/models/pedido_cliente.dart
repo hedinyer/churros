@@ -17,6 +17,8 @@ class PedidoCliente {
   final DateTime createdAt;
   final DateTime updatedAt;
   final double? domicilio;
+  final String? estadoPago;
+  final DateTime? fechaPago;
   final List<PedidoClienteDetalle>? detalles;
 
   PedidoCliente({
@@ -36,6 +38,8 @@ class PedidoCliente {
     required this.createdAt,
     required this.updatedAt,
     this.domicilio,
+    this.estadoPago,
+    this.fechaPago,
     this.detalles,
   });
 
@@ -59,6 +63,8 @@ class PedidoCliente {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       domicilio: json['domicilio'] != null ? (json['domicilio'] as num).toDouble() : null,
+      estadoPago: json['estado_pago'] as String?,
+      fechaPago: json['fecha_pago'] != null ? DateTime.parse(json['fecha_pago'] as String) : null,
       detalles: detalles,
     );
   }

@@ -55,6 +55,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
       {}; // productoId -> precio especial por cliente
   String? _clienteSeleccionado;
   String _metodoPago = 'efectivo';
+  bool _esFiado = false;
   bool _isLoading = true;
   bool _isGuardando = false;
   final _direccionController = TextEditingController();
@@ -365,6 +366,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         productos: productosConPrecios,
         preciosEspeciales: preciosEspecialesMap,
         metodoPago: _metodoPago,
+        esFiado: _esFiado,
       );
 
       if (pedido != null && mounted) {
@@ -375,6 +377,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
           _preciosEspeciales.clear();
           _clienteSeleccionado = null;
           _metodoPago = 'efectivo';
+          _esFiado = false;
           _isGuardando = false;
         });
 
@@ -429,6 +432,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
     required Map<int, int> productos,
     required Map<int, double> preciosEspeciales,
     required String metodoPago,
+    required bool esFiado,
   }) async {
     try {
       final hasConnection = await SupabaseService.client
@@ -486,6 +490,11 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         return null;
       }
 
+      // Determinar estado_pago y fecha_pago según si es fiado
+      final today = now.toIso8601String().split('T')[0];
+      final estadoPago = esFiado ? 'pendiente' : 'pagado';
+      final fechaPago = esFiado ? null : today;
+
       // Crear el pedido en la tabla de pedidos recurrentes
       final pedidoData = {
         'cliente_nombre': clienteNombre,
@@ -498,9 +507,13 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         'total': total,
         'estado': 'pendiente',
         'numero_pedido': _generatePedidoClienteNumber(hasConnection),
-        'observaciones': 'Pedido recurrente - Precios especiales aplicados',
+        'observaciones': esFiado
+            ? 'Pedido recurrente - Precios especiales aplicados - FIADO'
+            : 'Pedido recurrente - Precios especiales aplicados',
         'metodo_pago': metodoPago,
         'sincronizado': hasConnection,
+        'estado_pago': estadoPago,
+        'fecha_pago': fechaPago,
       };
 
       // Insertar el pedido en la tabla de pedidos recurrentes
@@ -809,6 +822,48 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                     onSelected: (value) {
                                       setState(() {
                                         _metodoPago = value;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Pedido Fiado
+                              Text(
+                                'Pedido Fiado?',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'Sí',
+                                    value: 'si',
+                                    selectedValue: _esFiado ? 'si' : 'no',
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _esFiado = value == 'si';
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildPaymentMethodChip(
+                                    isDark: isDark,
+                                    label: 'No',
+                                    value: 'no',
+                                    selectedValue: _esFiado ? 'si' : 'no',
+                                    onSelected: (value) {
+                                      setState(() {
+                                        _esFiado = value == 'si';
                                       });
                                     },
                                   ),

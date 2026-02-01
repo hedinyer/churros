@@ -13,9 +13,13 @@ class ExpensesPage extends StatefulWidget {
 
 class _ExpensesPageState extends State<ExpensesPage> {
   List<PedidoCliente> _pedidosClientes = [];
+  List<PedidoCliente> _pedidosRecurrentes = [];
+  List<PedidoCliente> _pedidosClientesPendientes = [];
+  List<PedidoCliente> _pedidosRecurrentesPendientes = [];
   List<Map<String, dynamic>> _gastosVarios = [];
   bool _isLoading = true;
-  int _selectedTab = 0; // 0 = Pagos Pedidos, 1 = Gastos Varios
+  int _selectedTab =
+      0; // 0 = Pagos Entregados, 1 = Pagos Pendientes, 2 = Gastos Varios
 
   @override
   void initState() {
@@ -29,17 +33,31 @@ class _ExpensesPageState extends State<ExpensesPage> {
     });
 
     try {
-      // Cargar pedidos de clientes (pagos) del día actual
-      final pedidos = await SupabaseService.getPedidosClientesRecientes(
+      // Cargar pedidos de clientes entregados y pagados (para factory)
+      final pedidos = await SupabaseService.getPedidosClientesPagados(
         limit: 1000,
-        soloHoy: true,
       );
+
+      // Cargar pedidos recurrentes entregados y pagados (para factory)
+      final pedidosRecurrentes =
+          await SupabaseService.getPedidosRecurrentesPagados(limit: 1000);
+
+      // Cargar pedidos de clientes entregados pero con pago pendiente
+      final pedidosClientesPendientes =
+          await SupabaseService.getPedidosClientesPendientes(limit: 1000);
+
+      // Cargar pedidos recurrentes entregados pero con pago pendiente
+      final pedidosRecurrentesPendientes =
+          await SupabaseService.getPedidosRecurrentesPendientes(limit: 1000);
 
       // Cargar gastos varios del día actual (ya filtrado por el servicio)
       final gastos = await SupabaseService.getGastosVarios();
 
       setState(() {
         _pedidosClientes = pedidos;
+        _pedidosRecurrentes = pedidosRecurrentes;
+        _pedidosClientesPendientes = pedidosClientesPendientes;
+        _pedidosRecurrentesPendientes = pedidosRecurrentesPendientes;
         _gastosVarios = gastos;
         _isLoading = false;
       });
@@ -336,8 +354,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   double _getTotalPagos() {
-    // Excluir pedidos fiados del total
-    return _pedidosClientes.fold(0.0, (sum, pedido) {
+    // Sumar pedidos de clientes (excluyendo fiados, sin incluir domicilios)
+    final totalClientes = _pedidosClientes.fold(0.0, (sum, pedido) {
       final observaciones = pedido.observaciones ?? '';
       final esFiado = observaciones.toUpperCase().contains('FIADO');
       if (esFiado) {
@@ -345,6 +363,39 @@ class _ExpensesPageState extends State<ExpensesPage> {
       }
       return sum + pedido.total;
     });
+
+    // Sumar pedidos recurrentes (excluyendo fiados, sin incluir domicilios)
+    final totalRecurrentes = _pedidosRecurrentes.fold(0.0, (sum, pedido) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (esFiado) {
+        return sum;
+      }
+      return sum + pedido.total;
+    });
+
+    return totalClientes + totalRecurrentes;
+  }
+
+  double _getTotalPagosPendientes() {
+    // Sumar TODOS los pedidos de clientes pendientes (incluyendo fiados) + domicilios
+    final totalClientes = _pedidosClientesPendientes.fold(0.0, (sum, pedido) {
+      final totalPedido = pedido.total;
+      final domicilio = pedido.domicilio ?? 0.0;
+      return sum + totalPedido + domicilio;
+    });
+
+    // Sumar TODOS los pedidos recurrentes pendientes (incluyendo fiados) + domicilios
+    final totalRecurrentes = _pedidosRecurrentesPendientes.fold(0.0, (
+      sum,
+      pedido,
+    ) {
+      final totalPedido = pedido.total;
+      final domicilio = pedido.domicilio ?? 0.0;
+      return sum + totalPedido + domicilio;
+    });
+
+    return totalClientes + totalRecurrentes;
   }
 
   double _getTotalGastosVarios() {
@@ -355,8 +406,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   double _getTotalDomicilios() {
-    // Sumar domicilios de pedidos NO fiados
-    return _pedidosClientes.fold(0.0, (sum, pedido) {
+    // Sumar domicilios de pedidos de clientes NO fiados
+    final totalClientes = _pedidosClientes.fold(0.0, (sum, pedido) {
       final observaciones = pedido.observaciones ?? '';
       final esFiado = observaciones.toUpperCase().contains('FIADO');
       if (esFiado) {
@@ -365,11 +416,74 @@ class _ExpensesPageState extends State<ExpensesPage> {
       final domicilio = pedido.domicilio ?? 0.0;
       return sum + domicilio;
     });
+
+    // Sumar domicilios de pedidos recurrentes NO fiados
+    final totalRecurrentes = _pedidosRecurrentes.fold(0.0, (sum, pedido) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (esFiado) {
+        return sum;
+      }
+      final domicilio = pedido.domicilio ?? 0.0;
+      return sum + domicilio;
+    });
+
+    return totalClientes + totalRecurrentes;
   }
 
   double _getTotalGeneral() {
     // Total del día = pagos (sin fiado) + domicilios - gastos varios
     return _getTotalPagos() + _getTotalDomicilios() - _getTotalGastosVarios();
+  }
+
+  double _getTotalEfectivo() {
+    // Sumar pedidos pagados en efectivo (excluyendo fiados)
+    double total = 0.0;
+
+    // Pedidos de clientes pagados
+    for (final pedido in _pedidosClientes) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'EFECTIVO') {
+        total += pedido.total;
+      }
+    }
+
+    // Pedidos recurrentes pagados
+    for (final pedido in _pedidosRecurrentes) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'EFECTIVO') {
+        total += pedido.total;
+      }
+    }
+
+    return total;
+  }
+
+  double _getTotalTransferencia() {
+    // Sumar pedidos pagados en transferencia (excluyendo fiados)
+    double total = 0.0;
+
+    // Pedidos de clientes pagados
+    for (final pedido in _pedidosClientes) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'TRANSFERENCIA') {
+        total += pedido.total;
+      }
+    }
+
+    // Pedidos recurrentes pagados
+    for (final pedido in _pedidosRecurrentes) {
+      final observaciones = pedido.observaciones ?? '';
+      final esFiado = observaciones.toUpperCase().contains('FIADO');
+      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'TRANSFERENCIA') {
+        total += pedido.total;
+      }
+    }
+
+    return total;
   }
 
   @override
@@ -383,6 +497,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
     final totalDomicilios = _getTotalDomicilios();
     final totalGastosVarios = _getTotalGastosVarios();
     final totalGeneral = _getTotalGeneral();
+    final totalEfectivo = _getTotalEfectivo();
+    final totalTransferencia = _getTotalTransferencia();
 
     return Scaffold(
       backgroundColor:
@@ -439,7 +555,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Gastos de Hoy',
+                      'Gastos',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -487,7 +603,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   Expanded(
                     child: _buildTabButton(
                       isDark: isDark,
-                      label: 'Pagos de Hoy',
+                      label: 'Pagos\nEntregados',
                       isSelected: _selectedTab == 0,
                       total: _getTotalPagos(),
                       onTap: () => setState(() => _selectedTab = 0),
@@ -496,10 +612,19 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   Expanded(
                     child: _buildTabButton(
                       isDark: isDark,
-                      label: 'Gastos Varios',
+                      label: 'Pagos\nPendientes',
                       isSelected: _selectedTab == 1,
-                      total: _getTotalGastosVarios(),
+                      total: _getTotalPagosPendientes(),
                       onTap: () => setState(() => _selectedTab = 1),
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildTabButton(
+                      isDark: isDark,
+                      label: 'Gastos\nVarios',
+                      isSelected: _selectedTab == 2,
+                      total: _getTotalGastosVarios(),
+                      onTap: () => setState(() => _selectedTab = 2),
                     ),
                   ),
                 ],
@@ -516,6 +641,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         child:
                             _selectedTab == 0
                                 ? _buildPagosPedidosList(
+                                  isDark: isDark,
+                                  primaryColor: primaryColor,
+                                )
+                                : _selectedTab == 1
+                                ? _buildPagosPendientesList(
                                   isDark: isDark,
                                   primaryColor: primaryColor,
                                 )
@@ -544,9 +674,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
           color: isDark ? const Color(0xFF2D211A) : Colors.white,
           border: Border(
             top: BorderSide(
-              color: isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
+              color:
+                  isDark
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.1),
             ),
           ),
           boxShadow: [
@@ -571,14 +702,36 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         'Pagos (sin fiado)',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark
-                              ? const Color(0xFFA8A29E)
-                              : const Color(0xFF78716C),
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _formatCurrency(totalPagos),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Efectivo',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatCurrency(totalEfectivo),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -598,14 +751,36 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         'Domicilios',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark
-                              ? const Color(0xFFA8A29E)
-                              : const Color(0xFF78716C),
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _formatCurrency(totalDomicilios),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Transferencia',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatCurrency(totalTransferencia),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -625,9 +800,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         'Gastos Varios',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark
-                              ? const Color(0xFFA8A29E)
-                              : const Color(0xFF78716C),
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -656,13 +832,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'TOTAL DEL DÍA',
+                    'TOTAL (Pago + domi - Gasto)',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? Colors.white
-                          : const Color(0xFF1B130D),
+                      color: isDark ? Colors.white : const Color(0xFF1B130D),
                     ),
                   ),
                   Text(
@@ -706,11 +880,12 @@ class _ExpensesPageState extends State<ExpensesPage> {
           ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color:
                     isSelected
@@ -719,12 +894,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
                             ? const Color(0xFF9A6C4C)
                             : const Color(0xFF9A6C4C)),
               ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
             ),
             const SizedBox(height: 4),
             Text(
               _formatCurrency(total),
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
                 color:
                     isSelected
@@ -733,6 +910,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                             ? const Color(0xFF9A6C4C)
                             : const Color(0xFF9A6C4C)),
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -744,7 +922,13 @@ class _ExpensesPageState extends State<ExpensesPage> {
     required bool isDark,
     required Color primaryColor,
   }) {
-    if (_pedidosClientes.isEmpty) {
+    // Combinar ambos tipos de pedidos
+    final todosLosPedidos = [..._pedidosClientes, ..._pedidosRecurrentes];
+
+    // Ordenar por fecha de creación (más recientes primero)
+    todosLosPedidos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (todosLosPedidos.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -759,7 +943,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No hay pagos de hoy',
+                'No hay pagos entregados',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -774,157 +958,436 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _pedidosClientes.length,
+      itemCount: todosLosPedidos.length,
       itemBuilder: (context, index) {
-        final pedido = _pedidosClientes[index];
+        final pedido = todosLosPedidos[index];
+        // Verificar si es un pedido recurrente (está en la lista de recurrentes)
+        final esRecurrente = _pedidosRecurrentes.any((p) => p.id == pedido.id);
         return _buildPagoPedidoCard(
           isDark: isDark,
           pedido: pedido,
           primaryColor: primaryColor,
+          esRecurrente: esRecurrente,
         );
       },
     );
+  }
+
+  Widget _buildPagosPendientesList({
+    required bool isDark,
+    required Color primaryColor,
+  }) {
+    // Combinar ambos tipos de pedidos pendientes
+    final todosLosPedidos = [
+      ..._pedidosClientesPendientes,
+      ..._pedidosRecurrentesPendientes,
+    ];
+
+    // Ordenar por fecha de creación (más recientes primero)
+    todosLosPedidos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (todosLosPedidos.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.pending_outlined,
+                size: 64,
+                color:
+                    isDark ? const Color(0xFFA8A29E) : const Color(0xFF78716C),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No hay pagos pendientes',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF1B130D),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: todosLosPedidos.length,
+      itemBuilder: (context, index) {
+        final pedido = todosLosPedidos[index];
+        // Verificar si es un pedido recurrente (está en la lista de recurrentes)
+        final esRecurrente = _pedidosRecurrentesPendientes.any(
+          (p) => p.id == pedido.id,
+        );
+        return _buildPagoPedidoCard(
+          isDark: isDark,
+          pedido: pedido,
+          primaryColor: primaryColor,
+          esRecurrente: esRecurrente,
+          esPendiente: true,
+        );
+      },
+    );
+  }
+
+  Future<void> _mostrarModalConfirmarPago({
+    required PedidoCliente pedido,
+    required bool esRecurrente,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final resultado = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF2D211A) : Colors.white,
+            title: Text(
+              '¿Pedido pagado?',
+              style: TextStyle(
+                color: isDark ? Colors.white : const Color(0xFF1B130D),
+              ),
+            ),
+            content: Text(
+              '¿Deseas marcar este pedido como pagado?',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : const Color(0xFF78716C),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'No',
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : const Color(0xFF78716C),
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEC6D13),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Sí'),
+              ),
+            ],
+          ),
+    );
+
+    if (resultado == true && mounted) {
+      // Marcar como pagado
+      final exito =
+          esRecurrente
+              ? await SupabaseService.marcarPedidoRecurrenteComoPagado(
+                pedidoId: pedido.id,
+              )
+              : await SupabaseService.marcarPedidoClienteComoPagado(
+                pedidoId: pedido.id,
+              );
+
+      if (mounted) {
+        if (exito) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Pedido marcado como pagado'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Recargar datos
+          _loadData();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Error al marcar el pedido como pagado'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildPagoPedidoCard({
     required bool isDark,
     required PedidoCliente pedido,
     required Color primaryColor,
+    bool esRecurrente = false,
+    bool esPendiente = false,
   }) {
     final observaciones = pedido.observaciones ?? '';
     final esFiado = observaciones.toUpperCase().contains('FIADO');
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D211A) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color:
-              isDark
-                  ? Colors.white.withOpacity(0.08)
-                  : Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-            spreadRadius: 0,
+    return GestureDetector(
+      onTap:
+          esPendiente
+              ? () => _mostrarModalConfirmarPago(
+                pedido: pedido,
+                esRecurrente: esRecurrente,
+              )
+              : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2D211A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color:
+                esPendiente
+                    ? Colors.orange.withOpacity(0.3)
+                    : (isDark
+                        ? Colors.white.withOpacity(0.08)
+                        : Colors.black.withOpacity(0.08)),
+            width: esPendiente ? 2 : 1,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          boxShadow: [
+            BoxShadow(
+              color:
+                  esPendiente
+                      ? Colors.orange.withOpacity(0.2)
+                      : Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pedido.clienteNombre,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1B130D),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              pedido.numeroPedido ?? 'Pedido #${pedido.id}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isDark
+                                        ? const Color(0xFF9A6C4C)
+                                        : const Color(0xFF9A6C4C),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          if (esRecurrente) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Colors.teal.withOpacity(0.5),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                'RECURRENTE',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.teal,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      pedido.clienteNombre,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF1B130D),
-                      ),
+                    // Mostrar total + domicilio si existe
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _formatCurrency(pedido.total),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
+                        ),
+                        if (pedido.domicilio != null &&
+                            pedido.domicilio! > 0) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_shipping,
+                                size: 12,
+                                color:
+                                    isDark
+                                        ? const Color(0xFF9A6C4C)
+                                        : const Color(0xFF9A6C4C),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatCurrency(pedido.domicilio!),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isDark
+                                          ? const Color(0xFF9A6C4C)
+                                          : const Color(0xFF9A6C4C),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      pedido.numeroPedido ?? 'Pedido #${pedido.id}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color:
-                            isDark
-                                ? const Color(0xFF9A6C4C)
-                                : const Color(0xFF9A6C4C),
+                    if (esFiado)
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'FIADO',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
-                    ),
+                    if (esPendiente)
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'PENDIENTE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _formatCurrency(pedido.total),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                    ),
-                  ),
-                  if (esFiado)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: Colors.red.withOpacity(0.6),
-                          width: 1,
-                        ),
-                      ),
-                      child: const Text(
-                        'FIADO',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.payment,
-                size: 14,
-                color:
-                    isDark ? const Color(0xFF9A6C4C) : const Color(0xFF9A6C4C),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                pedido.metodoPago ?? 'efectivo',
-                style: TextStyle(
-                  fontSize: 12,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.payment,
+                  size: 14,
                   color:
                       isDark
                           ? const Color(0xFF9A6C4C)
                           : const Color(0xFF9A6C4C),
                 ),
-              ),
-            ],
-          ),
-          if (observaciones.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                observaciones,
-                style: TextStyle(
-                  fontSize: 11,
-                  color:
-                      isDark
-                          ? const Color(0xFFA8A29E)
-                          : const Color(0xFF78716C),
+                const SizedBox(width: 4),
+                Text(
+                  pedido.metodoPago ?? 'efectivo',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color:
+                        isDark
+                            ? const Color(0xFF9A6C4C)
+                            : const Color(0xFF9A6C4C),
+                  ),
+                ),
+              ],
+            ),
+            if (observaciones.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  observaciones,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color:
+                        isDark
+                            ? const Color(0xFFA8A29E)
+                            : const Color(0xFF78716C),
+                  ),
                 ),
               ),
-            ),
-        ],
+            // Total en la esquina inferior
+            if (pedido.domicilio != null && pedido.domicilio! > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Total: ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF1B130D),
+                      ),
+                    ),
+                    Text(
+                      _formatCurrency(pedido.total + pedido.domicilio!),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
