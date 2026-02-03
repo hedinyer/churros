@@ -53,12 +53,15 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
       {}; // productoId -> precio especial
   Map<int, double> _preciosEspeciales =
       {}; // productoId -> precio especial por cliente
+  Map<int, int> _inventarioFabrica = {}; // productoId -> cantidad en inventario_fabrica
+  Map<int, int> _inventarioSucursal5 = {}; // productoId -> cantidad en inventario_actual (sucursal_id = 5)
   String? _clienteSeleccionado;
   String _metodoPago = 'efectivo';
   bool _esFiado = false;
   bool _isLoading = true;
   bool _isGuardando = false;
   final _direccionController = TextEditingController();
+  final _domicilioController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   // Filtro de categorías: -1 = Todas, 0 = Sin categoría, >0 = categoria_id
   int _selectedCategoriaFilter = -1;
@@ -74,6 +77,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
   @override
   void dispose() {
     _direccionController.dispose();
+    _domicilioController.dispose();
     _searchController.dispose();
     for (var controller in _cantidadControllers.values) {
       controller.dispose();
@@ -95,6 +99,19 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
       final productos = await SupabaseService.getProductosActivos();
       final categorias = await SupabaseService.getCategorias();
       final categoriasMap = {for (var cat in categorias) cat.id: cat};
+
+      // Cargar inventarios
+      final inventarioFabrica = await SupabaseService.getInventarioFabricaCompleto();
+      
+      // Cargar inventario de sucursal 5
+      final inventarioSucursal5Response = await SupabaseService.client
+          .from('inventario_actual')
+          .select('producto_id, cantidad')
+          .eq('sucursal_id', 5);
+      final inventarioSucursal5 = <int, int>{};
+      for (final item in inventarioSucursal5Response) {
+        inventarioSucursal5[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
+      }
 
       // Filtrar productos: churros congelados y fritos
       // - categoria_id = 1 o 4: nombre contiene "crudo" (todos los crudos, sin importar unidad)
@@ -147,6 +164,8 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         _categoriasMap = categoriasMap;
         _cantidadControllers = cantidadControllers;
         _precioControllers = precioControllers;
+        _inventarioFabrica = inventarioFabrica;
+        _inventarioSucursal5 = inventarioSucursal5;
         _isLoading = false;
       });
     } catch (e) {
@@ -244,6 +263,44 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
           ),
     );
     return producto.precio;
+  }
+
+  /// Obtiene el inventario disponible para un producto
+  /// Si es crudo: inventario_fabrica
+  /// Si es frito o bebida (categoria_id = 3): inventario_actual (sucursal_id = 5)
+  int _getInventarioDisponible(int productoId) {
+    final producto = _productos.firstWhere(
+      (p) => p.id == productoId,
+      orElse: () => Producto(
+        id: productoId,
+        nombre: 'Producto',
+        precio: 0.0,
+        unidadMedida: 'unidad',
+        activo: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    
+    final nombreProducto = producto.nombre.toLowerCase();
+    final categoriaId = producto.categoria?.id;
+    
+    // Si contiene "frito" → inventario_actual (sucursal_id = 5)
+    if (nombreProducto.contains('frito')) {
+      return _inventarioSucursal5[productoId] ?? 0;
+    }
+    // Si contiene "crudo" → inventario_fabrica
+    else if (nombreProducto.contains('crudo')) {
+      return _inventarioFabrica[productoId] ?? 0;
+    }
+    // Si es bebida (categoria_id = 3) → inventario_actual (sucursal_id = 5)
+    else if (categoriaId == 3) {
+      return _inventarioSucursal5[productoId] ?? 0;
+    }
+    // Por defecto, inventario_fabrica
+    else {
+      return _inventarioFabrica[productoId] ?? 0;
+    }
   }
 
   double _calcularTotal() {
@@ -356,6 +413,13 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         preciosEspecialesMap[entry.key] = precioEspecial;
       }
 
+      // Obtener valor de domicilio (opcional)
+      // Convertir a int porque el campo en la BD es bigint
+      final domicilioText = _domicilioController.text.trim();
+      final domicilio = domicilioText.isEmpty
+          ? null
+          : (double.tryParse(domicilioText)?.toInt());
+
       // Crear pedido usando el servicio, pero con precios especiales
       final pedido = await _crearPedidoConPreciosEspeciales(
         clienteNombre: _clienteSeleccionado!,
@@ -367,11 +431,13 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         preciosEspeciales: preciosEspecialesMap,
         metodoPago: _metodoPago,
         esFiado: _esFiado,
+        domicilio: domicilio,
       );
 
       if (pedido != null && mounted) {
         // Limpiar formulario
         _direccionController.clear();
+        _domicilioController.clear();
         setState(() {
           _cantidades.clear();
           _preciosEspeciales.clear();
@@ -433,6 +499,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
     required Map<int, double> preciosEspeciales,
     required String metodoPago,
     required bool esFiado,
+    int? domicilio,
   }) async {
     try {
       final hasConnection = await SupabaseService.client
@@ -514,6 +581,7 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         'sincronizado': hasConnection,
         'estado_pago': estadoPago,
         'fecha_pago': fechaPago,
+        'domicilio': domicilio,
       };
 
       // Insertar el pedido en la tabla de pedidos recurrentes
@@ -756,6 +824,50 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                           : Colors.white,
                                 ),
                                 maxLines: 2,
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Campo de Domicilio
+                              Text(
+                                'Domicilio',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1B130D),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _domicilioController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: InputDecoration(
+                                  labelText: 'Valor del domicilio (Opcional)',
+                                  hintText: 'Ingrese el valor del domicilio',
+                                  prefixText: '\$ ',
+                                  prefixStyle: TextStyle(
+                                    color:
+                                        isDark
+                                            ? Colors.white70
+                                            : Colors.black87,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF2D211A)
+                                          : Colors.white,
+                                ),
                                 style: TextStyle(
                                   color:
                                       isDark
@@ -1033,6 +1145,35 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                                   ),
                                                 ),
                                               ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _getInventarioDisponible(producto.id) > 0
+                                                  ? Colors.green.withOpacity(isDark ? 0.2 : 0.1)
+                                                  : Colors.red.withOpacity(isDark ? 0.2 : 0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: _getInventarioDisponible(producto.id) > 0
+                                                    ? Colors.green.withOpacity(0.3)
+                                                    : Colors.red.withOpacity(0.3),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Stock: ${_getInventarioDisponible(producto.id)}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: _getInventarioDisponible(producto.id) > 0
+                                                    ? Colors.green.shade700
+                                                    : Colors.red.shade700,
+                                              ),
                                             ),
                                           ),
                                         ],

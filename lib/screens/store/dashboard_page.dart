@@ -16,6 +16,7 @@ import 'day_closing_page.dart';
 import '../factory/factory_order_page.dart';
 import 'store_expenses_page.dart';
 import 'frying_page.dart';
+import 'sobrantes_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final Sucursal sucursal;
@@ -836,6 +837,34 @@ class _DashboardPageState extends State<DashboardPage> {
                                 }
                               },
                             ),
+
+                            // 8. Sobrantes (solo visible para sucursal 5)
+                            if (widget.sucursal.id == 5)
+                              _buildActionButton(
+                                key: null,
+                                context: context,
+                                isDark: isDark,
+                                icon: Icons.inventory_2,
+                                iconColor: Colors.teal,
+                                backgroundColor: Colors.teal,
+                                backgroundIcon: Icons.inventory_2,
+                                title: 'SOBRANTES',
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => SobrantesPage(
+                                            sucursal: widget.sucursal,
+                                            currentUser: widget.currentUser,
+                                          ),
+                                    ),
+                                  );
+                                  if (mounted) {
+                                    _loadVentasHoy();
+                                  }
+                                },
+                              ),
                           ],
                         ),
                       ],

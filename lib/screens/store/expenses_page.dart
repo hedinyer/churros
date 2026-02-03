@@ -53,6 +53,22 @@ class _ExpensesPageState extends State<ExpensesPage> {
       // Cargar gastos varios del día actual (ya filtrado por el servicio)
       final gastos = await SupabaseService.getGastosVarios();
 
+      print('🔍 _loadData: Pedidos clientes cargados: ${pedidos.length}');
+      print(
+        '🔍 _loadData: IDs de pedidos clientes: ${pedidos.map((p) => p.id).toList()}',
+      );
+
+      // Buscar el pedido ID 16
+      final pedido16 = pedidos.where((p) => p.id == 16).toList();
+      if (pedido16.isNotEmpty) {
+        print('🔍 _loadData: Pedido ID 16 encontrado!');
+        print('🔍   estado_pago: ${pedido16.first.estadoPago}');
+        print('🔍   fecha_pago: ${pedido16.first.fechaPago}');
+        print('🔍   estado: ${pedido16.first.estado}');
+      } else {
+        print('🔍 _loadData: Pedido ID 16 NO encontrado en pedidos cargados!');
+      }
+
       setState(() {
         _pedidosClientes = pedidos;
         _pedidosRecurrentes = pedidosRecurrentes;
@@ -353,24 +369,48 @@ class _ExpensesPageState extends State<ExpensesPage> {
     return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
   }
 
-  double _getTotalPagos() {
-    // Sumar pedidos de clientes (excluyendo fiados, sin incluir domicilios)
-    final totalClientes = _pedidosClientes.fold(0.0, (sum, pedido) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (esFiado) {
-        return sum;
+  /// Parsea el monto en efectivo de un pago mixto desde las observaciones
+  /// Si no se encuentra información específica, divide el total 50/50
+  double _parseMontoEfectivoMixto(PedidoCliente pedido) {
+    final observaciones = pedido.observaciones ?? '';
+    final total = pedido.total;
+
+    // Buscar patrones comunes en las observaciones:
+    // - "EFECTIVO: 50000" o "EFECTIVO 50000" o "EF $50000"
+    // - "EF: 50000" o "EF 50000"
+    final efectivoPatterns = [
+      RegExp(r'EFECTIVO[:\s]+(\d+(?:[.,]\d+)?)', caseSensitive: false),
+      RegExp(r'EF[:\s]+(\d+(?:[.,]\d+)?)', caseSensitive: false),
+      RegExp(r'EFECTIVO[:\s]+\$?\s*(\d+(?:[.,]\d+)?)', caseSensitive: false),
+      RegExp(r'EF[:\s]+\$?\s*(\d+(?:[.,]\d+)?)', caseSensitive: false),
+    ];
+
+    for (final pattern in efectivoPatterns) {
+      final match = pattern.firstMatch(observaciones);
+      if (match != null) {
+        try {
+          final montoStr = match.group(1)?.replaceAll(',', '') ?? '';
+          final montoEfectivo = double.tryParse(montoStr) ?? 0.0;
+          // Asegurar que no sea mayor al total
+          return montoEfectivo > total ? total : montoEfectivo;
+        } catch (e) {
+          print('Error parseando monto efectivo: $e');
+        }
       }
+    }
+
+    // Si no se encuentra información específica, dividir 50/50
+    return total / 2;
+  }
+
+  double _getTotalPagos() {
+    // Sumar TODOS los pedidos de clientes pagados hoy (incluyendo fiados, sin incluir domicilios)
+    final totalClientes = _pedidosClientes.fold(0.0, (sum, pedido) {
       return sum + pedido.total;
     });
 
-    // Sumar pedidos recurrentes (excluyendo fiados, sin incluir domicilios)
+    // Sumar TODOS los pedidos recurrentes pagados hoy (incluyendo fiados, sin incluir domicilios)
     final totalRecurrentes = _pedidosRecurrentes.fold(0.0, (sum, pedido) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (esFiado) {
-        return sum;
-      }
       return sum + pedido.total;
     });
 
@@ -406,24 +446,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   double _getTotalDomicilios() {
-    // Sumar domicilios de pedidos de clientes NO fiados
+    // Sumar TODOS los domicilios de pedidos de clientes entregados (incluyendo fiados)
     final totalClientes = _pedidosClientes.fold(0.0, (sum, pedido) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (esFiado) {
-        return sum;
-      }
       final domicilio = pedido.domicilio ?? 0.0;
       return sum + domicilio;
     });
 
-    // Sumar domicilios de pedidos recurrentes NO fiados
+    // Sumar TODOS los domicilios de pedidos recurrentes entregados (incluyendo fiados)
     final totalRecurrentes = _pedidosRecurrentes.fold(0.0, (sum, pedido) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (esFiado) {
-        return sum;
-      }
       final domicilio = pedido.domicilio ?? 0.0;
       return sum + domicilio;
     });
@@ -437,50 +467,77 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   double _getTotalEfectivo() {
-    // Sumar pedidos pagados en efectivo (excluyendo fiados)
+    // Sumar pedidos pagados en efectivo (incluyendo parte efectivo de pagos mixtos)
     double total = 0.0;
 
     // Pedidos de clientes pagados
     for (final pedido in _pedidosClientes) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'EFECTIVO') {
+      final metodoPago = pedido.metodoPago?.toUpperCase() ?? '';
+
+      if (metodoPago == 'EFECTIVO') {
+        // Pago completo en efectivo
         total += pedido.total;
+      } else if (metodoPago == 'MIXTO') {
+        // Pago mixto: dividir el total entre efectivo y transferencia
+        // Por defecto 50/50, pero se puede parsear de observaciones si hay formato específico
+        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
+        total += montoEfectivo;
       }
+      // TRANSFERENCIA y otros métodos no se suman aquí
     }
 
     // Pedidos recurrentes pagados
     for (final pedido in _pedidosRecurrentes) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'EFECTIVO') {
+      final metodoPago = pedido.metodoPago?.toUpperCase() ?? '';
+
+      if (metodoPago == 'EFECTIVO') {
+        // Pago completo en efectivo
         total += pedido.total;
+      } else if (metodoPago == 'MIXTO') {
+        // Pago mixto: dividir el total entre efectivo y transferencia
+        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
+        total += montoEfectivo;
       }
+      // TRANSFERENCIA y otros métodos no se suman aquí
     }
 
     return total;
   }
 
   double _getTotalTransferencia() {
-    // Sumar pedidos pagados en transferencia (excluyendo fiados)
+    // Sumar pedidos pagados en transferencia (incluyendo parte transferencia de pagos mixtos)
     double total = 0.0;
 
     // Pedidos de clientes pagados
     for (final pedido in _pedidosClientes) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'TRANSFERENCIA') {
+      final metodoPago = pedido.metodoPago?.toUpperCase() ?? '';
+
+      if (metodoPago == 'TRANSFERENCIA') {
+        // Pago completo en transferencia
         total += pedido.total;
+      } else if (metodoPago == 'MIXTO') {
+        // Pago mixto: dividir el total entre efectivo y transferencia
+        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
+        final montoTransferencia = pedido.total - montoEfectivo;
+        total += montoTransferencia;
       }
+      // EFECTIVO y otros métodos no se suman aquí
     }
 
     // Pedidos recurrentes pagados
     for (final pedido in _pedidosRecurrentes) {
-      final observaciones = pedido.observaciones ?? '';
-      final esFiado = observaciones.toUpperCase().contains('FIADO');
-      if (!esFiado && pedido.metodoPago?.toUpperCase() == 'TRANSFERENCIA') {
+      final metodoPago = pedido.metodoPago?.toUpperCase() ?? '';
+
+      if (metodoPago == 'TRANSFERENCIA') {
+        // Pago completo en transferencia
         total += pedido.total;
+      } else if (metodoPago == 'MIXTO') {
+        // Pago mixto: dividir el total entre efectivo y transferencia
+        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
+        final montoTransferencia = pedido.total - montoEfectivo;
+        total += montoTransferencia;
       }
+      // EFECTIVO y otros métodos no se suman aquí
     }
 
     return total;
@@ -699,7 +756,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Pagos (sin fiado)',
+                        'Pagos Entregados',
                         style: TextStyle(
                           fontSize: 12,
                           color:
@@ -925,8 +982,49 @@ class _ExpensesPageState extends State<ExpensesPage> {
     // Combinar ambos tipos de pedidos
     final todosLosPedidos = [..._pedidosClientes, ..._pedidosRecurrentes];
 
-    // Ordenar por fecha de creación (más recientes primero)
-    todosLosPedidos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    print(
+      '🔍 _buildPagosPedidosList: Total pedidos clientes: ${_pedidosClientes.length}',
+    );
+    print(
+      '🔍 _buildPagosPedidosList: Total pedidos recurrentes: ${_pedidosRecurrentes.length}',
+    );
+    print(
+      '🔍 _buildPagosPedidosList: Total combinados: ${todosLosPedidos.length}',
+    );
+
+    // Debug: buscar el pedido ID 16
+    final pedido16 = todosLosPedidos.where((p) => p.id == 16).toList();
+    if (pedido16.isNotEmpty) {
+      print('🔍 _buildPagosPedidosList: Pedido ID 16 encontrado en lista!');
+      print('🔍   estado_pago: ${pedido16.first.estadoPago}');
+      print('🔍   fecha_pago: ${pedido16.first.fechaPago}');
+      print('🔍   estado: ${pedido16.first.estado}');
+    } else {
+      print('🔍 _buildPagosPedidosList: Pedido ID 16 NO encontrado en lista!');
+      print(
+        '🔍   IDs de pedidos clientes: ${_pedidosClientes.map((p) => p.id).toList()}',
+      );
+      print(
+        '🔍   IDs de pedidos recurrentes: ${_pedidosRecurrentes.map((p) => p.id).toList()}',
+      );
+    }
+
+    // Ordenar por fecha de pago (más recientes primero), y si no tiene fecha de pago, por fecha de creación
+    todosLosPedidos.sort((a, b) {
+      // Si ambos tienen fecha de pago, ordenar por fecha de pago
+      if (a.fechaPago != null && b.fechaPago != null) {
+        return b.fechaPago!.compareTo(a.fechaPago!);
+      }
+      // Si solo uno tiene fecha de pago, ese va primero
+      if (a.fechaPago != null && b.fechaPago == null) {
+        return -1;
+      }
+      if (a.fechaPago == null && b.fechaPago != null) {
+        return 1;
+      }
+      // Si ninguno tiene fecha de pago, ordenar por fecha de creación
+      return b.createdAt.compareTo(a.createdAt);
+    });
 
     if (todosLosPedidos.isEmpty) {
       return Center(
@@ -961,8 +1059,18 @@ class _ExpensesPageState extends State<ExpensesPage> {
       itemCount: todosLosPedidos.length,
       itemBuilder: (context, index) {
         final pedido = todosLosPedidos[index];
-        // Verificar si es un pedido recurrente (está en la lista de recurrentes)
-        final esRecurrente = _pedidosRecurrentes.any((p) => p.id == pedido.id);
+
+        // Debug: verificar si es el pedido ID 16
+        if (pedido.id == 16) {
+          print('🔍 Renderizando pedido ID 16 en índice $index');
+        }
+
+        // Verificar si es un pedido recurrente
+        // Un pedido es recurrente si está en la lista de recurrentes Y NO está en la lista de clientes
+        // O mejor: verificar si el índice corresponde a un pedido de la lista de recurrentes
+        // Como combinamos las listas en orden: primero clientes, luego recurrentes
+        final esRecurrente = index >= _pedidosClientes.length;
+
         return _buildPagoPedidoCard(
           isDark: isDark,
           pedido: pedido,
@@ -1097,8 +1205,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
               backgroundColor: Colors.green,
             ),
           );
-          // Recargar datos
-          _loadData();
+          // Recargar datos después de un breve delay para asegurar que la BD se actualice
+          await Future.delayed(const Duration(milliseconds: 300));
+          if (mounted) {
+            _loadData();
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1118,6 +1229,15 @@ class _ExpensesPageState extends State<ExpensesPage> {
     bool esRecurrente = false,
     bool esPendiente = false,
   }) {
+    // Debug: verificar si es el pedido ID 16
+    if (pedido.id == 16) {
+      print('🔍 _buildPagoPedidoCard: Construyendo card para pedido ID 16');
+      print('🔍   esRecurrente: $esRecurrente');
+      print('🔍   esPendiente: $esPendiente');
+      print('🔍   clienteNombre: ${pedido.clienteNombre}');
+      print('🔍   total: ${pedido.total}');
+    }
+
     final observaciones = pedido.observaciones ?? '';
     final esFiado = observaciones.toUpperCase().contains('FIADO');
 
@@ -1226,7 +1346,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Mostrar total + domicilio si existe
+                    // Mostrar total + domicilio si existe (solo para pedidos clientes, no recurrentes)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -1238,6 +1358,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                             color: primaryColor,
                           ),
                         ),
+                        // Mostrar domicilio si existe (tanto para pedidos clientes como recurrentes)
                         if (pedido.domicilio != null &&
                             pedido.domicilio! > 0) ...[
                           const SizedBox(height: 2),
@@ -1276,19 +1397,25 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color:
+                              esPendiente
+                                  ? Colors.red.withOpacity(0.1)
+                                  : Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
-                            color: Colors.red.withOpacity(0.6),
+                            color:
+                                esPendiente
+                                    ? Colors.red.withOpacity(0.6)
+                                    : Colors.green.withOpacity(0.6),
                             width: 1,
                           ),
                         ),
-                        child: const Text(
-                          'FIADO',
+                        child: Text(
+                          esPendiente ? 'FIADO' : 'FIADO - PAGADO',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red,
+                            color: esPendiente ? Colors.red : Colors.green,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -1360,8 +1487,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   ),
                 ),
               ),
-            // Total en la esquina inferior
-            if (pedido.domicilio != null && pedido.domicilio! > 0)
+            // Total en la esquina inferior (mostrar si hay domicilio)
+            if (pedido.domicilio != null &&
+                pedido.domicilio! > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(

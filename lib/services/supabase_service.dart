@@ -2126,11 +2126,11 @@ class SupabaseService {
         // Obtener inventarios
         final inventarioFabrica = await getInventarioFabricaCompleto();
         
-        // Obtener inventario actual de sucursal 6
+        // Obtener inventario actual de sucursal 5
         final inventarioActualResponse = await client
             .from('inventario_actual')
             .select('producto_id, cantidad')
-            .eq('sucursal_id', 6);
+            .eq('sucursal_id', 5);
         final inventarioActual = <int, int>{};
         for (final item in inventarioActualResponse) {
           inventarioActual[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
@@ -2149,7 +2149,7 @@ class SupabaseService {
           final nombreProducto = producto.nombre.toLowerCase();
           int cantidadDisponible;
 
-          // Si contiene "frito" → validar inventario_actual (sucursal_id = 6)
+          // Si contiene "frito" → validar inventario_actual (sucursal_id = 5)
           if (nombreProducto.contains('frito')) {
             cantidadDisponible = inventarioActual[productoId] ?? 0;
           }
@@ -2641,6 +2641,63 @@ required int productoId,
     );
   }
 
+  /// Aumenta el inventario de un producto en una sucursal
+  /// Si el producto no existe en inventario_actual, lo crea
+  /// Si existe, suma la cantidad a la existente
+  static Future<bool> aumentarInventarioActual({
+    required int sucursalId,
+    required int productoId,
+    required int cantidad,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para aumentar inventario actual');
+        return false;
+      }
+
+      if (cantidad <= 0) {
+        print('La cantidad debe ser mayor a 0');
+        return false;
+      }
+
+      // Obtener cantidad actual (si existe)
+      final inventarioExistente = await client
+          .from('inventario_actual')
+          .select('cantidad')
+          .eq('sucursal_id', sucursalId)
+          .eq('producto_id', productoId)
+          .maybeSingle();
+
+      final cantidadActual = inventarioExistente != null
+          ? ((inventarioExistente['cantidad'] as num?)?.toInt() ?? 0)
+          : 0;
+      final nuevaCantidad = cantidadActual + cantidad;
+
+      // Usar upsert para insertar o actualizar
+      final data = {
+        'sucursal_id': sucursalId,
+        'producto_id': productoId,
+        'cantidad': nuevaCantidad,
+        'ultima_actualizacion': DateTime.now().toIso8601String(),
+      };
+
+      await client
+          .from('inventario_actual')
+          .upsert(data, onConflict: 'sucursal_id,producto_id');
+
+      print(
+        '✅ Inventario actualizado: Sucursal $sucursalId, Producto $productoId, Cantidad anterior: $cantidadActual, Cantidad agregada: $cantidad, Nueva cantidad: $nuevaCantidad',
+      );
+
+      return true;
+    } catch (e) {
+      print('❌ Error aumentando inventario actual: $e');
+      print('Stack trace: ${StackTrace.current}');
+      return false;
+    }
+  }
+
   /// Descuenta cantidad del inventario de fábrica (método público)
   /// Retorna un Map con 'exito' (bool) y 'mensaje' (String)
   static Future<Map<String, dynamic>> descontarInventarioFabrica({
@@ -2806,7 +2863,14 @@ required int productoId,
       }
 
       // Obtener los pedidos de clientes pagados del día actual según fecha_pago
-      final today = DateTime.now().toIso8601String().split('T')[0];
+      // Usar getColombiaDateTime() para obtener la fecha correcta según zona horaria de Colombia
+      final now = getColombiaDateTime();
+      // Formatear la fecha como YYYY-MM-DD para comparar con fecha_pago (tipo date)
+      final today = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      
+      print('🔍 Buscando pedidos pagados con fecha_pago = $today');
+      print('🔍 Filtros: estado_pago = pagado, fecha_pago = $today');
+      
       final pedidosResponse = await client
           .from('pedidos_clientes')
           .select()
@@ -2814,6 +2878,39 @@ required int productoId,
           .eq('fecha_pago', today)
           .order('created_at', ascending: false)
           .limit(limit);
+      
+      print('🔍 Pedidos pagados encontrados: ${pedidosResponse.length}');
+      if (pedidosResponse.isNotEmpty) {
+        print('🔍 Primer pedido encontrado: ID=${pedidosResponse.first['id']}, estado_pago=${pedidosResponse.first['estado_pago']}, fecha_pago=${pedidosResponse.first['fecha_pago']}, estado=${pedidosResponse.first['estado']}');
+      } else {
+        // Debug: buscar todos los pedidos pagados para ver qué fechas tienen
+        final allPagados = await client
+            .from('pedidos_clientes')
+            .select('id, estado_pago, fecha_pago, estado')
+            .eq('estado_pago', 'pagado')
+            .limit(10);
+        print('🔍 DEBUG Todos los pedidos pagados (primeros 10):');
+        for (final p in allPagados) {
+          print('🔍   ID=${p['id']}, fecha_pago=${p['fecha_pago']}, estado=${p['estado']}');
+        }
+        print('🔍 DEBUG Fecha buscada: $today');
+        
+        // Debug: buscar el pedido específico que debería aparecer
+        final debugResponse = await client
+            .from('pedidos_clientes')
+            .select()
+            .eq('id', 16)
+            .maybeSingle();
+        if (debugResponse != null) {
+          print('🔍 DEBUG Pedido ID 16: estado_pago=${debugResponse['estado_pago']}, fecha_pago=${debugResponse['fecha_pago']}, estado=${debugResponse['estado']}');
+          print('🔍 DEBUG Fecha buscada: $today');
+          print('🔍 DEBUG Tipo fecha_pago: ${debugResponse['fecha_pago'].runtimeType}');
+          print('🔍 DEBUG Tipo today: ${today.runtimeType}');
+          print('🔍 DEBUG ¿Coinciden las fechas? ${debugResponse['fecha_pago'].toString() == today}');
+        } else {
+          print('🔍 DEBUG Pedido ID 16 no encontrado');
+        }
+      }
 
       if (pedidosResponse.isEmpty) return [];
 
@@ -3001,7 +3098,10 @@ required int productoId,
       }
 
       // Obtener los pedidos recurrentes pagados del día actual según fecha_pago
-      final today = DateTime.now().toIso8601String().split('T')[0];
+      // Usar getColombiaDateTime() para obtener la fecha correcta según zona horaria de Colombia
+      final now = getColombiaDateTime();
+      final today = now.toIso8601String().split('T')[0];
+      
       final pedidosResponse = await client
           .from('pedidos_recurrentes')
           .select()
@@ -3254,7 +3354,9 @@ required int productoId,
         return false;
       }
 
-      final today = DateTime.now().toIso8601String().split('T')[0];
+      // Usar getColombiaDateTime() para obtener la fecha correcta según zona horaria de Colombia
+      final now = getColombiaDateTime();
+      final today = now.toIso8601String().split('T')[0];
 
       await client
           .from('pedidos_clientes')
@@ -3282,7 +3384,9 @@ required int productoId,
         return false;
       }
 
-      final today = DateTime.now().toIso8601String().split('T')[0];
+      // Usar getColombiaDateTime() para obtener la fecha correcta según zona horaria de Colombia
+      final now = getColombiaDateTime();
+      final today = now.toIso8601String().split('T')[0];
 
       await client
           .from('pedidos_recurrentes')
@@ -3351,10 +3455,10 @@ required int productoId,
             final nombreProducto = producto.nombre.toLowerCase();
             Map<String, dynamic> resultado;
 
-            // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 6)
+            // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 5)
             if (nombreProducto.contains('frito')) {
               resultado = await _descontarInventarioActual(
-                sucursalId: 6,
+                sucursalId: 5,
                 productoId: productoId,
                 cantidad: cantidad,
               );
@@ -3864,10 +3968,8 @@ required int productoId,
         return null;
       }
 
-      // Agregar domicilio al total si existe
-      if (domicilio != null && domicilio > 0) {
-        total += domicilio;
-      }
+      // Nota: El domicilio NO se suma al total, se guarda por separado en el campo 'domicilio'
+      // El campo 'total' solo contiene el valor del pedido sin incluir el domicilio
 
       // Determinar estado_pago y fecha_pago según si es fiado
       final today = now.toIso8601String().split('T')[0];

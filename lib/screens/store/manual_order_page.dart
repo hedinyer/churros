@@ -32,7 +32,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   Map<int, double> _preciosEspeciales =
       {}; // productoId -> precio especial (si aplica)
   Map<int, int> _inventarioFabrica = {}; // productoId -> cantidad en inventario_fabrica
-  Map<int, int> _inventarioSucursal6 = {}; // productoId -> cantidad en inventario_actual (sucursal_id = 6)
+  Map<int, int> _inventarioSucursal5 = {}; // productoId -> cantidad en inventario_actual (sucursal_id = 5)
   String _metodoPago = 'efectivo';
   bool _esFiado = false;
   bool _isLoading = true;
@@ -114,21 +114,21 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       // Cargar inventarios
       final inventarioFabrica = await SupabaseService.getInventarioFabricaCompleto();
       
-      // Cargar inventario de sucursal 6
-      final inventarioSucursal6Response = await SupabaseService.client
+      // Cargar inventario de sucursal 5
+      final inventarioSucursal5Response = await SupabaseService.client
           .from('inventario_actual')
           .select('producto_id, cantidad')
-          .eq('sucursal_id', 6);
-      final inventarioSucursal6 = <int, int>{};
-      for (final item in inventarioSucursal6Response) {
-        inventarioSucursal6[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
+          .eq('sucursal_id', 5);
+      final inventarioSucursal5 = <int, int>{};
+      for (final item in inventarioSucursal5Response) {
+        inventarioSucursal5[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
       }
 
       setState(() {
         _productos = productosFiltrados;
         _categoriasMap = categoriasMap;
         _inventarioFabrica = inventarioFabrica;
-        _inventarioSucursal6 = inventarioSucursal6;
+        _inventarioSucursal5 = inventarioSucursal5;
         // Inicializar controllers de precio con el precio base del producto
         _precioControllers = {
           for (final p in productosFiltrados)
@@ -263,7 +263,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
   /// Obtiene el inventario disponible para un producto
   /// Si es crudo: inventario_fabrica
-  /// Si es frito o bebida (categoria_id = 3): inventario_actual (sucursal_id = 6)
+  /// Si es frito o bebida (categoria_id = 3): inventario_actual (sucursal_id = 5)
   int _getInventarioDisponible(int productoId) {
     final producto = _productos.firstWhere(
       (p) => p.id == productoId,
@@ -281,17 +281,17 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     final nombreProducto = producto.nombre.toLowerCase();
     final categoriaId = producto.categoria?.id;
     
-    // Si contiene "frito" → inventario_actual (sucursal_id = 6)
+    // Si contiene "frito" → inventario_actual (sucursal_id = 5)
     if (nombreProducto.contains('frito')) {
-      return _inventarioSucursal6[productoId] ?? 0;
+      return _inventarioSucursal5[productoId] ?? 0;
     }
     // Si contiene "crudo" → inventario_fabrica
     else if (nombreProducto.contains('crudo')) {
       return _inventarioFabrica[productoId] ?? 0;
     }
-    // Si es bebida (categoria_id = 3) → inventario_actual (sucursal_id = 6)
+    // Si es bebida (categoria_id = 3) → inventario_actual (sucursal_id = 5)
     else if (categoriaId == 3) {
-      return _inventarioSucursal6[productoId] ?? 0;
+      return _inventarioSucursal5[productoId] ?? 0;
     }
     // Por defecto, inventario_fabrica
     else {
@@ -487,10 +487,10 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         final categoriaId = producto.categoria?.id;
         Map<String, dynamic> resultado;
 
-        // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 6)
+        // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 5)
         if (nombreProducto.contains('frito')) {
           resultado = await SupabaseService.descontarInventarioActual(
-            sucursalId: 6,
+            sucursalId: 5,
             productoId: productoId,
             cantidad: cantidad,
           );
@@ -502,10 +502,10 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
             cantidad: cantidad,
           );
         }
-        // Si es bebida (categoria_id = 3) → descontar de inventario_actual (sucursal_id = 6)
+        // Si es bebida (categoria_id = 3) → descontar de inventario_actual (sucursal_id = 5)
         else if (categoriaId == 3) {
           resultado = await SupabaseService.descontarInventarioActual(
-            sucursalId: 6,
+            sucursalId: 5,
             productoId: productoId,
             cantidad: cantidad,
           );
@@ -534,13 +534,13 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
 
       // Recargar inventarios después del descuento
       final inventarioFabrica = await SupabaseService.getInventarioFabricaCompleto();
-      final inventarioSucursal6Response = await SupabaseService.client
+      final inventarioSucursal5Response = await SupabaseService.client
           .from('inventario_actual')
           .select('producto_id, cantidad')
-          .eq('sucursal_id', 6);
-      final inventarioSucursal6 = <int, int>{};
-      for (final item in inventarioSucursal6Response) {
-        inventarioSucursal6[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
+          .eq('sucursal_id', 5);
+      final inventarioSucursal5 = <int, int>{};
+      for (final item in inventarioSucursal5Response) {
+        inventarioSucursal5[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
       }
 
       final pedido = await SupabaseService.crearPedidoCliente(
@@ -565,7 +565,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         // Actualizar inventarios en el estado
         setState(() {
           _inventarioFabrica = inventarioFabrica;
-          _inventarioSucursal6 = inventarioSucursal6;
+          _inventarioSucursal5 = inventarioSucursal5;
         });
 
         // Limpiar formulario
