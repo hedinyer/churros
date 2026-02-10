@@ -4,6 +4,7 @@ import '../../models/pedido_fabrica.dart';
 import '../../models/producto.dart';
 import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
+import '../../services/data_cache_service.dart';
 import '../../services/factory_section_tracker.dart';
 
 class FactoryOrdersListPage extends StatefulWidget {
@@ -27,7 +28,7 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     super.initState();
     FactorySectionTracker.enter();
     _loadData();
-    _checkConnection();
+    _checkConnectionAsync();
   }
 
   @override
@@ -36,19 +37,11 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     super.dispose();
   }
 
-  Future<void> _checkConnection() async {
-    try {
-      await SupabaseService.client
-          .from('users')
-          .select()
-          .limit(1)
-          .maybeSingle();
+  Future<void> _checkConnectionAsync() async {
+    final isOnline = await DataCacheService.checkConnectionCached();
+    if (mounted) {
       setState(() {
-        _isOnline = true;
-      });
-    } catch (e) {
-      setState(() {
-        _isOnline = false;
+        _isOnline = isOnline;
       });
     }
   }
@@ -59,18 +52,19 @@ class _FactoryOrdersListPageState extends State<FactoryOrdersListPage> {
     });
 
     try {
-      // Cargar productos para mostrar nombres
-      final productos = await SupabaseService.getProductosActivos();
+      // Cargar TODO en paralelo: productos (desde caché), categorías (desde caché), y pedidos
+      final results = await Future.wait([
+        DataCacheService.getProductosActivos(),   // [0] productos
+        DataCacheService.getCategorias(),          // [1] categorías
+        SupabaseService.getPedidosFabricaRecientesTodasSucursalesFast(
+          limit: 100,
+        ),                                         // [2] pedidos (batch optimizado)
+      ]);
 
-      // Cargar categorías
-      final categorias = await SupabaseService.getCategorias();
+      final productos = results[0] as List<Producto>;
+      final categorias = results[1] as List<Categoria>;
+      final pedidos = results[2] as List<PedidoFabrica>;
       final categoriasMap = {for (var cat in categorias) cat.id: cat};
-
-      // Cargar pedidos de todas las sucursales
-      final pedidos =
-          await SupabaseService.getPedidosFabricaRecientesTodasSucursales(
-            limit: 100,
-          );
 
       setState(() {
         _productos = productos;

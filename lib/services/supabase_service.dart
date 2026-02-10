@@ -2178,8 +2178,25 @@ class SupabaseService {
           'productosInsuficientes': productosInsuficientes,
         };
       } else {
-        // Para pedidos de fábrica y clientes normales, usar inventario_fabrica
-        final inventario = await getInventarioFabricaCompleto();
+        // Para pedidos de fábrica, usar inventario_fabrica
+        // Para pedidos de clientes, validar según el tipo de producto (frito vs crudo)
+        final inventarioFabrica = await getInventarioFabricaCompleto();
+        
+        // Para pedidos de clientes, también necesitamos inventario_actual de sucursal 5
+        Map<int, int> inventarioActual = <int, int>{};
+        if (tipoPedido == 'cliente') {
+          try {
+            final inventarioActualResponse = await client
+                .from('inventario_actual')
+                .select('producto_id, cantidad')
+                .eq('sucursal_id', 5);
+            for (final item in inventarioActualResponse) {
+              inventarioActual[item['producto_id'] as int] = (item['cantidad'] as num?)?.toInt() ?? 0;
+            }
+          } catch (e) {
+            print('Error obteniendo inventario_actual para pedido cliente $pedidoId: $e');
+          }
+        }
 
         // Para pedidos de clientes, necesitamos saber la sucursal
         String? sucursalNombre;
@@ -2200,32 +2217,60 @@ class SupabaseService {
           }
         }
 
+        // Obtener productos para evaluar nombres (solo para pedidos de cliente)
+        final productos = tipoPedido == 'cliente' ? await getProductosActivos() : <Producto>[];
+        final productosMap = tipoPedido == 'cliente' ? {for (var p in productos) p.id: p} : <int, Producto>{};
+
         final productosInsuficientes = <Map<String, dynamic>>[];
 
         // Validar cada producto
         for (final detalle in detallesResponse) {
           final productoId = detalle['producto_id'] as int;
           final cantidadPedida = (detalle['cantidad'] as num?)?.toInt() ?? 0;
-          final cantidadDisponible = inventario[productoId] ?? 0;
-
-          // Regla especial: en pedidos de clientes de la sucursal "EL DANGOND",
-          // los "churro mediano" son sobre pedido y no deben validar inventario.
-          if (tipoPedido == 'cliente' && sucursalNombre != null) {
-            final sucursalNombreUpper = sucursalNombre.toUpperCase().trim();
-            final esSucursalDangond = sucursalNombreUpper == 'EL DANGOND';
-            if (esSucursalDangond) {
-              final producto = await getProductoById(productoId);
-              final nombreProducto = (producto?.nombre ?? '').toUpperCase();
-              if (nombreProducto.contains('CHURRO MEDIANO')) {
-                // Ignorar este producto en la validación de inventario
-                continue;
+          
+          int cantidadDisponible;
+          
+          // Para pedidos de cliente, validar según el tipo de producto
+          if (tipoPedido == 'cliente' && productosMap.containsKey(productoId)) {
+            final producto = productosMap[productoId]!;
+            final nombreProducto = producto.nombre.toLowerCase();
+            
+            // Regla especial: en pedidos de clientes de la sucursal "EL DANGOND",
+            // los "churro mediano" son sobre pedido y no deben validar inventario.
+            if (sucursalNombre != null) {
+              final sucursalNombreUpper = sucursalNombre.toUpperCase().trim();
+              final esSucursalDangond = sucursalNombreUpper == 'EL DANGOND';
+              if (esSucursalDangond) {
+                final nombreProductoUpper = nombreProducto.toUpperCase();
+                if (nombreProductoUpper.contains('CHURRO MEDIANO')) {
+                  // Ignorar este producto en la validación de inventario
+                  continue;
+                }
               }
             }
+            
+            // Si contiene "frito" → validar inventario_actual (sucursal_id = 5)
+            if (nombreProducto.contains('frito')) {
+              cantidadDisponible = inventarioActual[productoId] ?? 0;
+            }
+            // Si contiene "crudo" → validar inventario_fabrica
+            else if (nombreProducto.contains('crudo')) {
+              cantidadDisponible = inventarioFabrica[productoId] ?? 0;
+            }
+            // Por defecto, validar inventario_fabrica
+            else {
+              cantidadDisponible = inventarioFabrica[productoId] ?? 0;
+            }
+          } else {
+            // Para pedidos de fábrica, usar inventario_fabrica
+            cantidadDisponible = inventarioFabrica[productoId] ?? 0;
           }
 
           if (cantidadPedida > cantidadDisponible) {
             // Obtener nombre del producto
-            final producto = await getProductoById(productoId);
+            final producto = tipoPedido == 'cliente' && productosMap.containsKey(productoId)
+                ? productosMap[productoId]
+                : await getProductoById(productoId);
             productosInsuficientes.add({
               'producto_id': productoId,
               'producto_nombre': producto?.nombre ?? 'Producto #$productoId',
@@ -3075,6 +3120,7 @@ required int productoId,
           PedidoCliente.fromJson(
             pedidoJson,
             detalles: detalles,
+            esRecurrente: true,
           ),
         );
       }
@@ -3148,6 +3194,7 @@ required int productoId,
           PedidoCliente.fromJson(
             pedidoJson,
             detalles: detalles,
+            esRecurrente: true,
           ),
         );
       }
@@ -3215,6 +3262,7 @@ required int productoId,
           PedidoCliente.fromJson(
             pedidoJson,
             detalles: detalles,
+            esRecurrente: true,
           ),
         );
       }
@@ -3290,12 +3338,17 @@ required int productoId,
             .select('producto_id, cantidad')
             .eq('pedido_id', pedidoId);
 
-        // Descontar cada producto del inventario
+        // Descontar cada producto del inventario según su nombre
         for (final detalle in detallesResponse) {
           final productoId = detalle['producto_id'] as int;
           final cantidad = (detalle['cantidad'] as num?)?.toInt() ?? 0;
 
           if (cantidad > 0) {
+            final producto = productosMap[productoId];
+            if (producto == null) {
+              return {'exito': false, 'mensaje': 'Producto $productoId no encontrado'};
+            }
+
             // Regla especial: en pedidos de clientes de la sucursal "EL DANGOND",
             // los "churro mediano" son sobre pedido y NO deben descontarse del inventario.
             bool saltarDescuento = false;
@@ -3303,9 +3356,7 @@ required int productoId,
               final sucursalNombreUpper = sucursalNombre.toUpperCase().trim();
               final esSucursalDangond = sucursalNombreUpper == 'EL DANGOND';
               if (esSucursalDangond) {
-                final producto = productosMap[productoId];
-                final nombreProducto =
-                    (producto?.nombre ?? '').toUpperCase().trim();
+                final nombreProducto = producto.nombre.toUpperCase().trim();
                 if (nombreProducto.contains('CHURRO MEDIANO')) {
                   saltarDescuento = true;
                 }
@@ -3316,15 +3367,36 @@ required int productoId,
               continue;
             }
 
-            final resultado = await _descontarInventarioFabrica(
-              productoId: productoId,
-              cantidad: cantidad,
-            );
+            final nombreProducto = producto.nombre.toLowerCase();
+            Map<String, dynamic> resultado;
+
+            // Si contiene "frito" → descontar de inventario_actual (sucursal_id = 5)
+            if (nombreProducto.contains('frito')) {
+              resultado = await _descontarInventarioActual(
+                sucursalId: 5,
+                productoId: productoId,
+                cantidad: cantidad,
+              );
+            }
+            // Si contiene "crudo" → descontar de inventario_fabrica
+            else if (nombreProducto.contains('crudo')) {
+              resultado = await _descontarInventarioFabrica(
+                productoId: productoId,
+                cantidad: cantidad,
+              );
+            }
+            // Por defecto, descontar de inventario_fabrica
+            else {
+              resultado = await _descontarInventarioFabrica(
+                productoId: productoId,
+                cantidad: cantidad,
+              );
+            }
+
             if (!resultado['exito']) {
               return {
                 'exito': false,
-                'mensaje':
-                    'Error al descontar inventario: ${resultado['mensaje']}',
+                'mensaje': 'Error al descontar inventario: ${resultado['mensaje']}',
               };
             }
           }
@@ -3399,6 +3471,80 @@ required int productoId,
       return true;
     } catch (e) {
       print('Error marcando pedido recurrente como pagado: $e');
+      return false;
+    }
+  }
+
+  /// Actualiza el total y domicilio de un pedido de cliente
+  static Future<bool> actualizarTotalDomicilioPedidoCliente({
+    required int pedidoId,
+    required double total,
+    double? domicilio,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para actualizar pedido');
+        return false;
+      }
+
+      final updateData = <String, dynamic>{
+        'total': total,
+      };
+
+      // Siempre actualizar el domicilio (incluso si es null para eliminarlo)
+      if (domicilio != null && domicilio > 0) {
+        updateData['domicilio'] = domicilio;
+      } else {
+        // Si es null o <= 0, establecer como null para eliminar el domicilio
+        updateData['domicilio'] = null;
+      }
+
+      await client
+          .from('pedidos_clientes')
+          .update(updateData)
+          .eq('id', pedidoId);
+
+      return true;
+    } catch (e) {
+      print('Error actualizando total y domicilio del pedido de cliente: $e');
+      return false;
+    }
+  }
+
+  /// Actualiza el total y domicilio de un pedido recurrente
+  static Future<bool> actualizarTotalDomicilioPedidoRecurrente({
+    required int pedidoId,
+    required double total,
+    double? domicilio,
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para actualizar pedido');
+        return false;
+      }
+
+      final updateData = <String, dynamic>{
+        'total': total,
+      };
+
+      // Siempre actualizar el domicilio (incluso si es null para eliminarlo)
+      if (domicilio != null && domicilio > 0) {
+        updateData['domicilio'] = domicilio;
+      } else {
+        // Si es null o <= 0, establecer como null para eliminar el domicilio
+        updateData['domicilio'] = null;
+      }
+
+      await client
+          .from('pedidos_recurrentes')
+          .update(updateData)
+          .eq('id', pedidoId);
+
+      return true;
+    } catch (e) {
+      print('Error actualizando total y domicilio del pedido recurrente: $e');
       return false;
     }
   }
@@ -3878,6 +4024,7 @@ required int productoId,
         final pedido = PedidoCliente.fromJson(
           pedidoJson,
           detalles: detalles,
+          esRecurrente: true,
         );
         
         // Debug: verificar estado después de parsear
@@ -3924,6 +4071,8 @@ required int productoId,
     String? metodoPago,
     double? domicilio,
     bool esFiado = false,
+    double? parteEfectivo,
+    double? parteTransferencia,
   }) async {
     try {
       final hasConnection = await _checkConnection();
@@ -4006,6 +4155,16 @@ required int productoId,
       // Agregar domicilio si existe
       if (domicilio != null && domicilio > 0) {
         pedidoData['domicilio'] = domicilio;
+      }
+
+      // Agregar parte_efectivo y parte_transferencia si el método de pago es mixto
+      if (metodoPago == 'mixto') {
+        if (parteEfectivo != null && parteEfectivo > 0) {
+          pedidoData['parte_efectivo'] = parteEfectivo;
+        }
+        if (parteTransferencia != null && parteTransferencia > 0) {
+          pedidoData['parte_transferencia'] = parteTransferencia;
+        }
       }
 
       // Insertar el pedido
@@ -4665,6 +4824,561 @@ required int productoId,
     } catch (e) {
       print('Error eliminando empleado: $e');
       return false;
+    }
+  }
+
+  // ===================================================================
+  // MÉTODOS OPTIMIZADOS (Fast) - Carga en batch, sin N+1, sin redundancias
+  // ===================================================================
+
+  /// Obtiene pedidos de fábrica recientes de todas las sucursales (OPTIMIZADO).
+  /// Usa batch loading para detalles (1 query en vez de N).
+  /// Recibe [productosMap] opcional pre-cargado para evitar re-fetch.
+  static Future<List<PedidoFabrica>> getPedidosFabricaRecientesTodasSucursalesFast({
+    int limit = 100,
+    Map<int, Producto>? productosMap,
+  }) async {
+    try {
+      final pedidosResponse = await client
+          .from('pedidos_fabrica')
+          .select('*, sucursales(*)')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Recopilar todos los IDs de pedidos
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+
+      // Batch: obtener TODOS los detalles en UNA sola query
+      final allDetallesResponse = await client
+          .from('pedido_fabrica_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      // Agrupar detalles por pedido_id
+      final detallesPorPedido = <int, List<PedidoFabricaDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoFabricaDetalle.fromJson(json));
+      }
+
+      // Construir objetos PedidoFabrica
+      final pedidos = <PedidoFabrica>[];
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+        final sucursalJson =
+            pedidoJson['sucursales'] as Map<String, dynamic>?;
+        final sucursal =
+            sucursalJson != null ? Sucursal.fromJson(sucursalJson) : null;
+
+        pedidos.add(
+          PedidoFabrica.fromJson(
+            pedidoJson,
+            sucursal: sucursal,
+            detalles: detallesPorPedido[pedidoId] ?? [],
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos fábrica: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos de clientes recientes (OPTIMIZADO).
+  /// Batch loading de detalles + productosMap pre-cargado.
+  static Future<List<PedidoCliente>> getPedidosClientesRecientesFast({
+    int limit = 100,
+    bool soloHoy = false,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      var query = client.from('pedidos_clientes').select();
+      if (soloHoy) {
+        final today = DateTime.now().toIso8601String().split('T')[0];
+        query = query.eq('fecha_pedido', today);
+      }
+      final pedidosResponse = await query
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch: obtener todos los detalles en 1 query
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_cliente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      // Agrupar detalles por pedido_id
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoClienteDetalle.fromJson(json, producto: producto));
+      }
+
+      // Construir objetos
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos clientes: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos recurrentes recientes (OPTIMIZADO).
+  /// Batch loading de detalles + productosMap pre-cargado.
+  static Future<List<PedidoCliente>> getPedidosRecurrentesRecientesFast({
+    int limit = 100,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch: obtener todos los detalles en 1 query
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_recurrente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      // Agrupar detalles por pedido_id
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= []).add(
+          PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          ),
+        );
+      }
+
+      // Construir objetos
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+          esRecurrente: true,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos recurrentes: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos de fábrica para despacho (OPTIMIZADO).
+  static Future<List<PedidoFabrica>> getPedidosFabricaParaDespachoFast({
+    int limit = 100,
+    String? estadoFiltro,
+  }) async {
+    try {
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      PostgrestFilterBuilder query = client
+          .from('pedidos_fabrica')
+          .select('*, sucursales(*)')
+          .eq('fecha_pedido', today);
+
+      if (estadoFiltro != null) {
+        query = query.eq('estado', estadoFiltro);
+      } else {
+        query = query.or('estado.eq.enviado,estado.eq.entregado');
+      }
+
+      final pedidosResponse = await query
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch: obtener todos los detalles en 1 query
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_fabrica_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      // Agrupar detalles por pedido_id
+      final detallesPorPedido = <int, List<PedidoFabricaDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoFabricaDetalle.fromJson(json));
+      }
+
+      final pedidos = <PedidoFabrica>[];
+      for (final pedidoJson in pedidosResponse) {
+        final pedidoId = pedidoJson['id'] as int;
+        final sucursalJson =
+            pedidoJson['sucursales'] as Map<String, dynamic>?;
+        final sucursal =
+            sucursalJson != null ? Sucursal.fromJson(sucursalJson) : null;
+
+        pedidos.add(
+          PedidoFabrica.fromJson(
+            pedidoJson,
+            sucursal: sucursal,
+            detalles: detallesPorPedido[pedidoId] ?? [],
+          ),
+        );
+      }
+
+      return pedidos;
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos fábrica despacho: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos de clientes para despacho (OPTIMIZADO).
+  static Future<List<PedidoCliente>> getPedidosClientesParaDespachoFast({
+    int limit = 100,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .eq('fecha_pedido', today)
+          .or('estado.eq.enviado,estado.eq.entregado')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch: obtener todos los detalles en 1 query
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_cliente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      // Agrupar detalles por pedido_id
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoClienteDetalle.fromJson(json, producto: producto));
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos clientes despacho: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos recurrentes para despacho (OPTIMIZADO).
+  static Future<List<PedidoCliente>> getPedidosRecurrentesParaDespachoFast({
+    int limit = 100,
+    String? estadoFiltro,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      PostgrestFilterBuilder query = client
+          .from('pedidos_recurrentes')
+          .select()
+          .eq('fecha_pedido', today);
+
+      if (estadoFiltro != null) {
+        query = query.eq('estado', estadoFiltro);
+      } else {
+        query = query.or('estado.eq.enviado,estado.eq.entregado');
+      }
+
+      final pedidosResponse = await query
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch: obtener todos los detalles en 1 query
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_recurrente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      // Agrupar detalles por pedido_id
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= []).add(
+          PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          ),
+        );
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+          esRecurrente: true,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos recurrentes despacho: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos de clientes pagados (OPTIMIZADO) para la página de gastos.
+  static Future<List<PedidoCliente>> getPedidosClientesPagadosFast({
+    int limit = 1000,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final now = getColombiaDateTime();
+      final today =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .eq('estado_pago', 'pagado')
+          .eq('fecha_pago', today)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch detalles
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_cliente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoClienteDetalle.fromJson(json, producto: producto));
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos pagados: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos recurrentes pagados (OPTIMIZADO) para la página de gastos.
+  static Future<List<PedidoCliente>> getPedidosRecurrentesPagadosFast({
+    int limit = 1000,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final now = getColombiaDateTime();
+      final today =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .eq('estado_pago', 'pagado')
+          .eq('fecha_pago', today)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch detalles
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_recurrente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= []).add(
+          PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          ),
+        );
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+          esRecurrente: true,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos recurrentes pagados: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos de clientes pendientes de pago (OPTIMIZADO).
+  static Future<List<PedidoCliente>> getPedidosClientesPendientesFast({
+    int limit = 1000,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .eq('estado', 'entregado')
+          .or('estado_pago.is.null,estado_pago.eq.pendiente')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch detalles
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_cliente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoClienteDetalle.fromJson(json, producto: producto));
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos clientes pendientes: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos recurrentes pendientes de pago (OPTIMIZADO).
+  static Future<List<PedidoCliente>> getPedidosRecurrentesPendientesFast({
+    int limit = 1000,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .eq('estado', 'entregado')
+          .or('estado_pago.is.null,estado_pago.eq.pendiente')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch detalles
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_recurrente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= []).add(
+          PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          ),
+        );
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+          esRecurrente: true,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos recurrentes pendientes pago: $e');
+      return [];
     }
   }
 }

@@ -62,6 +62,8 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
   bool _isGuardando = false;
   final _direccionController = TextEditingController();
   final _domicilioController = TextEditingController();
+  final _parteEfectivoController = TextEditingController();
+  final _parteTransferenciaController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   // Filtro de categorías: -1 = Todas, 0 = Sin categoría, >0 = categoria_id
   int _selectedCategoriaFilter = -1;
@@ -78,6 +80,8 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
   void dispose() {
     _direccionController.dispose();
     _domicilioController.dispose();
+    _parteEfectivoController.dispose();
+    _parteTransferenciaController.dispose();
     _searchController.dispose();
     for (var controller in _cantidadControllers.values) {
       controller.dispose();
@@ -312,6 +316,14 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
     return total;
   }
 
+  double _calcularTotalConDomicilio() {
+    double total = _calcularTotal();
+    // Agregar domicilio solo para visualización
+    final domicilio = double.tryParse(_domicilioController.text.trim()) ?? 0.0;
+    total += domicilio;
+    return total;
+  }
+
   int _calcularTotalItems() {
     return _cantidades.values.fold(0, (sum, cantidad) => sum + cantidad);
   }
@@ -420,6 +432,14 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
           ? null
           : (double.tryParse(domicilioText)?.toInt());
 
+      // Obtener valores de pago mixto si aplica
+      double? parteEfectivo;
+      double? parteTransferencia;
+      if (_metodoPago == 'mixto') {
+        parteEfectivo = double.tryParse(_parteEfectivoController.text.trim());
+        parteTransferencia = double.tryParse(_parteTransferenciaController.text.trim());
+      }
+
       // Crear pedido usando el servicio, pero con precios especiales
       final pedido = await _crearPedidoConPreciosEspeciales(
         clienteNombre: _clienteSeleccionado!,
@@ -432,12 +452,16 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         metodoPago: _metodoPago,
         esFiado: _esFiado,
         domicilio: domicilio,
+        parteEfectivo: parteEfectivo,
+        parteTransferencia: parteTransferencia,
       );
 
       if (pedido != null && mounted) {
         // Limpiar formulario
         _direccionController.clear();
         _domicilioController.clear();
+        _parteEfectivoController.clear();
+        _parteTransferenciaController.clear();
         setState(() {
           _cantidades.clear();
           _preciosEspeciales.clear();
@@ -500,6 +524,8 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
     required String metodoPago,
     required bool esFiado,
     int? domicilio,
+    double? parteEfectivo,
+    double? parteTransferencia,
   }) async {
     try {
       final hasConnection = await SupabaseService.client
@@ -583,6 +609,16 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
         'fecha_pago': fechaPago,
         'domicilio': domicilio,
       };
+
+      // Agregar parte_efectivo y parte_transferencia si el método de pago es mixto
+      if (metodoPago == 'mixto') {
+        if (parteEfectivo != null && parteEfectivo > 0) {
+          pedidoData['parte_efectivo'] = parteEfectivo;
+        }
+        if (parteTransferencia != null && parteTransferencia > 0) {
+          pedidoData['parte_transferencia'] = parteTransferencia;
+        }
+      }
 
       // Insertar el pedido en la tabla de pedidos recurrentes
       final pedidoResponse =
@@ -939,6 +975,89 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                                   ),
                                 ],
                               ),
+                              // Campos para pago mixto
+                              if (_metodoPago == 'mixto') ...[
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Distribución del Pago Mixto',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1B130D),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _parteEfectivoController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'Parte en Efectivo',
+                                          hintText: '0.00',
+                                          prefixText: '\$ ',
+                                          prefixStyle: TextStyle(
+                                            color:
+                                                isDark
+                                                    ? Colors.white70
+                                                    : Colors.black87,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          filled: true,
+                                          fillColor:
+                                              isDark
+                                                  ? const Color(0xFF2D211A)
+                                                  : Colors.white,
+                                        ),
+                                        style: TextStyle(
+                                          color:
+                                              isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1B130D),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _parteTransferenciaController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'Parte en Transferencia',
+                                          hintText: '0.00',
+                                          prefixText: '\$ ',
+                                          prefixStyle: TextStyle(
+                                            color:
+                                                isDark
+                                                    ? Colors.white70
+                                                    : Colors.black87,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          filled: true,
+                                          fillColor:
+                                              isDark
+                                                  ? const Color(0xFF2D211A)
+                                                  : Colors.white,
+                                        ),
+                                        style: TextStyle(
+                                          color:
+                                              isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1B130D),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 24),
 
                               // Pedido Fiado
@@ -1490,40 +1609,70 @@ class _RecurrentOrdersPageState extends State<RecurrentOrdersPage> {
                   ),
                 ),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isGuardando ? null : _guardarPedido,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 8,
-                    shadowColor: primaryColor.withOpacity(0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isGuardando ? null : _guardarPedido,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 8,
+                        shadowColor: primaryColor.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child:
+                          _isGuardando
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : const Text(
+                                'Guardar Pedido Recurrente',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                     ),
                   ),
-                  child:
-                      _isGuardando
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                          : const Text(
-                            'Guardar Pedido Recurrente',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Total: ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
+                        ),
+                      ),
+                      Text(
+                        _formatCurrency(_calcularTotalConDomicilio()),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

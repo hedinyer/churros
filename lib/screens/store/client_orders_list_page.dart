@@ -4,6 +4,7 @@ import '../../models/pedido_cliente.dart';
 import '../../models/producto.dart';
 import '../../models/categoria.dart';
 import '../../services/supabase_service.dart';
+import '../../services/data_cache_service.dart';
 
 class ClientOrdersListPage extends StatefulWidget {
   const ClientOrdersListPage({super.key});
@@ -14,7 +15,6 @@ class ClientOrdersListPage extends StatefulWidget {
 
 class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
   List<PedidoCliente> _pedidos = [];
-  Map<int, bool> _esRecurrente = {}; // pedidoId -> esRecurrente
   List<Producto> _productos = [];
   Map<int, Categoria> _categoriasMap = {};
   String _filtroEstado =
@@ -26,22 +26,14 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
   void initState() {
     super.initState();
     _loadData();
-    _checkConnection();
+    _checkConnectionAsync();
   }
 
-  Future<void> _checkConnection() async {
-    try {
-      await SupabaseService.client
-          .from('users')
-          .select()
-          .limit(1)
-          .maybeSingle();
+  Future<void> _checkConnectionAsync() async {
+    final isOnline = await DataCacheService.checkConnectionCached();
+    if (mounted) {
       setState(() {
-        _isOnline = true;
-      });
-    } catch (e) {
-      setState(() {
-        _isOnline = false;
+        _isOnline = isOnline;
       });
     }
   }
@@ -52,25 +44,33 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
     });
 
     try {
-      // Cargar productos para mostrar nombres
-      final productos = await SupabaseService.getProductosActivos();
+      // Paso 1: Cargar productos y categorías desde caché (instantáneo si ya cacheados)
+      final productosMapFuture = DataCacheService.getProductosMap();
+      final productosFuture = DataCacheService.getProductosActivos();
+      final categoriasFuture = DataCacheService.getCategorias();
 
-      // Cargar categorías
-      final categorias = await SupabaseService.getCategorias();
+      // Esperar productos primero (necesarios para las queries de pedidos)
+      final productosMap = await productosMapFuture;
+
+      // Paso 2: Cargar pedidos en PARALELO con las categorías
+      final results = await Future.wait([
+        productosFuture,
+        categoriasFuture,
+        SupabaseService.getPedidosClientesRecientesFast(
+          limit: 100,
+          productosMap: productosMap,
+        ),
+        SupabaseService.getPedidosRecurrentesRecientesFast(
+          limit: 100,
+          productosMap: productosMap,
+        ),
+      ]);
+
+      final productos = results[0] as List<Producto>;
+      final categorias = results[1] as List<Categoria>;
+      final pedidos = results[2] as List<PedidoCliente>;
+      final pedidosRecurrentes = results[3] as List<PedidoCliente>;
       final categoriasMap = {for (var cat in categorias) cat.id: cat};
-
-      // Cargar pedidos de clientes y pedidos recurrentes
-      final pedidos = await SupabaseService.getPedidosClientesRecientes(
-        limit: 100,
-      );
-      final pedidosRecurrentes =
-          await SupabaseService.getPedidosRecurrentesRecientes(limit: 100);
-
-      // Crear mapa para identificar pedidos recurrentes
-      final esRecurrenteMap = <int, bool>{};
-      for (final pedido in pedidosRecurrentes) {
-        esRecurrenteMap[pedido.id] = true;
-      }
 
       // Combinar ambos tipos de pedidos y ordenar por fecha
       final hoy = DateTime.now();
@@ -85,7 +85,6 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
         _productos = productos;
         _categoriasMap = categoriasMap;
         _pedidos = todosLosPedidos;
-        _esRecurrente = esRecurrenteMap;
         _isLoading = false;
       });
     } catch (e) {
@@ -361,8 +360,9 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
     }
 
     try {
-      // Determinar si es un pedido recurrente
-      final esRecurrente = _esRecurrente[pedido.id] == true;
+      // Determinar si es un pedido recurrente usando la propiedad del objeto
+      // (no el mapa de IDs, ya que los IDs pueden colisionar entre tablas)
+      final esRecurrente = pedido.esRecurrente;
 
       print('Despachando pedido ${pedido.id} - Es recurrente: $esRecurrente');
 
@@ -854,7 +854,7 @@ class _ClientOrdersListPageState extends State<ClientOrdersListPage> {
                               ),
                             ),
                           ),
-                          if (_esRecurrente[pedido.id] == true)
+                          if (pedido.esRecurrente)
                             Container(
                               margin: const EdgeInsets.only(left: 8),
                               padding: const EdgeInsets.symmetric(

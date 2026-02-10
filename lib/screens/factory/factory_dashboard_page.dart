@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/user.dart';
 import '../../services/supabase_service.dart';
+import '../../services/data_cache_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/factory_section_tracker.dart';
 import '../../services/factory_session_service.dart';
@@ -98,10 +99,14 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
     });
 
     try {
-      // Cargar el conteo de pedidos del día actual
-      await _loadTodayOrdersCount();
-      await _loadTodayClientOrdersCount();
-      await _loadTodayDeliveredOrdersCount();
+      // Pre-cargar productos y categorías en caché en paralelo con los conteos.
+      // Así cuando el usuario entre a cualquier sección, los datos ya están listos.
+      await Future.wait([
+        DataCacheService.preload(),
+        _loadTodayOrdersCount(),
+        _loadTodayClientOrdersCount(),
+        _loadTodayDeliveredOrdersCount(),
+      ]);
 
       setState(() {
         _isLoading = false;
@@ -148,24 +153,23 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
     try {
       final today = DateTime.now().toIso8601String().split('T')[0];
 
-      // Contar pedidos de clientes pendientes del día actual
-      final clientesResponse = await SupabaseService.client
-          .from('pedidos_clientes')
-          .select('id')
-          .eq('estado', 'pendiente')
-          .eq('fecha_pedido', today);
-
-      // Contar pedidos recurrentes pendientes del día actual
-      final recurrentesResponse = await SupabaseService.client
-          .from('pedidos_recurrentes')
-          .select('id')
-          .eq('estado', 'pendiente')
-          .eq('fecha_pedido', today);
+      // Contar pedidos de clientes y recurrentes pendientes EN PARALELO
+      final results = await Future.wait([
+        SupabaseService.client
+            .from('pedidos_clientes')
+            .select('id')
+            .eq('estado', 'pendiente')
+            .eq('fecha_pedido', today),
+        SupabaseService.client
+            .from('pedidos_recurrentes')
+            .select('id')
+            .eq('estado', 'pendiente')
+            .eq('fecha_pedido', today),
+      ]);
 
       if (mounted) {
         setState(() {
-          _todayClientOrdersCount =
-              clientesResponse.length + recurrentesResponse.length;
+          _todayClientOrdersCount = results[0].length + results[1].length;
         });
       }
     } catch (e) {
@@ -185,33 +189,29 @@ class _FactoryDashboardPageState extends State<FactoryDashboardPage>
     try {
       final today = DateTime.now().toIso8601String().split('T')[0];
 
-      // Contar pedidos de fábrica ENVIADOS del día actual
-      final fabricaResponse = await SupabaseService.client
-          .from('pedidos_fabrica')
-          .select('id')
-          .eq('estado', 'enviado')
-          .eq('fecha_pedido', today);
-
-      // Contar pedidos de clientes ENVIADOS del día actual
-      final clientesResponse = await SupabaseService.client
-          .from('pedidos_clientes')
-          .select('id')
-          .eq('estado', 'enviado')
-          .eq('fecha_pedido', today);
-
-      // Contar pedidos recurrentes ENVIADOS del día actual
-      final recurrentesResponse = await SupabaseService.client
-          .from('pedidos_recurrentes')
-          .select('id')
-          .eq('estado', 'enviado')
-          .eq('fecha_pedido', today);
+      // Contar TODOS los pedidos enviados EN PARALELO
+      final results = await Future.wait([
+        SupabaseService.client
+            .from('pedidos_fabrica')
+            .select('id')
+            .eq('estado', 'enviado')
+            .eq('fecha_pedido', today),
+        SupabaseService.client
+            .from('pedidos_clientes')
+            .select('id')
+            .eq('estado', 'enviado')
+            .eq('fecha_pedido', today),
+        SupabaseService.client
+            .from('pedidos_recurrentes')
+            .select('id')
+            .eq('estado', 'enviado')
+            .eq('fecha_pedido', today),
+      ]);
 
       if (mounted) {
         setState(() {
           _todayDeliveredOrdersCount =
-              fabricaResponse.length +
-              clientesResponse.length +
-              recurrentesResponse.length;
+              results[0].length + results[1].length + results[2].length;
         });
       }
     } catch (e) {

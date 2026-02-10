@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/pedido_cliente.dart';
 import '../../models/empleado.dart';
 import '../../services/supabase_service.dart';
+import '../../services/data_cache_service.dart';
 
 class ExpensesPage extends StatefulWidget {
   const ExpensesPage({super.key});
@@ -33,41 +34,35 @@ class _ExpensesPageState extends State<ExpensesPage> {
     });
 
     try {
-      // Cargar pedidos de clientes entregados y pagados (para factory)
-      final pedidos = await SupabaseService.getPedidosClientesPagados(
-        limit: 1000,
-      );
+      // Paso 1: Obtener productos desde caché (instantáneo si ya cacheados)
+      final productosMap = await DataCacheService.getProductosMap();
 
-      // Cargar pedidos recurrentes entregados y pagados (para factory)
-      final pedidosRecurrentes =
-          await SupabaseService.getPedidosRecurrentesPagados(limit: 1000);
+      // Paso 2: Cargar TODO en PARALELO (5 queries simultáneas)
+      final results = await Future.wait([
+        SupabaseService.getPedidosClientesPagadosFast(
+          limit: 1000,
+          productosMap: productosMap,
+        ),
+        SupabaseService.getPedidosRecurrentesPagadosFast(
+          limit: 1000,
+          productosMap: productosMap,
+        ),
+        SupabaseService.getPedidosClientesPendientesFast(
+          limit: 1000,
+          productosMap: productosMap,
+        ),
+        SupabaseService.getPedidosRecurrentesPendientesFast(
+          limit: 1000,
+          productosMap: productosMap,
+        ),
+        SupabaseService.getGastosVarios(),
+      ]);
 
-      // Cargar pedidos de clientes entregados pero con pago pendiente
-      final pedidosClientesPendientes =
-          await SupabaseService.getPedidosClientesPendientes(limit: 1000);
-
-      // Cargar pedidos recurrentes entregados pero con pago pendiente
-      final pedidosRecurrentesPendientes =
-          await SupabaseService.getPedidosRecurrentesPendientes(limit: 1000);
-
-      // Cargar gastos varios del día actual (ya filtrado por el servicio)
-      final gastos = await SupabaseService.getGastosVarios();
-
-      print('🔍 _loadData: Pedidos clientes cargados: ${pedidos.length}');
-      print(
-        '🔍 _loadData: IDs de pedidos clientes: ${pedidos.map((p) => p.id).toList()}',
-      );
-
-      // Buscar el pedido ID 16
-      final pedido16 = pedidos.where((p) => p.id == 16).toList();
-      if (pedido16.isNotEmpty) {
-        print('🔍 _loadData: Pedido ID 16 encontrado!');
-        print('🔍   estado_pago: ${pedido16.first.estadoPago}');
-        print('🔍   fecha_pago: ${pedido16.first.fechaPago}');
-        print('🔍   estado: ${pedido16.first.estado}');
-      } else {
-        print('🔍 _loadData: Pedido ID 16 NO encontrado en pedidos cargados!');
-      }
+      final pedidos = results[0] as List<PedidoCliente>;
+      final pedidosRecurrentes = results[1] as List<PedidoCliente>;
+      final pedidosClientesPendientes = results[2] as List<PedidoCliente>;
+      final pedidosRecurrentesPendientes = results[3] as List<PedidoCliente>;
+      final gastos = results[4] as List<Map<String, dynamic>>;
 
       setState(() {
         _pedidosClientes = pedidos;
@@ -369,40 +364,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
     return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
   }
 
-  /// Parsea el monto en efectivo de un pago mixto desde las observaciones
-  /// Si no se encuentra información específica, divide el total 50/50
-  double _parseMontoEfectivoMixto(PedidoCliente pedido) {
-    final observaciones = pedido.observaciones ?? '';
-    final total = pedido.total;
-
-    // Buscar patrones comunes en las observaciones:
-    // - "EFECTIVO: 50000" o "EFECTIVO 50000" o "EF $50000"
-    // - "EF: 50000" o "EF 50000"
-    final efectivoPatterns = [
-      RegExp(r'EFECTIVO[:\s]+(\d+(?:[.,]\d+)?)', caseSensitive: false),
-      RegExp(r'EF[:\s]+(\d+(?:[.,]\d+)?)', caseSensitive: false),
-      RegExp(r'EFECTIVO[:\s]+\$?\s*(\d+(?:[.,]\d+)?)', caseSensitive: false),
-      RegExp(r'EF[:\s]+\$?\s*(\d+(?:[.,]\d+)?)', caseSensitive: false),
-    ];
-
-    for (final pattern in efectivoPatterns) {
-      final match = pattern.firstMatch(observaciones);
-      if (match != null) {
-        try {
-          final montoStr = match.group(1)?.replaceAll(',', '') ?? '';
-          final montoEfectivo = double.tryParse(montoStr) ?? 0.0;
-          // Asegurar que no sea mayor al total
-          return montoEfectivo > total ? total : montoEfectivo;
-        } catch (e) {
-          print('Error parseando monto efectivo: $e');
-        }
-      }
-    }
-
-    // Si no se encuentra información específica, dividir 50/50
-    return total / 2;
-  }
-
   double _getTotalPagos() {
     // Sumar TODOS los pedidos de clientes pagados hoy (incluyendo fiados, sin incluir domicilios)
     final totalClientes = _pedidosClientes.fold(0.0, (sum, pedido) {
@@ -462,8 +423,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 
   double _getTotalGeneral() {
-    // Total del día = pagos (sin fiado) + domicilios - gastos varios
-    return _getTotalPagos() + _getTotalDomicilios() - _getTotalGastosVarios();
+    // Total del día = efectivo + domicilios - gastos varios
+    return _getTotalEfectivo() + _getTotalDomicilios() - _getTotalGastosVarios();
   }
 
   double _getTotalEfectivo() {
@@ -478,10 +439,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
         // Pago completo en efectivo
         total += pedido.total;
       } else if (metodoPago == 'MIXTO') {
-        // Pago mixto: dividir el total entre efectivo y transferencia
-        // Por defecto 50/50, pero se puede parsear de observaciones si hay formato específico
-        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
-        total += montoEfectivo;
+        // Pago mixto: usar parte_efectivo del pedido
+        final parteEfectivo = pedido.parteEfectivo ?? 0.0;
+        total += parteEfectivo;
       }
       // TRANSFERENCIA y otros métodos no se suman aquí
     }
@@ -494,9 +454,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
         // Pago completo en efectivo
         total += pedido.total;
       } else if (metodoPago == 'MIXTO') {
-        // Pago mixto: dividir el total entre efectivo y transferencia
-        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
-        total += montoEfectivo;
+        // Pago mixto: usar parte_efectivo del pedido
+        final parteEfectivo = pedido.parteEfectivo ?? 0.0;
+        total += parteEfectivo;
       }
       // TRANSFERENCIA y otros métodos no se suman aquí
     }
@@ -516,10 +476,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
         // Pago completo en transferencia
         total += pedido.total;
       } else if (metodoPago == 'MIXTO') {
-        // Pago mixto: dividir el total entre efectivo y transferencia
-        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
-        final montoTransferencia = pedido.total - montoEfectivo;
-        total += montoTransferencia;
+        // Pago mixto: usar parte_transferencia del pedido
+        final parteTransferencia = pedido.parteTransferencia ?? 0.0;
+        total += parteTransferencia;
       }
       // EFECTIVO y otros métodos no se suman aquí
     }
@@ -532,10 +491,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
         // Pago completo en transferencia
         total += pedido.total;
       } else if (metodoPago == 'MIXTO') {
-        // Pago mixto: dividir el total entre efectivo y transferencia
-        final montoEfectivo = _parseMontoEfectivoMixto(pedido);
-        final montoTransferencia = pedido.total - montoEfectivo;
-        total += montoTransferencia;
+        // Pago mixto: usar parte_transferencia del pedido
+        final parteTransferencia = pedido.parteTransferencia ?? 0.0;
+        total += parteTransferencia;
       }
       // EFECTIVO y otros métodos no se suman aquí
     }
@@ -1142,6 +1100,182 @@ class _ExpensesPageState extends State<ExpensesPage> {
     );
   }
 
+  Future<void> _mostrarModalEditarPedido({
+    required PedidoCliente pedido,
+    required bool esRecurrente,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final totalController = TextEditingController(
+      text: pedido.total.toStringAsFixed(0),
+    );
+    final domicilioController = TextEditingController(
+      text: pedido.domicilio?.toStringAsFixed(0) ?? '',
+    );
+
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF2D211A) : Colors.white,
+        title: Text(
+          'Editar Pedido',
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF1B130D),
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                pedido.clienteNombre,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white70 : const Color(0xFF78716C),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: totalController,
+                decoration: InputDecoration(
+                  labelText: 'Total del pedido',
+                  border: const OutlineInputBorder(),
+                  prefixText: '\$ ',
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: domicilioController,
+                decoration: InputDecoration(
+                  labelText: 'Domicilio (opcional)',
+                  border: const OutlineInputBorder(),
+                  prefixText: '\$ ',
+                  hintText: 'Dejar vacío para eliminar',
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : const Color(0xFF78716C),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Validar que el total sea válido
+              final totalDigits = totalController.text.trim().replaceAll(
+                RegExp(r'[^0-9]'),
+                '',
+              );
+              final totalParsed = int.tryParse(totalDigits);
+              final total = totalParsed?.toDouble();
+
+              if (total == null || total <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('El total debe ser mayor a 0'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              // Parsear domicilio (puede estar vacío o ser 0 para eliminarlo)
+              double? domicilio;
+              final domicilioText = domicilioController.text.trim();
+              if (domicilioText.isEmpty) {
+                // Campo vacío = eliminar domicilio
+                domicilio = null;
+              } else {
+                final domicilioDigits = domicilioText.replaceAll(
+                  RegExp(r'[^0-9]'),
+                  '',
+                );
+                if (domicilioDigits.isNotEmpty) {
+                  final domicilioParsed = int.tryParse(domicilioDigits);
+                  final domicilioValue = domicilioParsed?.toDouble();
+                  if (domicilioValue != null && domicilioValue > 0) {
+                    domicilio = domicilioValue;
+                  } else {
+                    // Si es 0 o inválido, eliminar domicilio
+                    domicilio = null;
+                  }
+                } else {
+                  // Si no hay dígitos válidos, eliminar domicilio
+                  domicilio = null;
+                }
+              }
+
+              Navigator.pop(context, true);
+              _guardarEdicionPedido(
+                pedido: pedido,
+                esRecurrente: esRecurrente,
+                nuevoTotal: total,
+                nuevoDomicilio: domicilio,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEC6D13),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _guardarEdicionPedido({
+    required PedidoCliente pedido,
+    required bool esRecurrente,
+    required double nuevoTotal,
+    double? nuevoDomicilio,
+  }) async {
+    final exito = esRecurrente
+        ? await SupabaseService.actualizarTotalDomicilioPedidoRecurrente(
+            pedidoId: pedido.id,
+            total: nuevoTotal,
+            domicilio: nuevoDomicilio,
+          )
+        : await SupabaseService.actualizarTotalDomicilioPedidoCliente(
+            pedidoId: pedido.id,
+            total: nuevoTotal,
+            domicilio: nuevoDomicilio,
+          );
+
+    if (mounted) {
+      if (exito) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pedido actualizado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Recargar datos después de un breve delay
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          _loadData();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al actualizar el pedido'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _mostrarModalConfirmarPago({
     required PedidoCliente pedido,
     required bool esRecurrente,
@@ -1251,7 +1385,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
               : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2D211A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -1276,16 +1409,20 @@ class _ExpensesPageState extends State<ExpensesPage> {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                       Text(
                         pedido.clienteNombre,
                         style: TextStyle(
@@ -1340,12 +1477,12 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           ],
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
                     // Mostrar total + domicilio si existe (solo para pedidos clientes, no recurrentes)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1387,10 +1524,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                             ],
                           ),
                         ],
-                      ],
-                    ),
-                    if (esFiado)
-                      Container(
+                        ],
+                      ),
+                      if (esFiado)
+                        Container(
                         margin: const EdgeInsets.only(top: 4),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -1445,10 +1582,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ],
-            ),
+                    ],
+                  ),
+                ],
+              ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -1473,6 +1610,53 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 ),
               ],
             ),
+            // Mostrar partes de pago mixto si aplica
+            if (pedido.metodoPago?.toUpperCase() == 'MIXTO' &&
+                (pedido.parteEfectivo != null || pedido.parteTransferencia != null)) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (pedido.parteEfectivo != null && pedido.parteEfectivo! > 0) ...[
+                    Icon(
+                      Icons.money,
+                      size: 12,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Efectivo: ${_formatCurrency(pedido.parteEfectivo!)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  if (pedido.parteEfectivo != null &&
+                      pedido.parteEfectivo! > 0 &&
+                      pedido.parteTransferencia != null &&
+                      pedido.parteTransferencia! > 0)
+                    const SizedBox(width: 12),
+                  if (pedido.parteTransferencia != null &&
+                      pedido.parteTransferencia! > 0) ...[
+                    Icon(
+                      Icons.account_balance,
+                      size: 12,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Transferencia: ${_formatCurrency(pedido.parteTransferencia!)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
             if (observaciones.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -1514,6 +1698,36 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   ],
                 ),
               ),
+                ],
+              ),
+            ),
+            // Botón de edición en la esquina superior derecha
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _mostrarModalEditarPedido(
+                    pedido: pedido,
+                    esRecurrente: esRecurrente,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

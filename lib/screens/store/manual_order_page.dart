@@ -19,6 +19,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
   final _direccionController = TextEditingController();
   final _observacionesController = TextEditingController();
   final _domicilioController = TextEditingController();
+  final _parteEfectivoController = TextEditingController();
+  final _parteTransferenciaController = TextEditingController();
 
   List<Producto> _productos = [];
   Map<int, Categoria> _categoriasMap = {};
@@ -57,6 +59,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     _direccionController.dispose();
     _observacionesController.dispose();
     _domicilioController.dispose();
+    _parteEfectivoController.dispose();
+    _parteTransferenciaController.dispose();
     _searchController.dispose();
     // Dispose de todos los controllers de cantidad
     for (var controller in _cantidadControllers.values) {
@@ -329,9 +333,7 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
       final precio = _getPrecioProducto(entry.key);
       total += precio * entry.value;
     }
-    // Agregar domicilio si existe
-    final domicilio = double.tryParse(_domicilioController.text.trim()) ?? 0.0;
-    total += domicilio;
+    // NOTA: El domicilio NO se incluye en el total, se muestra por separado
     return total;
   }
 
@@ -457,6 +459,14 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
     try {
       final domicilio = double.tryParse(_domicilioController.text.trim());
 
+      // Obtener valores de pago mixto si aplica
+      double? parteEfectivo;
+      double? parteTransferencia;
+      if (_metodoPago == 'mixto') {
+        parteEfectivo = double.tryParse(_parteEfectivoController.text.trim());
+        parteTransferencia = double.tryParse(_parteTransferenciaController.text.trim());
+      }
+
       // Mapa de precios especiales (solo para productos seleccionados)
       final preciosEspeciales = <int, double>{};
       for (final entry in productosConCantidad) {
@@ -559,6 +569,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         metodoPago: _metodoPago,
         domicilio: domicilio != null && domicilio > 0 ? domicilio : null,
         esFiado: _esFiado,
+        parteEfectivo: parteEfectivo,
+        parteTransferencia: parteTransferencia,
       );
 
       if (pedido != null && mounted) {
@@ -574,6 +586,8 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
         _direccionController.clear();
         _observacionesController.clear();
         _domicilioController.clear();
+        _parteEfectivoController.clear();
+        _parteTransferenciaController.clear();
         setState(() {
           _cantidades.clear();
           _preciosEspeciales.clear();
@@ -961,6 +975,89 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                                   ),
                                 ],
                               ),
+                              // Campos para pago mixto
+                              if (_metodoPago == 'mixto') ...[
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Distribución del Pago Mixto',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1B130D),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _parteEfectivoController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'Parte en Efectivo',
+                                          hintText: '0.00',
+                                          prefixText: '\$ ',
+                                          prefixStyle: TextStyle(
+                                            color:
+                                                isDark
+                                                    ? Colors.white70
+                                                    : Colors.black87,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          filled: true,
+                                          fillColor:
+                                              isDark
+                                                  ? const Color(0xFF2D211A)
+                                                  : Colors.white,
+                                        ),
+                                        style: TextStyle(
+                                          color:
+                                              isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1B130D),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _parteTransferenciaController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'Parte en Transferencia',
+                                          hintText: '0.00',
+                                          prefixText: '\$ ',
+                                          prefixStyle: TextStyle(
+                                            color:
+                                                isDark
+                                                    ? Colors.white70
+                                                    : Colors.black87,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          filled: true,
+                                          fillColor:
+                                              isDark
+                                                  ? const Color(0xFF2D211A)
+                                                  : Colors.white,
+                                        ),
+                                        style: TextStyle(
+                                          color:
+                                              isDark
+                                                  ? Colors.white
+                                                  : const Color(0xFF1B130D),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 24),
 
                               // Pedido Fiado
@@ -1589,40 +1686,70 @@ class _ManualOrderPageState extends State<ManualOrderPage> {
                   ),
                 ),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isGuardando ? null : _guardarPedido,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 8,
-                    shadowColor: primaryColor.withOpacity(0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isGuardando ? null : _guardarPedido,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 8,
+                        shadowColor: primaryColor.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child:
+                          _isGuardando
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : const Text(
+                                'Guardar Pedido',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                     ),
                   ),
-                  child:
-                      _isGuardando
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                          : const Text(
-                            'Guardar Pedido',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Total: ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isDark
+                                  ? const Color(0xFFA8A29E)
+                                  : const Color(0xFF78716C),
+                        ),
+                      ),
+                      Text(
+                        _formatCurrency(_calcularTotal()),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

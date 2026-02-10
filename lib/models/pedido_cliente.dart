@@ -19,7 +19,10 @@ class PedidoCliente {
   final double? domicilio;
   final String? estadoPago;
   final DateTime? fechaPago;
+  final double? parteEfectivo;
+  final double? parteTransferencia;
   final List<PedidoClienteDetalle>? detalles;
+  final bool esRecurrente;
 
   PedidoCliente({
     required this.id,
@@ -40,11 +43,15 @@ class PedidoCliente {
     this.domicilio,
     this.estadoPago,
     this.fechaPago,
+    this.parteEfectivo,
+    this.parteTransferencia,
     this.detalles,
+    this.esRecurrente = false,
   });
 
   factory PedidoCliente.fromJson(Map<String, dynamic> json, {
     List<PedidoClienteDetalle>? detalles,
+    bool esRecurrente = false,
   }) {
     return PedidoCliente(
       id: json['id'] as int,
@@ -65,7 +72,10 @@ class PedidoCliente {
       domicilio: json['domicilio'] != null ? (json['domicilio'] as num).toDouble() : null,
       estadoPago: json['estado_pago'] as String?,
       fechaPago: json['fecha_pago'] != null ? DateTime.parse(json['fecha_pago'] as String) : null,
+      parteEfectivo: json['parte_efectivo'] != null ? (json['parte_efectivo'] as num).toDouble() : null,
+      parteTransferencia: json['parte_transferencia'] != null ? (json['parte_transferencia'] as num).toDouble() : null,
       detalles: detalles,
+      esRecurrente: esRecurrente,
     );
   }
 

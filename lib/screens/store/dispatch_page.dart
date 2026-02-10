@@ -4,6 +4,7 @@ import '../../models/pedido_fabrica.dart';
 import '../../models/pedido_cliente.dart';
 import '../../models/producto.dart';
 import '../../services/supabase_service.dart';
+import '../../services/data_cache_service.dart';
 
 class DispatchPage extends StatefulWidget {
   const DispatchPage({super.key});
@@ -25,22 +26,14 @@ class _DispatchPageState extends State<DispatchPage> {
   void initState() {
     super.initState();
     _loadData();
-    _checkConnection();
+    _checkConnectionAsync();
   }
 
-  Future<void> _checkConnection() async {
-    try {
-      await SupabaseService.client
-          .from('users')
-          .select()
-          .limit(1)
-          .maybeSingle();
+  Future<void> _checkConnectionAsync() async {
+    final isOnline = await DataCacheService.checkConnectionCached();
+    if (mounted) {
       setState(() {
-        _isOnline = true;
-      });
-    } catch (e) {
-      setState(() {
-        _isOnline = false;
+        _isOnline = isOnline;
       });
     }
   }
@@ -51,16 +44,26 @@ class _DispatchPageState extends State<DispatchPage> {
     });
 
     try {
-      // Cargar productos para mostrar nombres
-      final productos = await SupabaseService.getProductosActivos();
+      // Paso 1: Obtener productos desde caché (instantáneo si ya cacheados)
+      final productosMap = await DataCacheService.getProductosMap();
+      final productos = await DataCacheService.getProductosActivos();
 
-      // Cargar pedidos de fábrica, clientes y recurrentes para despacho
-      final pedidosFabrica =
-          await SupabaseService.getPedidosFabricaParaDespacho(limit: 100);
-      final pedidosClientes =
-          await SupabaseService.getPedidosClientesParaDespacho(limit: 100);
-      final pedidosRecurrentes =
-          await SupabaseService.getPedidosRecurrentesParaDespacho(limit: 100);
+      // Paso 2: Cargar TODOS los pedidos en PARALELO
+      final results = await Future.wait([
+        SupabaseService.getPedidosFabricaParaDespachoFast(limit: 100),
+        SupabaseService.getPedidosClientesParaDespachoFast(
+          limit: 100,
+          productosMap: productosMap,
+        ),
+        SupabaseService.getPedidosRecurrentesParaDespachoFast(
+          limit: 100,
+          productosMap: productosMap,
+        ),
+      ]);
+
+      final pedidosFabrica = results[0] as List<PedidoFabrica>;
+      final pedidosClientes = results[1] as List<PedidoCliente>;
+      final pedidosRecurrentes = results[2] as List<PedidoCliente>;
 
       setState(() {
         _productos = productos;
