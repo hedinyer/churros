@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/supabase_service.dart';
@@ -13,6 +14,7 @@ import 'services/sync_queue_service.dart';
 import 'screens/store/dashboard_page.dart';
 import 'screens/factory/factory_dashboard_page.dart';
 import 'screens/store/deliveries_page.dart';
+import 'screens/master/master_control_page.dart';
 import 'models/user.dart';
 import 'models/sucursal.dart';
 
@@ -200,6 +202,17 @@ class ChurrosApp extends StatelessWidget {
       title: 'Churros POS',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'ES'),
+        Locale('es'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('es', 'ES'),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -332,6 +345,24 @@ class _LoginPageState extends State<LoginPage> {
 
       if (userIdentifier.isEmpty || accessKey.isEmpty) {
         _showError('Por favor, completa todos los campos');
+        return;
+      }
+
+      // Verificar credenciales de master
+      if (userIdentifier.toLowerCase() == 'master' && accessKey == '9922') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Acceso de control maestro'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MasterControlPage()),
+          );
+        }
         return;
       }
 

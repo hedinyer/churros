@@ -1220,6 +1220,140 @@ class SupabaseService {
     }
   }
 
+  /// Obtiene el resumen de ventas para una fecha específica
+  static Future<Map<String, dynamic>> getResumenVentasPorFecha(
+    int sucursalId,
+    String fecha, // formato YYYY-MM-DD
+  ) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener resumen de ventas');
+        return {
+          'total': 0.0,
+          'total_efectivo': 0.0,
+          'total_transferencia': 0.0,
+          'tickets': 0,
+        };
+      }
+
+      // Obtener ventas de la fecha con método de pago
+      final ventas = await client
+          .from('ventas')
+          .select('total, metodo_pago')
+          .eq('sucursal_id', sucursalId)
+          .eq('fecha_venta', fecha)
+          .eq('estado', 'completada');
+
+      // Calcular totales separados por método de pago
+      double totalEfectivo = 0.0;
+      double totalTransferencia = 0.0;
+      double total = 0.0;
+
+      for (final venta in ventas) {
+        final totalVenta = (venta['total'] as num).toDouble();
+        final metodoPago = (venta['metodo_pago'] as String? ?? 'efectivo').toLowerCase();
+        total += totalVenta;
+
+        if (metodoPago == 'transferencia' || metodoPago == 'transfer' || metodoPago == 'nequi' || metodoPago == 'daviplata') {
+          totalTransferencia += totalVenta;
+        } else {
+          totalEfectivo += totalVenta;
+        }
+      }
+
+      return {
+        'total': total,
+        'total_efectivo': totalEfectivo,
+        'total_transferencia': totalTransferencia,
+        'tickets': ventas.length,
+      };
+    } catch (e) {
+      print('Error obteniendo resumen de ventas por fecha: $e');
+      return {
+        'total': 0.0,
+        'total_efectivo': 0.0,
+        'total_transferencia': 0.0,
+        'tickets': 0,
+      };
+    }
+  }
+
+  /// Obtiene las ventas completas para una fecha específica
+  static Future<List<Map<String, dynamic>>> getVentasPorFecha(
+    int sucursalId,
+    String fecha, // formato YYYY-MM-DD
+  ) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener ventas');
+        return [];
+      }
+
+      final response = await client
+          .from('ventas')
+          .select('*')
+          .eq('sucursal_id', sucursalId)
+          .eq('fecha_venta', fecha)
+          .eq('estado', 'completada')
+          .order('hora_venta', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error obteniendo ventas por fecha: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene los detalles de una venta específica
+  static Future<List<Map<String, dynamic>>> getDetallesVenta(int ventaId) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener detalles de venta');
+        return [];
+      }
+
+      final response = await client
+          .from('venta_detalles')
+          .select('*, productos(*)')
+          .eq('venta_id', ventaId)
+          .order('id', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error obteniendo detalles de venta: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene gastos de punto de venta para una fecha específica
+  static Future<List<Map<String, dynamic>>> getGastosPuntoVentaPorFecha({
+    required int sucursalId,
+    required String fecha, // formato YYYY-MM-DD
+  }) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener gastos de punto de venta');
+        return [];
+      }
+
+      final response = await client
+          .from('gastos_puntoventa')
+          .select()
+          .eq('sucursal_id', sucursalId)
+          .eq('fecha', fecha)
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error obteniendo gastos por fecha: $e');
+      return [];
+    }
+  }
+
   /// Obtiene el inventario inicial de la apertura del día actual
   static Future<Map<int, int>> getInventarioInicialHoy(int sucursalId) async {
     try {
