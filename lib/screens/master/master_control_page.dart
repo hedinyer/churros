@@ -4,7 +4,9 @@ import '../../models/sucursal.dart';
 import '../../services/supabase_service.dart';
 import '../../main.dart';
 import 'master_inventory_page.dart';
-import 'master_historical_sales_page.dart';
+import 'master_opening_inventory_page.dart';
+import 'master_factory_overview_page.dart';
+import 'master_historical_expenses_page.dart';
 
 class MasterControlPage extends StatefulWidget {
   const MasterControlPage({super.key});
@@ -140,6 +142,79 @@ class _MasterControlPageState extends State<MasterControlPage>
         builder: (context) => MasterInventoryPage(sucursal: sucursal),
       ),
     ).then((_) => _loadData());
+  }
+
+  void _openSucursalOptions(Sucursal sucursal) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = const Color(0xFFEC6D13);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: isDark ? const Color(0xFF1F2933) : Colors.white,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 8,
+              bottom: 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white24
+                        : Colors.black.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.inventory_2_rounded,
+                    color: primaryColor,
+                  ),
+                  title: const Text('Inventario actual'),
+                  subtitle: const Text('Cantidades actuales en el punto'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToInventory(sucursal);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.login_rounded,
+                    color: isDark ? Colors.amber : Colors.orange,
+                  ),
+                  title: const Text('Inventario apertura de hoy'),
+                  subtitle: const Text(
+                    'Cantidades registradas al abrir el punto',
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            MasterOpeningInventoryPage(sucursal: sucursal),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String _formatCurrency(double value) {
@@ -390,50 +465,104 @@ class _MasterControlPageState extends State<MasterControlPage>
               ],
             ),
           ),
-          // Actions
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MasterHistoricalSalesPage(),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(isDark ? 0.2 : 0.1),
+          // Actions (Histórico arriba, Fábrica debajo)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: primaryColor.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.history_rounded,
-                      size: 18,
-                      color: primaryColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Histórico',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: primaryColor,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MasterHistoricalExpensesPage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(isDark ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.history_rounded,
+                          size: 18,
+                          color: primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Histórico',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MasterFactoryOverviewPage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(isDark ? 0.16 : 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.factory_rounded,
+                          size: 18,
+                          color: primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Fábrica',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 8),
           Material(
@@ -676,7 +805,7 @@ class _MasterControlPageState extends State<MasterControlPage>
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => _navigateToInventory(sucursal),
+        onTap: () => _openSucursalOptions(sucursal),
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(

@@ -444,6 +444,43 @@ class SupabaseService {
     }
   }
 
+  /// Obtiene el inventario de apertura para una apertura específica
+  /// Retorna un mapa de productoId -> cantidad_inicial
+  static Future<Map<int, int>> getInventarioAperturaPorApertura(
+    int aperturaId,
+  ) async {
+    final Map<int, int> inventario = {};
+
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener inventario de apertura');
+        return inventario;
+      }
+
+      final response = await client
+          .from('inventario_apertura')
+          .select('producto_id, cantidad_inicial')
+          .eq('apertura_id', aperturaId);
+
+      for (final row in response) {
+        final productoId = row['producto_id'] as int?;
+        final cantidad = row['cantidad_inicial'] as int? ?? 0;
+        if (productoId != null) {
+          inventario[productoId] = cantidad;
+        }
+      }
+
+      print(
+        'Inventario de apertura cargado: ${inventario.length} productos para apertura $aperturaId',
+      );
+    } catch (e) {
+      print('Error obteniendo inventario de apertura: $e');
+    }
+
+    return inventario;
+  }
+
   /// Actualiza el inventario actual para la sucursal
   /// Sobreescribe las cantidades existentes con las nuevas
   static Future<bool> actualizarInventarioActual({
@@ -3961,6 +3998,30 @@ required int productoId,
     }
   }
 
+  /// Obtiene todos los gastos varios para una fecha específica
+  static Future<List<Map<String, dynamic>>> getGastosVariosPorFecha(
+      String fecha) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener gastos varios por fecha');
+        return [];
+      }
+
+      final response = await client
+          .from('gastos_varios')
+          .select()
+          .eq('fecha', fecha)
+          .order('fecha', ascending: false)
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error obteniendo gastos varios por fecha: $e');
+      return [];
+    }
+  }
+
   /// Crea un nuevo gasto varios
   static Future<bool> crearGastoVario({
     required String descripcion,
@@ -5355,6 +5416,52 @@ required int productoId,
     }
   }
 
+  /// Obtiene pedidos de clientes pagados por fecha (OPTIMIZADO) para histórico de gastos.
+  static Future<List<PedidoCliente>> getPedidosClientesPagadosPorFechaFast({
+    required String fecha, // formato 'YYYY-MM-DD'
+    int limit = 1000,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final pedidosResponse = await client
+          .from('pedidos_clientes')
+          .select()
+          .eq('estado_pago', 'pagado')
+          .eq('fecha_pago', fecha)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch detalles
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_cliente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= [])
+            .add(PedidoClienteDetalle.fromJson(json, producto: producto));
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos pagados por fecha: $e');
+      return [];
+    }
+  }
+
   /// Obtiene pedidos recurrentes pagados (OPTIMIZADO) para la página de gastos.
   static Future<List<PedidoCliente>> getPedidosRecurrentesPagadosFast({
     int limit = 1000,
@@ -5411,6 +5518,63 @@ required int productoId,
       }).toList();
     } catch (e) {
       print('Error (fast) obteniendo pedidos recurrentes pagados: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene pedidos recurrentes pagados por fecha (OPTIMIZADO) para histórico de gastos.
+  static Future<List<PedidoCliente>> getPedidosRecurrentesPagadosPorFechaFast({
+    required String fecha, // formato 'YYYY-MM-DD'
+    int limit = 1000,
+    required Map<int, Producto> productosMap,
+  }) async {
+    try {
+      final pedidosResponse = await client
+          .from('pedidos_recurrentes')
+          .select()
+          .eq('estado_pago', 'pagado')
+          .eq('fecha_pago', fecha)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      if (pedidosResponse.isEmpty) return [];
+
+      // Batch detalles
+      final pedidoIds = pedidosResponse.map((p) => p['id'] as int).toList();
+      final allDetallesResponse = await client
+          .from('pedido_recurrente_detalles')
+          .select()
+          .inFilter('pedido_id', pedidoIds);
+
+      final detallesPorPedido = <int, List<PedidoClienteDetalle>>{};
+      for (final json in allDetallesResponse) {
+        final pedidoId = json['pedido_id'] as int;
+        final productoId = json['producto_id'] as int;
+        final producto = productosMap[productoId];
+        (detallesPorPedido[pedidoId] ??= []).add(
+          PedidoClienteDetalle(
+            id: json['id'] as int,
+            pedidoId: pedidoId,
+            productoId: productoId,
+            producto: producto,
+            cantidad: json['cantidad'] as int,
+            precioUnitario: (json['precio_unitario'] as num).toDouble(),
+            precioTotal: (json['precio_total'] as num).toDouble(),
+            createdAt: DateTime.parse(json['created_at'] as String),
+          ),
+        );
+      }
+
+      return pedidosResponse.map((pedidoJson) {
+        final pedidoId = pedidoJson['id'] as int;
+        return PedidoCliente.fromJson(
+          pedidoJson,
+          detalles: detallesPorPedido[pedidoId] ?? [],
+          esRecurrente: true,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error (fast) obteniendo pedidos recurrentes pagados por fecha: $e');
       return [];
     }
   }
