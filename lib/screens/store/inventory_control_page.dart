@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../models/sucursal.dart';
 import '../../models/user.dart';
@@ -242,6 +243,489 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
       );
       return null;
     }
+  }
+
+  /// Muestra un modal grande para recargar un producto individual
+  Future<void> _mostrarModalRecargaIndividual(Producto producto) async {
+    final cantidadController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = const Color(0xFFEC6D13);
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final screenHeight = mediaQuery.size.height;
+    final disponible = _getCantidadDisponible(producto.id);
+    final productoCrudo = _findProductoCrudo(producto);
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          child: Dialog(
+            backgroundColor: isDark ? const Color(0xFF2C2018) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              width: screenWidth * 0.9,
+              constraints: BoxConstraints(
+                maxWidth: 500,
+                maxHeight: screenHeight * 0.7,
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.inventory_2,
+                        color: primaryColor,
+                        size: 32,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Recargar Producto',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Nombre del producto
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1C1917) : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Producto:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white70 : Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          producto.nombre,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: disponible == 0
+                                    ? Colors.red.shade50
+                                    : primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: disponible == 0
+                                      ? Colors.red.shade200
+                                      : primaryColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                'Stock actual: $disponible ${producto.unidadMedida}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: disponible == 0
+                                      ? Colors.red.shade700
+                                      : primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Campo de cantidad - GRANDE y fácil de usar
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cantidad a recargar:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: cantidadController,
+                        keyboardType: TextInputType.number,
+                        autofocus: true,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                          letterSpacing: 2,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '0',
+                          hintStyle: TextStyle(
+                            fontSize: 48,
+                            color: isDark ? Colors.white30 : Colors.grey.shade400,
+                          ),
+                          filled: true,
+                          fillColor: isDark ? const Color(0xFF1C1917) : Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
+                              width: 2,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
+                              width: 2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 3,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 24,
+                          ),
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Unidad: ${producto.unidadMedida}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? Colors.white70 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Botones
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: BorderSide(
+                              color: isDark ? Colors.white30 : Colors.grey.shade400,
+                              width: 2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final cantidadTexto = cantidadController.text.trim();
+                            
+                            if (cantidadTexto.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Por favor, ingresa una cantidad'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // Validar que sea un número válido y positivo
+                            final cantidad = int.tryParse(cantidadTexto);
+                            if (cantidad == null || cantidad <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Por favor, ingresa un número válido mayor a 0'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            // Validar stock crudo si es producto frito
+                            if (productoCrudo != null) {
+                              final stockCrudoDisponible = _getCantidadDisponible(productoCrudo.id);
+                              if (cantidad > stockCrudoDisponible) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'No hay suficiente stock CRUDO. Disponible: $stockCrudoDisponible ${productoCrudo.unidadMedida}',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                                return;
+                              }
+                            }
+
+                            // Cerrar el modal de entrada
+                            Navigator.pop(context);
+
+                            // Mostrar loading - guardar el contexto del builder
+                            BuildContext? loadingContext;
+                            if (context.mounted) {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (dialogContext) {
+                                  loadingContext = dialogContext;
+                                  return Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(24),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF2C2018) : Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const CircularProgressIndicator(
+                                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFEC6D13)),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Guardando recarga...',
+                                            style: TextStyle(
+                                              color: isDark ? Colors.white : Colors.black87,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+
+                            try {
+                              // Preparar datos de recarga
+                              // IMPORTANTE: Guardar el valor exactamente como se ingresó, sin transformaciones
+                              print('🔵 Guardando recarga: Producto ${producto.nombre}, Cantidad ingresada: $cantidadTexto, Valor parseado: $cantidad');
+                              final productosRecarga = <int, int>{
+                                producto.id: cantidad, // Guardar exactamente el valor ingresado
+                              };
+                              final productosCrudosADescontar = <int, int>{};
+
+                              // Si el producto es frito, preparar descuento del producto crudo
+                              if (productoCrudo != null) {
+                                productosCrudosADescontar[productoCrudo.id] = cantidad;
+                              }
+
+                              // Guardar recarga de forma atómica con timeout
+                              Map<String, dynamic> resultadoAtomico;
+                              try {
+                                resultadoAtomico = await SupabaseService
+                                    .guardarRecargaInventarioConDescuentoCrudos(
+                                      sucursalId: widget.sucursal.id,
+                                      usuarioId: widget.currentUser.id,
+                                      productosRecarga: productosRecarga,
+                                      crudosADescontar: productosCrudosADescontar,
+                                      observaciones: 'Recarga individual desde inventario',
+                                    ).timeout(
+                                      const Duration(seconds: 30),
+                                      onTimeout: () {
+                                        print('⏱️ Timeout al guardar recarga');
+                                        return {
+                                          'exito': false,
+                                          'mensaje': 'Tiempo de espera agotado. La recarga puede haberse guardado. Verifica el inventario.',
+                                        };
+                                      },
+                                    );
+                              } catch (timeoutError) {
+                                print('⏱️ Error de timeout: $timeoutError');
+                                resultadoAtomico = {
+                                  'exito': false,
+                                  'mensaje': 'Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.',
+                                };
+                              }
+
+                              final exito = (resultadoAtomico['exito'] as bool?) ?? false;
+                              final mensajeAtomico = (resultadoAtomico['mensaje'] as String?) ?? 'Error desconocido';
+
+                              // Cerrar loading SIEMPRE - usar el contexto guardado o el contexto actual
+                              if (loadingContext != null && loadingContext!.mounted) {
+                                try {
+                                  Navigator.pop(loadingContext!);
+                                } catch (e) {
+                                  print('⚠️ Error cerrando loading dialog: $e');
+                                  // Intentar con el contexto actual como fallback
+                                  if (context.mounted) {
+                                    try {
+                                      Navigator.pop(context);
+                                    } catch (e2) {
+                                      print('⚠️ Error cerrando loading dialog (fallback): $e2');
+                                    }
+                                  }
+                                }
+                              } else if (context.mounted) {
+                                try {
+                                  Navigator.pop(context);
+                                } catch (e) {
+                                  print('⚠️ Error cerrando loading dialog: $e');
+                                }
+                              }
+
+                              if (exito) {
+                                // Recargar datos para actualizar inventario
+                                try {
+                                  await _loadData();
+                                } catch (e) {
+                                  print('⚠️ Error recargando datos: $e');
+                                }
+
+                                // Mostrar mensaje de éxito
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '✓ Recarga guardada: $cantidad ${producto.unidadMedida} de ${producto.nombre}',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                // Mostrar error
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '✗ Error al guardar la recarga: $mensajeAtomico',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e, stackTrace) {
+                              // Cerrar loading si aún está abierto - Asegurarse de cerrarlo
+                              if (loadingContext != null && loadingContext!.mounted) {
+                                try {
+                                  Navigator.pop(loadingContext!);
+                                } catch (e2) {
+                                  print('⚠️ Error cerrando loading dialog en catch: $e2');
+                                  // Intentar con el contexto actual como fallback
+                                  if (context.mounted) {
+                                    try {
+                                      Navigator.pop(context);
+                                    } catch (e3) {
+                                      print('⚠️ Error cerrando loading dialog (fallback en catch): $e3');
+                                    }
+                                  }
+                                }
+                              } else if (context.mounted) {
+                                try {
+                                  Navigator.pop(context);
+                                } catch (e2) {
+                                  print('⚠️ Error cerrando loading dialog en catch: $e2');
+                                }
+                              }
+
+                              print('❌ Error guardando recarga: $e');
+                              print('Stack trace: $stackTrace');
+
+                              // Mostrar error
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('✗ Error: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                          child: const Text(
+                            'Confirmar Recarga',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -1202,20 +1686,8 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                                                 width: double.infinity,
                                                 child: ElevatedButton(
                                                   onPressed: () {
-                                                    setState(() {
-                                                      if (_productosParaRecargar
-                                                          .contains(
-                                                            producto.id,
-                                                          )) {
-                                                        _productosParaRecargar
-                                                            .remove(
-                                                              producto.id,
-                                                            );
-                                                      } else {
-                                                        _productosParaRecargar
-                                                            .add(producto.id);
-                                                      }
-                                                    });
+                                                    // Abrir modal de recarga individual
+                                                    _mostrarModalRecargaIndividual(producto);
                                                   },
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor:

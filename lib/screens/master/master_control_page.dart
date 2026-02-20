@@ -6,7 +6,7 @@ import '../../main.dart';
 import 'master_inventory_page.dart';
 import 'master_opening_inventory_page.dart';
 import 'master_factory_overview_page.dart';
-import 'master_historical_expenses_page.dart';
+import 'master_historical_sales_page.dart';
 
 class MasterControlPage extends StatefulWidget {
   const MasterControlPage({super.key});
@@ -478,7 +478,7 @@ class _MasterControlPageState extends State<MasterControlPage>
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            const MasterHistoricalExpensesPage(),
+                            const MasterHistoricalSalesPage(),
                       ),
                     );
                   },
