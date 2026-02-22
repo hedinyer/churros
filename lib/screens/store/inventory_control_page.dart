@@ -265,219 +265,223 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
           child: Dialog(
             backgroundColor: isDark ? const Color(0xFF2C2018) : Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             child: Container(
-              width: screenWidth * 0.9,
+              width: screenWidth * 0.85,
               constraints: BoxConstraints(
-                maxWidth: 500,
-                maxHeight: screenHeight * 0.7,
+                maxWidth: 450,
+                maxHeight: screenHeight * 0.55,
               ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.inventory_2,
-                        color: primaryColor,
-                        size: 32,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Recargar Producto',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Nombre del producto
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1C1917) : Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(20),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header
+                    Row(
                       children: [
-                        Text(
-                          'Producto:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.white70 : Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        Icon(
+                          Icons.inventory_2,
+                          color: primaryColor,
+                          size: 28,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          producto.nombre,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: disponible == 0
-                                    ? Colors.red.shade50
-                                    : primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: disponible == 0
-                                      ? Colors.red.shade200
-                                      : primaryColor.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Text(
-                                'Stock actual: $disponible ${producto.unidadMedida}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: disponible == 0
-                                      ? Colors.red.shade700
-                                      : primaryColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Recargar Producto',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
-                          ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 22),
+                          onPressed: () => Navigator.pop(context),
+                          color: isDark ? Colors.white70 : Colors.black54,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                   
-                  // Campo de cantidad - GRANDE y fácil de usar
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Cantidad a recargar:',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : Colors.black87,
+                    // Nombre del producto
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1C1917) : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: cantidadController,
-                        keyboardType: TextInputType.number,
-                        autofocus: true,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black87,
-                          letterSpacing: 2,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: '0',
-                          hintStyle: TextStyle(
-                            fontSize: 48,
-                            color: isDark ? Colors.white30 : Colors.grey.shade400,
-                          ),
-                          filled: true,
-                          fillColor: isDark ? const Color(0xFF1C1917) : Colors.grey.shade50,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
-                              width: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Producto:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white70 : Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: primaryColor,
-                              width: 3,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 24,
-                          ),
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Unidad: ${producto.unidadMedida}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.white70 : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Botones
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(
-                              color: isDark ? Colors.white30 : Colors.grey.shade400,
-                              width: 2,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancelar',
+                          const SizedBox(height: 6),
+                          Text(
+                            producto.nombre,
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white70 : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: disponible == 0
+                                      ? Colors.red.shade50
+                                      : primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: disponible == 0
+                                        ? Colors.red.shade200
+                                        : primaryColor.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Stock: $disponible ${producto.unidadMedida}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: disponible == 0
+                                        ? Colors.red.shade700
+                                        : primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  
+                    // Campo de cantidad - GRANDE y fácil de usar
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cantidad a recargar:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: cantidadController,
+                          keyboardType: TextInputType.number,
+                          autofocus: true,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: 2,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            hintStyle: TextStyle(
+                              fontSize: 42,
+                              color: isDark ? Colors.white30 : Colors.grey.shade400,
+                            ),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF1C1917) : Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark ? const Color(0xFF44403C) : Colors.grey.shade300,
+                                width: 2,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: primaryColor,
+                                width: 3,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 18,
+                            ),
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Unidad: ${producto.unidadMedida}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white70 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  
+                    // Botones
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(
+                                color: isDark ? Colors.white30 : Colors.grey.shade400,
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancelar',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: () async {
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: () async {
                             final cantidadTexto = cantidadController.text.trim();
                             
                             if (cantidadTexto.isEmpty) {
@@ -699,27 +703,28 @@ class _InventoryControlPageState extends State<InventoryControlPage> {
                               }
                             }
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 4,
                             ),
-                            elevation: 4,
-                          ),
-                          child: const Text(
-                            'Confirmar Recarga',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            child: const Text(
+                              'Confirmar Recarga',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
