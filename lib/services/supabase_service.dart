@@ -1495,6 +1495,112 @@ class SupabaseService {
     }
   }
 
+  /// Obtiene las ventas del día por producto con nombre para una sucursal.
+  /// Retorna lista de mapas con 'producto_id', 'nombre', 'cantidad' (solo productos con cantidad > 0).
+  static Future<List<Map<String, dynamic>>> getVentasHoyPorProductoConNombre(
+    int sucursalId,
+  ) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener ventas por producto con nombre');
+        return [];
+      }
+
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      final detalles = await client
+          .from('venta_detalles')
+          .select(
+            'producto_id, cantidad, productos(nombre), ventas!inner(sucursal_id, fecha_venta, estado)',
+          )
+          .eq('ventas.sucursal_id', sucursalId)
+          .eq('ventas.fecha_venta', today)
+          .eq('ventas.estado', 'completada');
+
+      // Agrupar por producto_id: sumar cantidad y tomar nombre
+      final map = <int, Map<String, dynamic>>{};
+      for (final detalle in detalles) {
+        final productoId = detalle['producto_id'] as int;
+        final cantidad = detalle['cantidad'] as int;
+        final productosData = detalle['productos'];
+        final nombre = productosData is Map
+            ? (productosData['nombre'] as String? ?? 'Producto #$productoId')
+            : 'Producto #$productoId';
+
+        if (map.containsKey(productoId)) {
+          map[productoId]!['cantidad'] =
+              (map[productoId]!['cantidad'] as int) + cantidad;
+        } else {
+          map[productoId] = {
+            'producto_id': productoId,
+            'nombre': nombre,
+            'cantidad': cantidad,
+          };
+        }
+      }
+
+      final list = map.values.toList();
+      list.sort((a, b) => (b['cantidad'] as int).compareTo(a['cantidad'] as int));
+      return list;
+    } catch (e) {
+      print('Error obteniendo ventas por producto con nombre: $e');
+      return [];
+    }
+  }
+
+  /// Obtiene las ventas por producto con nombre para una sucursal y fecha.
+  /// Retorna lista de mapas con 'producto_id', 'nombre', 'cantidad'.
+  static Future<List<Map<String, dynamic>>> getVentasPorProductoConNombrePorFecha(
+    int sucursalId,
+    String fecha, // YYYY-MM-DD
+  ) async {
+    try {
+      final hasConnection = await _checkConnection();
+      if (!hasConnection) {
+        print('No hay conexión para obtener ventas por producto por fecha');
+        return [];
+      }
+
+      final detalles = await client
+          .from('venta_detalles')
+          .select(
+            'producto_id, cantidad, productos(nombre), ventas!inner(sucursal_id, fecha_venta, estado)',
+          )
+          .eq('ventas.sucursal_id', sucursalId)
+          .eq('ventas.fecha_venta', fecha)
+          .eq('ventas.estado', 'completada');
+
+      final map = <int, Map<String, dynamic>>{};
+      for (final detalle in detalles) {
+        final productoId = detalle['producto_id'] as int;
+        final cantidad = detalle['cantidad'] as int;
+        final productosData = detalle['productos'];
+        final nombre = productosData is Map
+            ? (productosData['nombre'] as String? ?? 'Producto #$productoId')
+            : 'Producto #$productoId';
+
+        if (map.containsKey(productoId)) {
+          map[productoId]!['cantidad'] =
+              (map[productoId]!['cantidad'] as int) + cantidad;
+        } else {
+          map[productoId] = {
+            'producto_id': productoId,
+            'nombre': nombre,
+            'cantidad': cantidad,
+          };
+        }
+      }
+
+      final list = map.values.toList();
+      list.sort((a, b) => (b['cantidad'] as int).compareTo(a['cantidad'] as int));
+      return list;
+    } catch (e) {
+      print('Error obteniendo ventas por producto por fecha: $e');
+      return [];
+    }
+  }
+
   /// Guarda una recarga de inventario completa con sus detalles
   /// También actualiza el inventario actual de la sucursal
   static Future<bool> guardarRecargaInventario({

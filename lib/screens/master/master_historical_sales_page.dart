@@ -17,8 +17,8 @@ class _MasterHistoricalSalesPageState
   bool _isLoading = false;
   List<Sucursal> _sucursales = [];
   Map<int, Map<String, dynamic>> _resumenes = {}; // sucursalId -> resumen
-  Map<int, List<Map<String, dynamic>>> _ventasDetalles =
-      {}; // sucursalId -> lista de ventas
+  Map<int, List<Map<String, dynamic>>> _productosVendidosPorSucursal =
+      {}; // sucursalId -> lista {producto_id, nombre, cantidad}
   Map<int, List<Map<String, dynamic>>> _gastosDetalles =
       {}; // sucursalId -> lista de gastos
   Map<int, bool> _expandedSucursales = {}; // sucursalId -> expanded
@@ -82,7 +82,8 @@ class _MasterHistoricalSalesPageState
 
       final fechaStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final resumenes = <int, Map<String, dynamic>>{};
-      final ventasDetalles = <int, List<Map<String, dynamic>>>{};
+      final productosVendidosPorSucursal =
+          <int, List<Map<String, dynamic>>>{};
       final gastosDetalles = <int, List<Map<String, dynamic>>>{};
 
       await Future.wait(
@@ -105,8 +106,9 @@ class _MasterHistoricalSalesPageState
               (sum, g) => sum + ((g['monto'] as num?)?.toDouble() ?? 0.0),
             );
 
-            // Ventas completas
-            final ventas = await SupabaseService.getVentasPorFecha(
+            // Productos vendidos ese día (cantidad por producto)
+            final productosVendidos =
+                await SupabaseService.getVentasPorProductoConNombrePorFecha(
               sucursal.id,
               fechaStr,
             );
@@ -119,7 +121,7 @@ class _MasterHistoricalSalesPageState
               'tickets': resumenVentas['tickets'] ?? 0,
             };
 
-            ventasDetalles[sucursal.id] = ventas;
+            productosVendidosPorSucursal[sucursal.id] = productosVendidos;
             gastosDetalles[sucursal.id] = gastos;
           } catch (e) {
             print('Error cargando datos de ${sucursal.nombre}: $e');
@@ -130,7 +132,7 @@ class _MasterHistoricalSalesPageState
               'gastos': 0.0,
               'tickets': 0,
             };
-            ventasDetalles[sucursal.id] = [];
+            productosVendidosPorSucursal[sucursal.id] = [];
             gastosDetalles[sucursal.id] = [];
           }
         }),
@@ -150,7 +152,7 @@ class _MasterHistoricalSalesPageState
       setState(() {
         _sucursales = sucursales;
         _resumenes = resumenes;
-        _ventasDetalles = ventasDetalles;
+        _productosVendidosPorSucursal = productosVendidosPorSucursal;
         _gastosDetalles = gastosDetalles;
         _totalVentas = tVentas;
         _totalEfectivo = tEfectivo;
@@ -174,19 +176,6 @@ class _MasterHistoricalSalesPageState
 
   String _formatCurrency(double value) {
     return '\$${NumberFormat('#,###', 'es').format(value.round())}';
-  }
-
-  String _formatTime(String? timeStr) {
-    if (timeStr == null) return '';
-    try {
-      final parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        return '${parts[0]}:${parts[1]}';
-      }
-      return timeStr;
-    } catch (e) {
-      return timeStr;
-    }
   }
 
   @override
@@ -645,7 +634,8 @@ class _MasterHistoricalSalesPageState
     final gastos = (resumen['gastos'] as num?)?.toDouble() ?? 0.0;
     final tickets = (resumen['tickets'] as num?)?.toInt() ?? 0;
 
-    final ventasList = _ventasDetalles[sucursal.id] ?? [];
+    final productosVendidos =
+        _productosVendidosPorSucursal[sucursal.id] ?? [];
     final gastosList = _gastosDetalles[sucursal.id] ?? [];
 
     return Container(
@@ -779,10 +769,10 @@ class _MasterHistoricalSalesPageState
                     ],
                   ),
 
-                  if (ventasList.isNotEmpty) ...[
+                  if (productosVendidos.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     Text(
-                      'Ventas del día (${ventasList.length})',
+                      'Productos vendidos ese día (${productosVendidos.length})',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -790,22 +780,22 @@ class _MasterHistoricalSalesPageState
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...ventasList.take(10).map((venta) {
-                      return _buildVentaItem(venta, isDark);
+                    ...productosVendidos.map((item) {
+                      return _buildProductoVendidoItem(item, isDark, primaryColor);
                     }),
-                    if (ventasList.length > 10)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '... y ${ventasList.length - 10} ventas más',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark
-                                ? const Color(0xFF9C9591)
-                                : const Color(0xFF8A8380),
-                          ),
-                        ),
+                  ],
+                  if (productosVendidos.isEmpty &&
+                      (resumen['tickets'] as int? ?? 0) == 0) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'No hay ventas registradas ese día',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? const Color(0xFF9C9591)
+                            : const Color(0xFF78716C),
                       ),
+                    ),
                   ],
 
                   if (gastosList.isNotEmpty) ...[
@@ -889,66 +879,39 @@ class _MasterHistoricalSalesPageState
     );
   }
 
-  Widget _buildVentaItem(Map<String, dynamic> venta, bool isDark) {
-    final total = (venta['total'] as num?)?.toDouble() ?? 0.0;
-    final metodoPago = (venta['metodo_pago'] as String? ?? 'efectivo')
-        .toUpperCase()
-        .substring(0, 1);
-    final hora = _formatTime(venta['hora_venta'] as String?);
-    final ticket = venta['numero_ticket'] as String?;
+  Widget _buildProductoVendidoItem(
+      Map<String, dynamic> item, bool isDark, Color primaryColor) {
+    final nombre = item['nombre'] as String? ?? 'Producto';
+    final cantidad = item['cantidad'] as int? ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1917) : const Color(0xFFF5F3F1),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withOpacity(isDark ? 0.2 : 0.1),
-              borderRadius: BorderRadius.circular(10),
+          Text(
+            nombre,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : const Color(0xFF1B130D),
             ),
-            child: Center(
-              child: Text(
-                metodoPago,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF10B981),
-                ),
-              ),
-            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatCurrency(total),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF1B130D),
-                  ),
-                ),
-                if (hora.isNotEmpty || ticket != null)
-                  Text(
-                    [if (hora.isNotEmpty) hora, if (ticket != null) 'Ticket: $ticket']
-                        .join(' • '),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark
-                          ? const Color(0xFF9C9591)
-                          : const Color(0xFF8A8380),
-                    ),
-                  ),
-              ],
+          const SizedBox(height: 6),
+          Text(
+            '$cantidad ${cantidad == 1 ? 'unidad' : 'unidades'}',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: primaryColor,
             ),
           ),
         ],

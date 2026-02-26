@@ -209,11 +209,188 @@ class _MasterControlPageState extends State<MasterControlPage>
                     );
                   },
                 ),
+                ListTile(
+                  leading: Icon(
+                    Icons.shopping_bag_rounded,
+                    color: primaryColor,
+                  ),
+                  title: const Text('Productos vendidos hoy'),
+                  subtitle: const Text(
+                    'Cantidad de cada producto vendida hoy en este punto',
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showProductosVendidosHoy(sucursal);
+                  },
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Future<void> _showProductosVendidosHoy(Sucursal sucursal) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = const Color(0xFFEC6D13);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1F2933) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.shopping_bag_rounded, color: primaryColor, size: 24),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Productos vendidos hoy',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1B130D),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              sucursal.nombre,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isDark
+                    ? const Color(0xFF9C9591)
+                    : const Color(0xFF78716C),
+              ),
+            ),
+          ],
+        ),
+        content: FutureBuilder<List<Map<String, dynamic>>>(
+          future: SupabaseService.getVentasHoyPorProductoConNombre(sucursal.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cargando...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark
+                            ? const Color(0xFFA8A29E)
+                            : const Color(0xFF78716C),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final list = snapshot.data ?? [];
+            if (list.isEmpty) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 48,
+                    color: isDark
+                        ? const Color(0xFF44403C)
+                        : const Color(0xFFD6D3D1),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No hay ventas registradas hoy en ${sucursal.nombre}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark
+                          ? const Color(0xFFA8A29E)
+                          : const Color(0xFF78716C),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return SizedBox(
+              width: double.maxFinite,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 400),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: list.length,
+                  itemBuilder: (context, index) {
+                    final item = list[index];
+                    final nombre = item['nombre'] as String? ?? 'Producto';
+                    final cantidad = item['cantidad'] as int? ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            nombre,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1B130D),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$cantidad ${cantidad == 1 ? 'unidad' : 'unidades'}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Cerrar',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
